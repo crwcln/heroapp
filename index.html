@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Quiz Pro</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    animation: {
+                        'spin-slow': 'spin 3s linear infinite',
+                        'bounce-short': 'bounce 0.5s ease-in-out 2',
+                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                        'toast-in': 'toastIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        'toast-out': 'toastOut 0.3s ease-in forwards',
+                        'bounce-subtle': 'bounceSubtle 2s infinite'
+                    },
+                    keyframes: {
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(15px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        toastIn: { '0%': { opacity: '0', transform: 'translateY(100%) scale(0.9)' }, '100%': { opacity: '1', transform: 'translateY(0) scale(1)' } },
+                        toastOut: { '0%': { opacity: '1', transform: 'translateY(0) scale(1)' }, '100%': { opacity: '0', transform: 'translateY(20px) scale(0.95)' } },
+                        bounceSubtle: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-5px)' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        window.__firebase_config = JSON.stringify({
+            apiKey: "AIzaSyCkCUFv7D5xNCKOp3bIXcgOZsEdaG8OAhQ",
+            authDomain: "map-quiz-2ace3.firebaseapp.com",
+            projectId: "map-quiz-2ace3",
+            storageBucket: "map-quiz-2ace3.firebasestorage.app",
+            messagingSenderId: "1029601259661",
+            appId: "1:1029601259661:web:f368231ab42e2a173332c4",
+            measurementId: "G-NY4E3ZMSY9"
+        });
+        window.__app_id = "map-quiz-2ace3";
+    </script>
+
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #f8fafc; }
+        .dark body { background-color: #0f172a; }
+        
+        /* Map Styles */
+        #map-container { height: calc(100vh - 72px); width: 100%; background: #0f172a; z-index: 1; }
+        
+        /* Custom Markers */
+        .marker-pin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.6); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s; cursor: pointer; }
+        .dark .marker-pin { border-color: #cbd5e1; }
+        .marker-pin:hover { transform: scale(1.4); z-index: 1000; }
+        .marker-pin.unsolved { background-color: #ef4444; }
+        .marker-pin.solved { background-color: #10b981; border-color: #ecfdf5; transform: scale(1.1); pointer-events: none; }
+        .dark .marker-pin.solved { border-color: #022c22; }
+
+        /* Premium Popup Styling */
+        .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25); padding: 0; border: 1px solid rgba(255,255,255,0.4); backdrop-filter: blur(12px); }
+        .dark .leaflet-popup-content-wrapper { background-color: rgba(30, 41, 59, 0.95); border-color: rgba(255,255,255,0.1); color: #f8fafc; }
+        .dark .leaflet-popup-tip { background-color: rgba(30, 41, 59, 0.95); }
+        .leaflet-popup-content { margin: 12px; }
+
+        /* Custom Search Dropdown */
+        .custom-combo-list { max-height: 150px; overflow-y: auto; position: absolute; width: 100%; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1050; margin-top: 4px; }
+        .dark .custom-combo-list { background: #1e293b; border-color: #334155; color: white; }
+        .combo-item { padding: 8px 12px; font-size: 13px; transition: background 0.1s; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+        .dark .combo-item { border-bottom-color: #334155; }
+        .combo-item:hover, .combo-item.active { background: #eff6ff; color: #2563eb; }
+        .dark .combo-item:hover, .dark .combo-item.active { background: #334155; color: #60a5fa; }
+        .combo-item:last-child { border-bottom: none; }
+
+        /* Transitions & Views */
+        .hidden { display: none !important; }
+        .view-section { height: 100%; display: flex; flex-direction: column; overflow-y: auto; opacity: 1; transition: opacity 0.3s ease; }
+        .view-section.fade-out { opacity: 0; pointer-events: none; }
+        
+        /* Particles & Canvas */
+        #particles-bg, #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #particles-bg { z-index: 0; }
+        #confetti-canvas { z-index: 9999; }
+        
+        /* Glassmorphism Premium */
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1); }
+        .dark .glass-panel { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); }
+
+        /* Top Quiz Toolbar (Slimmed down) */
+        .quiz-toolbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+        
+        /* Counterclockwise Animated Border Toast */
+        .toast-wrapper { position: relative; overflow: hidden; border-radius: 0.75rem; background-clip: padding-box; }
+        .toast-inner { background: inherit; position: relative; z-index: 10; border-radius: inherit; }
+        .toast-border-container { position: absolute; inset: 0; padding: 3px; border-radius: inherit; -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; z-index: 20; overflow: hidden; }
+        .toast-border-spin { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(rgba(0,0,0,0.2) 0deg, transparent 90deg, transparent 360deg); animation: borderSpinCCW 3s linear forwards; }
+        .dark .toast-border-spin { background: conic-gradient(rgba(255,255,255,0.4) 0deg, transparent 90deg, transparent 360deg); }
+        @keyframes borderSpinCCW { 
+            0% { transform: rotate(360deg); } 
+            100% { transform: rotate(0deg); } 
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="text-slate-800 dark:text-slate-200 transition-colors duration-300">
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
+
+    <canvas id="particles-bg"></canvas>
+
+    <div id="global-msg-modal" class="hidden fixed inset-0 bg-slate-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full relative animate-slide-up">
+            <button onclick="dismissGlobalMsg()" class="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><i data-lucide="x"></i></button>
+            <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center mb-6">
+                <i data-lucide="bell-ring" class="w-6 h-6 text-amber-500"></i>
+            </div>
+            <h3 class="text-2xl font-extrabold mb-3 text-slate-900 dark:text-white">Announcement</h3>
+            <p id="global-msg-text" class="text-slate-600 dark:text-slate-300 font-medium"></p>
+            <button onclick="dismissGlobalMsg()" class="mt-8 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all shadow-md">Got it!</button>
+        </div>
+    </div>
+    
+    <div id="global-msg-minimized" class="hidden fixed bottom-6 left-6 glass-panel p-4 rounded-2xl shadow-xl z-40 max-w-sm flex gap-4 items-start animate-bounce-subtle cursor-pointer hover:scale-105 transition-transform" onclick="this.classList.add('hidden');">
+        <div class="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg shrink-0">
+            <i data-lucide="info" class="text-indigo-600 dark:text-indigo-400 w-5 h-5"></i>
+        </div>
+        <div class="flex-1">
+            <h4 class="font-extrabold text-sm mb-0.5 text-slate-900 dark:text-white">Notice</h4>
+            <p id="global-msg-min-text" class="text-xs text-slate-600 dark:text-slate-400 font-medium line-clamp-2"></p>
+        </div>
+        <button class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+
+    <nav class="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md text-slate-800 dark:text-white px-6 py-4 flex justify-between items-center z-20 relative h-[72px] shrink-0 border-b border-slate-200 dark:border-slate-800">
+        <div class="flex items-center gap-3 group cursor-pointer" onclick="switchView('home-view')">
+            <i data-lucide="globe-2" class="text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform"></i>
+            <h1 class="text-xl font-extrabold tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                Map Quiz Pro
+            </h1>
+        </div>
+        
+
+        <div id="year-toggle" class="relative flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-1 text-xs sm:text-sm font-bold select-none shrink-0">
+            <div id="year-pill" class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full bg-indigo-600 shadow transition-transform duration-300"></div>
+            <button id="yr-btn-default" onclick="setYearMode('default')" class="relative z-10 w-14 sm:w-20 py-1.5 rounded-full text-center transition-colors duration-300">1 Year</button>
+            <button id="yr-btn-twoyear" onclick="setYearMode('twoyear')" class="relative z-10 w-14 sm:w-20 py-1.5 rounded-full text-center transition-colors duration-300">2 Year</button>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-6">
+            <button onclick="switchView('leaderboard-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="trophy" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Leaderboard</span>
+            </button>
+            <button onclick="switchView('custom-loc-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-emerald-600 dark:hover:text-emerald-400 transition group">
+                <i data-lucide="map-pin" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">My Map</span>
+            </button>
+            <button onclick="switchView('editor-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-rose-600 dark:hover:text-rose-400 transition group">
+                <i data-lucide="lock" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Admin</span>
+            </button>
+            <button onclick="openInAboutBlank()" class="flex items-center gap-2 text-sm font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition group">
+                <i data-lucide="external-link" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Open Blank</span>
+            </button>
+            
+            <div class="w-px h-6 bg-slate-300 dark:bg-slate-700 hidden sm:block"></div>
+            
+            <button onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
+                <i data-lucide="moon" id="theme-icon-moon" class="w-5 h-5 hidden"></i>
+                <i data-lucide="sun" id="theme-icon-sun" class="w-5 h-5 hidden"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div id="home-view" class="view-section items-center justify-center p-6 sm:p-12 relative z-10">
+        <div class="max-w-3xl w-full glass-panel p-10 sm:p-14 rounded-3xl text-center animate-slide-up">
+            <div class="inline-block bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 shadow-sm border border-indigo-200 dark:border-indigo-800/50">
+                Next-Gen Studying
+            </div>
+            
+            <div class="mb-2">
+                <h2 id="global-quiz-title" class="text-5xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 pb-2">
+                    Global Challenge
+                </h2>
+            </div>
+            
+            <p class="text-slate-500 dark:text-slate-400 mb-12 text-lg max-w-xl mx-auto font-medium">Race against the clock, earn points, and climb the leaderboard.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button onclick="startQuiz('default')" class="group relative overflow-hidden flex flex-col items-center p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-indigo-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <i data-lucide="map" class="w-12 h-12 text-indigo-500 mb-4 group-hover:scale-110 transition-transform duration-300"></i>
+                    <span id="start-quiz-label" class="text-xl font-bold text-slate-800 dark:text-white">Start Global Quiz</span>
+                    <span class="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium" id="global-quiz-count">0 locations</span>
+                </button>
+                
+                <button onclick="startQuiz('custom')" class="group relative overflow-hidden flex flex-col items-center p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-emerald-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <i data-lucide="pen-tool" class="w-12 h-12 text-emerald-500 mb-4 group-hover:scale-110 transition-transform duration-300"></i>
+                    <span class="text-xl font-bold text-slate-800 dark:text-white">Personal Practice</span>
+                    <span class="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium" id="custom-quiz-count">0 locations</span>
+                </button>
+                <button onclick="switchView('changelog-view')" class="md:col-span-2 flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+                    <i data-lucide="scroll-text" class="w-4 h-4"></i> What's New
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="leaderboard-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
+        <div class="max-w-3xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
+            <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-200 dark:border-slate-700/50">
+                <h2 class="text-3xl font-extrabold flex items-center gap-3 text-slate-900 dark:text-white">
+                    <i data-lucide="medal" class="text-amber-500 w-8 h-8"></i> Hall of Fame
+                </h2>
+                <div class="text-sm font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full" id="lb-rank-label">Global Rankings</div>
+            </div>
+            
+            <div id="leaderboard-list" class="space-y-3">
+                <div class="text-center py-10">
+                    <div class="loader w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin mx-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="changelog-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
+        <div class="max-w-3xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
+            <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-200 dark:border-slate-700/50">
+                <h2 class="text-3xl font-extrabold flex items-center gap-3 text-slate-900 dark:text-white">
+                    <i data-lucide="scroll-text" class="text-indigo-500 w-8 h-8"></i> What's New
+                </h2>
+            </div>
+            <div id="changelog-list" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <div id="custom-loc-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
+        <div class="max-w-4xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
+            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700/50 pb-6 mb-8">
+                <div>
+                    <h2 class="text-3xl font-extrabold flex items-center gap-3 text-slate-900 dark:text-white">
+                        <i data-lucide="map-pin" class="text-emerald-500"></i> My Personal Map
+                    </h2>
+                    <p class="text-sm font-medium text-slate-500 mt-1">Add your own locations to study for upcoming quizzes. Saved to your browser.</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><i data-lucide="search" class="w-4 h-4 text-emerald-500"></i> Search & Add Location</h3>
+                        <input type="text" id="user-place-name" placeholder="Place Name" class="w-full p-3 mb-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm">
+                        <input type="text" id="user-place-category" placeholder="Category (e.g. Cities)" class="w-full p-3 mb-4 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm">
+                        <button onclick="userAddPlace()" id="user-add-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition shadow flex justify-center items-center gap-2">
+                            <span>Add to My Map</span>
+                            <div id="user-add-loader" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        </button>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4 text-emerald-500"></i> Bulk Import (JSON)</h3>
+                        <p class="text-xs text-slate-500 mb-3 font-medium">Paste array of objects with name, lat, lng.</p>
+                        <textarea id="json-import-user" rows="3" placeholder='[{"name":"Paris","lat":48.85,"lng":2.35}]' class="w-full p-3 mb-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-xs font-mono"></textarea>
+                        <button onclick="importJSON('user')" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition shadow">Import JSON</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-full min-h-[500px]">
+                        <div class="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center shrink-0">
+                            <h3 class="font-bold text-sm text-slate-600 dark:text-slate-300 uppercase tracking-wider">My Locations</h3>
+                            <span id="user-loc-count" class="text-xs font-bold bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-md">0</span>
+                        </div>
+                        <div id="user-custom-list" class="overflow-y-auto p-4 space-y-2 flex-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editor-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
+        <div id="admin-lock" class="max-w-md w-full glass-panel p-10 rounded-3xl text-center animate-slide-up">
+            <div class="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="shield-alert" class="w-8 h-8 text-rose-600 dark:text-rose-400"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold mb-2 text-slate-900 dark:text-white">Admin Access</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-8 font-medium">Enter password to manage Global Quiz.</p>
+            
+            <input type="password" id="admin-password" placeholder="Password" class="w-full p-4 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none bg-white dark:bg-slate-800 dark:text-white mb-4 text-center font-bold">
+            <button onclick="unlockAdmin()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-xl transition shadow-md">Login</button>
+        </div>
+
+        <div id="admin-panel" class="max-w-5xl w-full glass-panel p-8 rounded-3xl hidden animate-slide-up">
+            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700/50 pb-6 mb-8">
+                <div>
+                    <h2 class="text-3xl font-extrabold flex items-center gap-3 text-slate-900 dark:text-white">
+                        <i data-lucide="settings" class="text-slate-500"></i> <span id="admin-setup-title">Global Quiz Setup</span>
+                    </h2>
+                </div>
+                <button onclick="saveGlobalQuiz()" id="save-global-btn" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-3 rounded-xl transition shadow flex items-center gap-2">
+                    <i data-lucide="cloud-upload" class="w-5 h-5"></i> <span>Deploy to World</span>
+                </button>
+            </div>
+
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h4 class="font-extrabold text-sm text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
+                        <i data-lucide="bot" class="w-4 h-4"></i> AI Location Generator Prompt
+                    </h4>
+                    <p class="text-xs text-indigo-700 dark:text-indigo-400 mt-1 font-medium">Copy this and give it to an AI to generate bulk coordinates fast.</p>
+                </div>
+                <div class="flex w-full sm:w-auto gap-2">
+                    <input type="text" id="ai-prompt-text" readonly value='Generate a JSON array of 15 geographic locations. Format exactly like this: [{"name": "Paris", "category": "Cities", "lat": 48.8566, "lng": 2.3522}]. Output raw JSON only.' class="text-xs p-3 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 dark:text-indigo-200 flex-1 w-full sm:w-72 outline-none font-mono">
+                    <button onclick="copyAIPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-bold transition shadow-sm whitespace-nowrap">
+                        Copy
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2"><i data-lucide="type" class="w-4 h-4 text-rose-500"></i> Global Settings</h3>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Quiz Title</label>
+                        <input type="text" id="admin-quiz-title" placeholder="e.g. Unit 4: European Capitals" class="w-full p-3 mb-4 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm font-bold">
+                        
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Global Message (Leave blank to disable)</label>
+                        <textarea id="admin-global-msg" rows="2" placeholder="Welcome to this week's challenge!" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm"></textarea>
+                        
+                        <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <label class="block text-xs font-bold text-rose-500 uppercase tracking-wide mb-2">Danger Zone</label>
+                            <button onclick="clearLeaderboard()" id="clear-lb-btn" class="w-full bg-transparent border-2 border-rose-500 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white font-bold py-2.5 rounded-lg transition shadow-sm flex justify-center items-center gap-2">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                <span>Wipe Leaderboard</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><i data-lucide="search" class="w-4 h-4 text-indigo-500"></i> Add Location</h3>
+                        <input type="text" id="place-name-input" placeholder="Place Name" class="w-full p-3 mb-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm">
+                        <input type="text" id="place-category-input" placeholder="Category" class="w-full p-3 mb-4 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm">
+                        <button onclick="geocodeAndAddPlace()" id="add-btn" class="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition shadow flex justify-center items-center gap-2">
+                            <span>Search & Add</span>
+                            <div id="add-loader" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        </button>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4 text-indigo-500"></i> Bulk Import (JSON)</h3>
+                        <textarea id="json-import-admin" rows="3" placeholder='[{"name":"Paris","category":"Cities","lat":48.85,"lng":2.35}]' class="w-full p-3 mb-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-xs font-mono"></textarea>
+                        <button onclick="importJSON('admin')" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition shadow">Import JSON</button>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2"><i data-lucide="scroll-text" class="w-4 h-4 text-indigo-500"></i> Changelog Editor</h3>
+                            <span id="cl-dirty-note" class="hidden text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Unpublished changes</span>
+                        </div>
+                        <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50 mb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-extrabold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5"><i data-lucide="bot" class="w-3.5 h-3.5"></i> AI Format Prompt</span>
+                                <button onclick="copyClPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-xs font-bold transition">Copy</button>
+                            </div>
+                            <textarea id="cl-ai-prompt" readonly rows="3" class="w-full text-xs p-2 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 dark:text-indigo-200 outline-none font-mono">Rewrite my rough update notes as a changelog entry for a map quiz website. Output raw text only: no markdown, no bullets, no headings, no intro. One change per line. Start every line with exactly one of: Added, Changed, Fixed, Removed, then a colon and a space. Write each change in plain language a student would understand, in past tense, under 12 words, no trailing period. Order lines Added, Changed, Fixed, Removed. Merge duplicates. Maximum 8 lines. My notes: </textarea>
+                        </div>
+                        <div class="flex gap-2 mb-3">
+                            <input type="text" id="cl-version" placeholder="Version (e.g. 1.2)" class="flex-1 min-w-0 p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm font-bold">
+                            <input type="date" id="cl-date" class="shrink-0 p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm">
+                        </div>
+                        <textarea id="cl-notes" rows="4" placeholder="One change per line" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm mb-3"></textarea>
+                        <div class="flex gap-2">
+                            <button onclick="clSaveEntry()" id="cl-save-btn" class="flex-1 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition shadow">Add Entry</button>
+                            <button onclick="clReset()" id="cl-cancel-btn" class="hidden px-4 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold rounded-lg transition">Cancel</button>
+                        </div>
+                        <div id="cl-admin-list" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+                        <button onclick="publishChangelog()" id="cl-publish-btn" class="w-full mt-4 bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-lg transition shadow flex justify-center items-center gap-2">
+                            <i data-lucide="cloud-upload" class="w-4 h-4"></i> <span>Publish Changelog</span>
+                        </button>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><i data-lucide="hammer" class="w-4 h-4 text-amber-500"></i> Dev Mode</h3>
+                        <div id="dev-card-locked">
+                            <p class="text-xs text-slate-500 mb-3 font-medium">Locked. Enter the dev password to manage site-wide dev mode.</p>
+                            <input type="password" id="dev-card-password" placeholder="Dev password" onkeydown="if(event.key==='Enter')unlockDevCard()" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm mb-3">
+                            <button onclick="unlockDevCard()" class="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition shadow flex justify-center items-center gap-2"><i data-lucide="lock" class="w-4 h-4"></i> Unlock</button>
+                        </div>
+                        <div id="dev-card-open" class="hidden">
+                            <p id="dev-status" class="text-xs text-slate-500 mb-3 font-medium"></p>
+                            <button onclick="toggleDevMode()" id="dev-toggle-btn" class="w-full text-white font-bold py-3 rounded-lg transition shadow"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-full min-h-[600px]">
+                        <div class="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center shrink-0">
+                            <h3 class="font-bold text-sm text-slate-600 dark:text-slate-300 uppercase tracking-wider">Active Locations</h3>
+                            <span id="admin-loc-count" class="text-xs font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-md">0</span>
+                        </div>
+                        <div id="custom-list" class="overflow-y-auto p-4 space-y-2 flex-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz-view" class="view-section hidden relative bg-slate-900">
+        
+        <div class="quiz-toolbar w-[95%] max-w-2xl glass-panel px-4 py-2 rounded-xl flex items-center justify-between border-b-2 border-b-indigo-500 shadow-lg">
+            <div class="flex items-center gap-4">
+                <div>
+                    <div class="text-[9px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Pts</div>
+                    <div class="font-black text-lg font-mono text-indigo-600 dark:text-indigo-400 leading-none" id="q-score">0</div>
+                </div>
+                <div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+                <div>
+                    <div class="text-[9px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Prog</div>
+                    <div class="font-black text-lg text-slate-800 dark:text-white leading-none">
+                        <span id="q-solved">0</span><span class="text-slate-400 mx-0.5 text-sm">/</span><span id="q-total" class="text-slate-400 text-sm">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                <i data-lucide="timer" class="w-4 h-4 text-rose-500 animate-pulse"></i>
+                <div id="timer-display" class="font-bold text-lg text-slate-700 dark:text-slate-300 font-mono w-[50px] leading-none">00:00</div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="toggleMapStyle()" class="p-1.5 bg-white dark:bg-slate-800 rounded shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition">
+                    <i data-lucide="layers" class="w-4 h-4 text-slate-600 dark:text-slate-400"></i>
+                </button>
+                <button onclick="endQuizEarly()" class="flex items-center gap-1 bg-rose-500 hover:bg-rose-600 text-white font-bold px-2 py-1.5 rounded shadow-sm transition text-xs">
+                    <i data-lucide="flag" class="w-3 h-3"></i> <span class="hidden sm:inline">Quit</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="map-container"></div>
+    </div>
+
+    <div id="summary-view" class="view-section hidden p-6 sm:p-12 items-center relative z-10">
+        <div class="max-w-2xl glass-panel p-10 rounded-3xl w-full z-10 my-auto animate-slide-up text-center border-t-4 border-t-indigo-500">
+            <i data-lucide="party-popper" class="w-16 h-16 text-indigo-500 mx-auto mb-4"></i>
+            <h2 class="text-4xl font-extrabold mb-2 text-slate-900 dark:text-white">Challenge Complete!</h2>
+            
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-6 mb-8 border border-indigo-100 dark:border-indigo-800/50 mt-6">
+                <div class="text-sm font-bold text-indigo-800 dark:text-indigo-300 uppercase tracking-widest mb-2">Final Score</div>
+                <div class="text-6xl font-black text-indigo-600 dark:text-indigo-400 font-mono" id="sum-final-score">0</div>
+            </div>
+
+            <div id="submit-score-section" class="mb-8 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <p class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Claim your spot on the leaderboard!</p>
+                <div class="flex gap-2">
+                    <input type="text" id="player-name" placeholder="Initials/Name" maxlength="15" class="flex-1 p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-900 dark:text-white font-bold text-center">
+                    <button onclick="submitScore()" id="submit-score-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-lg transition shadow flex items-center gap-2">
+                        <i data-lucide="upload" class="w-4 h-4"></i> Submit
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <button onclick="switchView('home-view')" class="flex items-center gap-2 bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl transition shadow">
+                    <i data-lucide="home" class="w-5 h-5"></i> Home
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="changelog-popup" class="hidden fixed inset-0 bg-slate-900/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full relative animate-slide-up">
+            <button onclick="closeChangelogPopup()" class="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><i data-lucide="x"></i></button>
+            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center mb-6">
+                <i data-lucide="sparkles" class="w-6 h-6 text-indigo-500"></i>
+            </div>
+            <h3 class="text-2xl font-extrabold mb-4 text-slate-900 dark:text-white">What's New</h3>
+            <div id="changelog-popup-body"></div>
+            <div class="mt-8 flex gap-3">
+                <button onclick="closeChangelogPopup()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all shadow-md">Got it!</button>
+                <button onclick="closeChangelogPopup(true)" class="px-4 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-sm transition">All updates</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dev-screen" class="hidden fixed inset-0 z-[9000] bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-6 overflow-y-auto">
+        <div class="glass-panel max-w-md w-full p-10 rounded-3xl text-center">
+            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="hammer" class="w-8 h-8 text-amber-500"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold mb-3 text-slate-900 dark:text-white">Under Construction</h2>
+            <p class="text-slate-500 dark:text-slate-400 font-medium">Sorry for the inconvenience! Map Quiz Pro is currently under construction. Please check back soon.</p>
+            <div class="mt-10 pt-6 border-t border-slate-200 dark:border-slate-700">
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Developer Access</p>
+                <input type="password" id="dev-password" placeholder="Password" onkeydown="if(event.key==='Enter')unlockDevScreen()" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none bg-white dark:bg-slate-800 dark:text-white mb-3 text-center font-bold">
+                <button onclick="unlockDevScreen()" class="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition shadow">Enter</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="visit-counter" class="fixed bottom-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+        <i data-lucide="eye" class="w-3 h-3"></i> <span id="visit-count">&mdash;</span> visits
+    </div>
+
+    <canvas id="confetti-canvas" class="hidden"></canvas>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <script>
+        // ================= 1 YEAR / 2 YEAR MODE =================
+        const QUIZZES = {
+            default: { doc: 'defaultQuiz', lb: 'leaderboard',        custom: 'mapQuizCustom',     seen: 'mq_lastSeenMsg',   label: '1 Year', defTitle: 'Global Challenge',   startLabel: 'Start Global Quiz',   rankLabel: 'Global Rankings',   setupTitle: 'Global Quiz Setup' },
+            twoyear: { doc: 'twoYearQuiz', lb: 'leaderboardTwoYear', custom: 'mapQuizCustom2Year', seen: 'mq_lastSeenMsg2Y', label: '2 Year', defTitle: '2 Year Challenge',   startLabel: 'Start 2 Year Quiz',   rankLabel: '2 Year Rankings',   setupTitle: '2 Year Quiz Setup' }
+        };
+        let yearMode = localStorage.getItem('mq_yearMode') === 'twoyear' ? 'twoyear' : 'default';
+        const store = {
+            default: { locs: [], title: QUIZZES.default.defTitle, msg: '' },
+            twoyear: { locs: [], title: QUIZZES.twoyear.defTitle, msg: '' }
+        };
+        let lbUnsub = null;
+
+        function syncToggleUI() {
+            const two = yearMode === 'twoyear';
+            document.getElementById('year-pill').classList.toggle('translate-x-full', two);
+            const on = 'text-white', off = 'text-slate-600 dark:text-slate-300';
+            document.getElementById('yr-btn-default').className = document.getElementById('yr-btn-default').className.replace(/text-white|text-slate-600 dark:text-slate-300/g, '').trim() + ' ' + (two ? off : on);
+            document.getElementById('yr-btn-twoyear').className = document.getElementById('yr-btn-twoyear').className.replace(/text-white|text-slate-600 dark:text-slate-300/g, '').trim() + ' ' + (two ? on : off);
+        }
+
+        // Pushes the current mode's data into the existing UI/state variables
+        function applyMode() {
+            const s = store[yearMode], q = QUIZZES[yearMode];
+            globalLocations = s.locs;
+            globalQuizTitle = s.title;
+            currentGlobalMessage = s.msg;
+
+            document.getElementById('global-quiz-title').innerText = s.title;
+            document.getElementById('global-quiz-count').innerText = `${s.locs.length} locations`;
+            document.getElementById('admin-quiz-title').value = s.title;
+            document.getElementById('admin-global-msg').value = s.msg;
+            document.getElementById('start-quiz-label').innerText = q.startLabel;
+            document.getElementById('lb-rank-label').innerText = q.rankLabel;
+            document.getElementById('admin-setup-title').innerText = q.setupTitle;
+
+            const modal = document.getElementById('global-msg-modal');
+            const mini = document.getElementById('global-msg-minimized');
+            if (s.msg.trim() !== '') {
+                if (localStorage.getItem(q.seen) !== s.msg) {
+                    document.getElementById('global-msg-text').innerText = s.msg;
+                    modal.classList.remove('hidden');
+                    mini.classList.add('hidden');
+                } else {
+                    document.getElementById('global-msg-min-text').innerText = s.msg;
+                    mini.classList.remove('hidden');
+                    modal.classList.add('hidden');
+                }
+            } else {
+                modal.classList.add('hidden');
+                mini.classList.add('hidden');
+            }
+            renderAdminList();
+        }
+
+        function setYearMode(k) {
+            if (k === yearMode) return;
+            yearMode = k;
+            localStorage.setItem('mq_yearMode', k);
+            syncToggleUI();
+            const vis = document.querySelector('.view-section:not(.hidden)');
+            if (vis && (vis.id === 'quiz-view' || vis.id === 'summary-view')) switchView('home-view');
+            customLocations = JSON.parse(localStorage.getItem(QUIZZES[k].custom)) || [];
+            renderUserCustomList();
+            applyMode();
+            loadLeaderboard();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { syncToggleUI(); applyMode(); });
+    </script>
+
+    <script>
+        // ================= INITIALIZE & UTILS =================
+        lucide.createIcons();
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const styles = { info: 'bg-indigo-600', success: 'bg-emerald-600', error: 'bg-rose-600' };
+            const icons = { info: 'info', success: 'check-circle', error: 'alert-circle' };
+
+            // Using the CCW Animated Border Toast structure
+            toast.className = `toast-wrapper ${styles[type]} text-white shadow-2xl font-semibold text-sm animate-toast-in`;
+            toast.innerHTML = `
+                <div class="toast-border-container"><div class="toast-border-spin"></div></div>
+                <div class="toast-inner px-4 py-3 flex items-center gap-3">
+                    <i data-lucide="${icons[type]}" class="w-5 h-5 shrink-0"></i> 
+                    <span>${message}</span>
+                </div>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.replace('animate-toast-in', 'animate-toast-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        const norm = (str) => {
+            if (!str) return "";
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        };
+
+        // Theme Toggle
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const moon = document.getElementById('theme-icon-moon');
+            const sun = document.getElementById('theme-icon-sun');
+            
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                moon.classList.remove('hidden'); sun.classList.add('hidden');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                sun.classList.remove('hidden'); moon.classList.add('hidden');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Open in about:blank cloaking function
+        function openInAboutBlank() {
+            const win = window.open('about:blank', '_blank');
+            if (win) {
+                const iframe = win.document.createElement('iframe');
+                iframe.src = window.location.href;
+                iframe.style.width = '100vw';
+                iframe.style.height = '100vh';
+                iframe.style.border = 'none';
+                iframe.style.margin = '0';
+                iframe.style.padding = '0';
+                
+                win.document.body.style.margin = '0';
+                win.document.body.style.overflow = 'hidden';
+                win.document.title = "Home"; // Cloaks the tab title
+                
+                // Adds a generic favicon to complete the cloak
+                const link = win.document.createElement('link');
+                link.rel = 'icon';
+                link.href = 'https://www.google.com/favicon.ico';
+                win.document.head.appendChild(link);
+                
+                win.document.body.appendChild(iframe);
+            } else {
+                showToast("Popup blocked! Please allow popups to use this feature.", "error");
+            }
+        }
+
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.getElementById('theme-icon-sun').classList.remove('hidden');
+        } else {
+            document.getElementById('theme-icon-moon').classList.remove('hidden');
+        }
+
+        // ================= FIREBASE SETUP =================
+        let db = null, auth = null;
+        let globalLocations = [];
+        let globalQuizTitle = "Global Challenge";
+        let currentGlobalMessage = "";
+        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'map-quiz-pro-default';
+        let userId = null;
+
+        async function initFirebase() {
+            if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
+                try {
+                    const firebaseConfig = JSON.parse(window.__firebase_config);
+                    firebase.initializeApp(firebaseConfig);
+                    auth = firebase.auth();
+                    db = firebase.firestore();
+
+                    await auth.signInAnonymously();
+
+                    auth.onAuthStateChanged(user => {
+                        if (user) {
+                            userId = user.uid;
+                            loadGlobalSettings();
+                            loadLeaderboard();
+                            loadChangelog(); loadSiteMode(); loadVisits(); countVisit();
+                        }
+                    });
+                } catch (e) {
+                    console.error("Firebase init failed:", e);
+                    enableLocalMode();
+                }
+            } else enableLocalMode();
+        }
+        
+        function enableLocalMode() { globalLocations = []; renderAdminList(); }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            initVanillaParticles();
+            document.getElementById('player-name').value = localStorage.getItem('mq_playerName') || '';
+            renderUserCustomList();
+        });
+
+        function initVanillaParticles() {
+            const canvas = document.getElementById('particles-bg');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+            window.addEventListener('resize', resize);
+            resize();
+
+            for (let i = 0; i < 40; i++) particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, size: Math.random() * 2 + 1 });
+
+            function animateParticles() {
+                if(canvas.style.display === 'none') { requestAnimationFrame(animateParticles); return; }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const isDark = document.documentElement.classList.contains('dark');
+                ctx.fillStyle = isDark ? 'rgba(129, 140, 248, 0.4)' : 'rgba(59, 130, 246, 0.4)';
+                
+                particles.forEach(p => {
+                    p.x += p.vx; p.y += p.vy;
+                    if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                });
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+        }
+
+        // ================= DATA & STATE =================
+        let customLocations = JSON.parse(localStorage.getItem(QUIZZES[yearMode].custom)) || [];
+        let map = null, tileLayer = null, mapIsSatellite = true;
+        let activeQuizData = [], quizStats = {}, points = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
+
+        function switchView(viewId) {
+            const views = document.querySelectorAll('.view-section');
+            const particles = document.getElementById('particles-bg');
+            if (viewId === 'quiz-view') particles.style.display = 'none'; else particles.style.display = 'block';
+
+            views.forEach(el => {
+                if(!el.classList.contains('hidden')) {
+                    el.classList.add('fade-out');
+                    setTimeout(() => { el.classList.add('hidden'); el.classList.remove('fade-out'); }, 200);
+                }
+            });
+            setTimeout(() => {
+                const target = document.getElementById(viewId);
+                target.classList.remove('hidden', 'fade-out');
+                if (viewId !== 'quiz-view' && timerInterval) clearInterval(timerInterval);
+                if (viewId === 'quiz-view' && map) setTimeout(() => { map.invalidateSize(); }, 100);
+            }, 200);
+        }
+
+        // ================= FIREBASE SYNC & MESSAGES =================
+        function loadGlobalSettings() {
+            if(!db || !userId) return;
+            Object.keys(QUIZZES).forEach(key => {
+                const ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('globalSettings').doc(QUIZZES[key].doc);
+                ref.onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        store[key] = { locs: data.locations || [], title: data.title || QUIZZES[key].defTitle, msg: data.message || '' };
+                    }
+                    if (key === yearMode) applyMode();
+                });
+            });
+        }
+
+        function dismissGlobalMsg() {
+            document.getElementById('global-msg-modal').classList.add('hidden');
+            if (currentGlobalMessage) {
+                localStorage.setItem(QUIZZES[yearMode].seen, currentGlobalMessage);
+                document.getElementById('global-msg-min-text').innerText = currentGlobalMessage;
+                document.getElementById('global-msg-minimized').classList.remove('hidden');
+            }
+        }
+
+        function loadLeaderboard() {
+            if(!db || !userId) return;
+            if (lbUnsub) lbUnsub();
+            lbUnsub = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb)
+            .onSnapshot(snapshot => {
+                let data = [];
+                snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+                data.sort((a, b) => b.score - a.score || a.time - b.time);
+                
+                const list = document.getElementById('leaderboard-list');
+                list.innerHTML = '';
+                
+                if (data.length === 0) return list.innerHTML = '<p class="text-center text-slate-500 italic py-8">No scores yet. Be the first!</p>';
+
+                data.slice(0, 50).forEach((entry, idx) => {
+                    const item = document.createElement('div');
+                    item.className = `flex justify-between items-center p-4 rounded-2xl border ${idx === 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+                    const mins = String(Math.floor(entry.time / 60)).padStart(2, '0'), secs = String(entry.time % 60).padStart(2, '0');
+                    item.innerHTML = `<div class="flex items-center gap-3"><span class="font-bold w-6 text-slate-400">#${idx+1}</span><div class="font-bold text-lg">${entry.name}</div></div><div class="text-right"><div class="font-black text-indigo-600 text-xl font-mono">${entry.score.toLocaleString()} <span class="text-xs">pts</span></div><div class="text-xs text-slate-500">${mins}:${secs}</div></div>`;
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        // ================= JSON IMPORT & EXPORT UTILS =================
+        function importJSON(type) {
+            try {
+                const textareaId = type === 'admin' ? 'json-import-admin' : 'json-import-user';
+                const val = document.getElementById(textareaId).value;
+                const arr = JSON.parse(val);
+                
+                const mapped = arr.map(a => ({ 
+                    id: 'loc_' + Math.random().toString(36).substr(2, 9), 
+                    name: a.name, 
+                    category: a.category || 'Imported',
+                    lat: parseFloat(a.lat), 
+                    lng: parseFloat(a.lng) 
+                }));
+
+                if (type === 'admin') { 
+                    globalLocations.push(...mapped); 
+                    renderAdminList(); 
+                } else { 
+                    customLocations.push(...mapped); 
+                    localStorage.setItem(QUIZZES[yearMode].custom, JSON.stringify(customLocations)); 
+                    renderUserCustomList(); 
+                }
+                
+                showToast(`Imported ${mapped.length} locations successfully!`, 'success');
+                document.getElementById(textareaId).value = '';
+            } catch(e) { 
+                showToast('Invalid JSON format. Please check your syntax.', 'error'); 
+            }
+        }
+
+        function copyAIPrompt() {
+            const input = document.getElementById('ai-prompt-text');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(input.value).then(() => {
+                    showToast('Prompt copied to clipboard!', 'success');
+                }).catch(() => {
+                    document.execCommand("copy");
+                    showToast('Prompt copied! (Fallback)', 'success');
+                });
+            } catch (err) {
+                document.execCommand("copy");
+                showToast('Prompt copied! (Fallback)', 'success');
+            }
+        }
+
+
+        // ================= USER CUSTOM MAP LOGIC =================
+        async function userAddPlace() {
+            const name = document.getElementById('user-place-name').value.trim();
+            const category = document.getElementById('user-place-category').value.trim() || 'Custom';
+            const btnLoader = document.getElementById('user-add-loader');
+            
+            if (!name) return showToast("Enter a place name.", "error");
+            btnLoader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    customLocations.push({ id: 'loc_' + Date.now(), name: data[0].name || name, category, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+                    localStorage.setItem(QUIZZES[yearMode].custom, JSON.stringify(customLocations));
+                    renderUserCustomList();
+                    document.getElementById('user-place-name').value = '';
+                    showToast(`Added ${data[0].name || name} to My Map!`, "success");
+                } else showToast("Location not found.", "error");
+            } catch (e) { showToast("Network error.", "error"); } 
+            finally { btnLoader.classList.add('hidden'); }
+        }
+
+        function renderUserCustomList() {
+            document.getElementById('user-loc-count').innerText = customLocations.length;
+            document.getElementById('custom-quiz-count').innerText = `${customLocations.length} locations`;
+            const listEl = document.getElementById('user-custom-list');
+            listEl.innerHTML = '';
+            customLocations.forEach((loc, idx) => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700';
+                item.innerHTML = `<div><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}</div></div>
+                    <button onclick="removeUserLoc(${idx})" class="text-rose-500 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+                listEl.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        function removeUserLoc(idx) {
+            customLocations.splice(idx, 1);
+            localStorage.setItem(QUIZZES[yearMode].custom, JSON.stringify(customLocations));
+            renderUserCustomList();
+        }
+
+        // ================= ADMIN LOGIC =================
+        let adminChecking = false;
+        async function unlockAdmin() {
+            if (adminChecking) return;
+            const input = document.getElementById('admin-password');
+            const val = input.value;
+            if (!val) return showToast("Enter the password.", "error");
+            adminChecking = true;
+            const ok = await checkPassword('admin', val);
+            adminChecking = false;
+            if (ok === true) {
+                document.getElementById('admin-lock').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+                input.value = '';
+            } else if (ok === false) showToast("Incorrect password.", "error");
+            else showToast("Could not reach the login server.", "error");
+        }
+
+        async function geocodeAndAddPlace() {
+            const name = document.getElementById('place-name-input').value.trim();
+            const cat = document.getElementById('place-category-input').value.trim() || 'Custom';
+            const btnLoader = document.getElementById('add-loader');
+            
+            if (!name) return showToast("Enter a place name.", "error");
+            btnLoader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    globalLocations.push({ id: 'loc_' + Date.now(), name: data[0].name || name, category: cat, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+                    renderAdminList();
+                    document.getElementById('place-name-input').value = '';
+                    showToast(`Added ${data[0].name || name} successfully.`, "success");
+                } else showToast("Location not found.", "error");
+            } catch (e) { showToast("Error during search.", "error"); } 
+            finally { btnLoader.classList.add('hidden'); }
+        }
+
+        function renderAdminList() {
+            document.getElementById('admin-loc-count').innerText = globalLocations.length;
+            const listEl = document.getElementById('custom-list');
+            listEl.innerHTML = '';
+            globalLocations.forEach((loc, idx) => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700';
+                item.innerHTML = `<div><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}</div></div>
+                    <button onclick="removeAdminLoc(${idx})" class="text-rose-500 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+                listEl.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        function removeAdminLoc(idx) { globalLocations.splice(idx, 1); renderAdminList(); }
+
+        function saveGlobalQuiz() {
+            if(!db || !userId) return showToast("Cannot deploy offline.", "error");
+            const newTitle = document.getElementById('admin-quiz-title').value.trim() || 'Global Challenge';
+            const newMessage = document.getElementById('admin-global-msg').value.trim();
+            
+            const btn = document.getElementById('save-global-btn');
+            const orig = btn.innerHTML;
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> <span>Deploying...</span>`;
+            
+            db.collection('artifacts').doc(appId).collection('public').doc('data').collection('globalSettings').doc(QUIZZES[yearMode].doc)
+                .set({ locations: globalLocations, title: newTitle, message: newMessage })
+                .then(() => {
+                    showToast("Live! Challenge updated.", "success");
+                    btn.innerHTML = orig;
+                }).catch(e => { btn.innerHTML = orig; showToast("Failed to deploy.", "error"); });
+        }
+
+        // ADDED: Clear Leaderboard Logic
+        async function clearLeaderboard() {
+            if (!confirm(`Are you sure you want to permanently delete ALL ${QUIZZES[yearMode].label} leaderboard entries? This cannot be undone.`)) return;
+            
+            if (!db || !userId) return showToast("Cannot clear leaderboard in offline mode.", "error");
+            
+            const btn = document.getElementById('clear-lb-btn');
+            const origHTML = btn.innerHTML;
+            
+            // Show loading state
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></div> <span>Wiping...</span>`;
+            btn.disabled = true;
+            
+            try {
+                const collectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb);
+                const snapshot = await collectionRef.get();
+                
+                if (snapshot.empty) {
+                    showToast("Leaderboard is already empty.", "info");
+                    btn.innerHTML = origHTML;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Firebase batch deletes allow up to 500 operations at once
+                const batch = db.batch();
+                snapshot.docs.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                showToast("Leaderboard completely wiped.", "success");
+                
+            } catch (error) {
+                console.error("Error clearing leaderboard: ", error);
+                showToast("Failed to clear leaderboard.", "error");
+            } finally {
+                // Restore button state
+                btn.innerHTML = origHTML;
+                btn.disabled = false;
+                lucide.createIcons(); // Re-render the trash icon
+            }
+        }
+
+        // ================= QUIZ LOGIC =================
+        function startQuiz(mode) {
+            activeQuizData = mode === 'default' ? globalLocations : customLocations;
+            if (activeQuizData.length === 0) return showToast("No locations to play!", "error");
+
+            points = 0; solvedCount = 0; secondsElapsed = 0; quizStats = {};
+            activeQuizData.forEach(loc => quizStats[loc.id] = { name: loc.name, mistakes: 0, solved: false });
+
+            document.getElementById('q-score').innerText = '0';
+            document.getElementById('q-solved').innerText = '0';
+            document.getElementById('q-total').innerText = activeQuizData.length;
+            
+            switchView('quiz-view');
+            initMap();
+            
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                const s = String(secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function toggleMapStyle() {
+            if(!map) return;
+            mapIsSatellite = !mapIsSatellite;
+            // Both of these are free maps that do not require an API key
+            tileLayer.setUrl(mapIsSatellite 
+                ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' 
+                : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+        }
+
+        function initMap() {
+            if (map) { map.remove(); map = null; }
+            map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 8, zoomControl: false }).setView([25, 20], 2.5);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+
+            const unsolvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin unsolved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
+            const solvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
+
+            activeQuizData.forEach(loc => {
+                const marker = L.marker([loc.lat, loc.lng], { icon: unsolvedIcon }).addTo(map);
+
+                const popupWrap = document.createElement('div');
+                popupWrap.className = 'w-56 font-sans flex flex-col gap-2 relative';
+                popupWrap.innerHTML = `<div class="font-extrabold text-sm border-b border-slate-200 dark:border-slate-700 pb-1 mb-1">Identify Location</div>`;
+
+                const searchWrap = document.createElement('div');
+                searchWrap.className = 'relative';
+                
+                const input = document.createElement('input');
+                input.type = 'text'; input.placeholder = 'Search...';
+                input.className = 'w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500';
+                
+                const dropdownList = document.createElement('div');
+                dropdownList.className = 'custom-combo-list hidden';
+
+                let activeDropdownIndex = -1;
+
+                const populateList = (filterText = '') => {
+                    dropdownList.innerHTML = '';
+                    activeDropdownIndex = -1;
+                    const matches = activeQuizData.filter(d => norm(d.name).includes(norm(filterText)));
+                    
+                    if (matches.length === 0) {
+                        dropdownList.innerHTML = `<div class="p-2 text-xs text-center text-slate-500 italic">No matches</div>`;
+                    } else {
+                        matches.sort((a,b) => a.name.localeCompare(b.name)).forEach((m, index) => {
+                            const item = document.createElement('div');
+                            item.className = 'combo-item';
+                            item.innerText = m.name;
+                            item.dataset.id = m.id;
+                            item.dataset.index = index;
+                            
+                            item.onclick = (e) => {
+                                e.stopPropagation();
+                                input.value = m.name;
+                                input.dataset.selectedId = m.id;
+                                dropdownList.classList.add('hidden');
+                                setTimeout(() => btn.click(), 50); // Auto submit on click
+                            };
+                            dropdownList.appendChild(item);
+                        });
+                    }
+                };
+
+                const updateHighlight = () => {
+                    const items = dropdownList.querySelectorAll('.combo-item');
+                    items.forEach(el => el.classList.remove('bg-indigo-50', 'dark:bg-slate-700', 'text-indigo-600'));
+                    if (activeDropdownIndex >= 0 && items[activeDropdownIndex]) {
+                        items[activeDropdownIndex].classList.add('bg-indigo-50', 'dark:bg-slate-700', 'text-indigo-600');
+                        items[activeDropdownIndex].scrollIntoView({ block: 'nearest' });
+                    }
+                };
+
+                input.onfocus = () => { populateList(input.value); dropdownList.classList.remove('hidden'); };
+                input.oninput = (e) => { populateList(e.target.value); dropdownList.classList.remove('hidden'); input.dataset.selectedId = ''; };
+                
+                input.onkeydown = (e) => {
+                    const items = dropdownList.querySelectorAll('.combo-item');
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        activeDropdownIndex = (activeDropdownIndex + 1) % items.length;
+                        updateHighlight();
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        activeDropdownIndex = (activeDropdownIndex - 1 + items.length) % items.length;
+                        updateHighlight();
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (!dropdownList.classList.contains('hidden') && activeDropdownIndex >= 0) {
+                            items[activeDropdownIndex].click();
+                        } else if (input.dataset.selectedId) {
+                            btn.click();
+                        } else if (items.length === 1) {
+                            items[0].click();
+                        } else if (items.length > 0) {
+                            items[0].click();
+                        }
+                    }
+                };
+
+                document.addEventListener('click', (e) => { if (!searchWrap.contains(e.target)) dropdownList.classList.add('hidden'); });
+
+                searchWrap.appendChild(input); searchWrap.appendChild(dropdownList);
+                popupWrap.appendChild(searchWrap);
+
+                const btn = document.createElement('button');
+                btn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg p-2 text-sm hidden'; // Hidden because Enter does it
+                btn.innerText = 'Lock';
+                popupWrap.appendChild(btn);
+
+                const feedback = document.createElement('div');
+                feedback.className = 'text-xs font-bold hidden text-center rounded-lg p-2';
+                popupWrap.appendChild(feedback);
+
+                btn.onclick = () => {
+                    const selectedId = input.dataset.selectedId;
+                    if (!selectedId) return;
+
+                    if (selectedId === loc.id) {
+                        const mks = quizStats[loc.id].mistakes;
+                        points += mks === 0 ? 1000 : (mks === 1 ? 500 : 100);
+                        solvedCount++; quizStats[loc.id].solved = true;
+
+                        marker.setIcon(solvedIcon);
+                        document.getElementById('q-score').innerText = points.toLocaleString();
+                        document.getElementById('q-solved').innerText = solvedCount;
+                        
+                        marker.closePopup();
+                        marker.unbindPopup();
+                        marker.bindPopup(`<div class="font-black text-emerald-600 text-base text-center px-2 py-1">${loc.name}</div>`);
+
+                        if (solvedCount === activeQuizData.length) setTimeout(endQuizEarly, 1000);
+                    } else {
+                        quizStats[loc.id].mistakes++;
+                        feedback.innerText = 'Incorrect';
+                        feedback.className = 'text-xs font-bold text-rose-700 bg-rose-100 text-center block rounded p-1 animate-bounce-short';
+                        input.value = ''; input.dataset.selectedId = '';
+                        setTimeout(() => feedback.classList.add('hidden'), 1500);
+                    }
+                };
+
+                // Pushes the map down automatically to prevent popup hiding under the header toolbar
+                marker.bindPopup(popupWrap, { minWidth: 220, offset: [0, -10], autoPanPaddingTopLeft: [10, 90] });
+                
+                // Auto focus input when dot is clicked
+                marker.on('popupopen', () => { setTimeout(() => { input.focus(); }, 50); });
+            });
+        }
+
+        let finalScore = 0;
+        function endQuizEarly() {
+            clearInterval(timerInterval);
+            const tb = Math.max(0, 10000 - (secondsElapsed * 10));
+            finalScore = points + tb;
+            document.getElementById('sum-final-score').innerText = finalScore.toLocaleString();
+            switchView('summary-view');
+            fireConfetti();
+        }
+
+        function submitScore() {
+            if(!db || !userId) return showToast("Offline mode.", "error");
+            const name = document.getElementById('player-name').value.trim() || 'Anonymous';
+            localStorage.setItem('mq_playerName', name);
+            db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb).add({
+                userId, name, score: finalScore, time: secondsElapsed, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                showToast("Score saved!", "success");
+                setTimeout(() => switchView('leaderboard-view'), 1000);
+            });
+        }
+
+        function fireConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            canvas.classList.remove('hidden'); canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            const ctx = canvas.getContext('2d'), pieces = [], colors = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899'];
+            for (let i = 0; i < 150; i++) pieces.push({ x: Math.random() * canvas.width, y: -canvas.height * Math.random(), size: Math.random() * 10 + 5, color: colors[Math.floor(Math.random() * colors.length)], speed: Math.random() * 5 + 3, angle: Math.random() * 360, spin: Math.random() * 0.2 - 0.1 });
+            function animate() {
+                if(canvas.classList.contains('hidden')) return;
+                ctx.clearRect(0, 0, canvas.width, canvas.height); let active = false;
+                pieces.forEach(p => { p.y += p.speed; p.angle += p.spin; if (p.y < canvas.height) active = true;
+                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); ctx.restore(); });
+                if (active) requestAnimationFrame(animate); else canvas.classList.add('hidden');
+            } animate();
+        }
+    </script>
+
+    <script>
+        // ================= SERVER AUTH =================
+        async function checkPassword(target, password) {
+            try {
+                const r = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target, password })
+                });
+                if (r.status === 401) return false;
+                if (!r.ok) return null;
+                const d = await r.json();
+                return d.ok === true;
+            } catch (err) { return null; }
+        }
+
+        // ================= CHANGELOG =================
+        let clEntries = [], clEditing = null, clDirty = false, clChecked = false;
+        const gs = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('globalSettings');
+        const clRef = () => gs().doc('changelog');
+        const clToday = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        const clSorted = () => [...clEntries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const clFmtDate = (s) => { const d = new Date(s + 'T00:00:00'); return isNaN(d) ? (s || '') : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
+        const CL_TAGS = {
+            Added: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+            Changed: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+            Fixed: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+            Removed: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+        };
+
+        function loadChangelog() {
+            if (!db || !userId) return;
+            clRef().onSnapshot(doc => {
+                if (!clDirty) clEntries = doc.exists ? (doc.data().entries || []) : [];
+                renderChangelog();
+                renderChangelogAdmin();
+                if (!clDirty) maybeShowChangelogPopup();
+            }, err => console.error('Changelog listener:', err));
+        }
+
+        function clNoteLine(t) {
+            const li = document.createElement('li');
+            li.className = 'flex items-start gap-2';
+            const m = t.match(/^(Added|Changed|Fixed|Removed):\s*(.*)$/i);
+            const txt = document.createElement('span');
+            if (m) {
+                const key = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+                const b = document.createElement('span');
+                b.className = 'shrink-0 mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide ' + CL_TAGS[key];
+                b.textContent = key;
+                li.appendChild(b);
+                txt.textContent = m[2];
+            } else txt.textContent = t;
+            li.appendChild(txt);
+            return li;
+        }
+
+        function clBuildEntry(e, bare) {
+            const card = document.createElement('div');
+            if (!bare) card.className = 'p-5 rounded-2xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
+            const head = document.createElement('div');
+            head.className = 'flex items-center justify-between mb-3';
+            const v = document.createElement('span');
+            v.className = 'font-extrabold text-lg text-indigo-600 dark:text-indigo-400';
+            v.textContent = e.version || 'Update';
+            const d = document.createElement('span');
+            d.className = 'text-xs font-bold text-slate-500';
+            d.textContent = clFmtDate(e.date);
+            head.append(v, d);
+            const ul = document.createElement('ul');
+            ul.className = 'space-y-2 text-sm text-slate-600 dark:text-slate-300 font-medium';
+            (e.notes || '').split('\n').map(s => s.trim()).filter(Boolean).forEach(t => ul.appendChild(clNoteLine(t)));
+            card.append(head, ul);
+            return card;
+        }
+
+        function renderChangelog() {
+            const list = document.getElementById('changelog-list');
+            list.innerHTML = '';
+            if (!clEntries.length) {
+                const p = document.createElement('p');
+                p.className = 'text-center text-slate-500 italic py-8';
+                p.textContent = 'No updates yet.';
+                list.appendChild(p);
+                return;
+            }
+            clSorted().forEach(e => list.appendChild(clBuildEntry(e, false)));
+        }
+
+        // Popup: once per new update (clEntries[0] is always the most recently added entry)
+        function maybeShowChangelogPopup() {
+            if (clChecked || !clEntries.length) return;
+            if (siteDev && !devUnlocked()) return;
+            clChecked = true;
+            const latest = clEntries[0];
+            if (localStorage.getItem('mq_lastSeenChangelog') === latest.id) return;
+            localStorage.setItem('mq_lastSeenChangelog', latest.id);
+            const body = document.getElementById('changelog-popup-body');
+            body.innerHTML = '';
+            body.appendChild(clBuildEntry(latest, true));
+            document.getElementById('changelog-popup').classList.remove('hidden');
+        }
+        function closeChangelogPopup(goToPage) {
+            document.getElementById('changelog-popup').classList.add('hidden');
+            if (goToPage) switchView('changelog-view');
+        }
+
+        function renderChangelogAdmin() {
+            document.getElementById('cl-dirty-note').classList.toggle('hidden', !clDirty);
+            const list = document.getElementById('cl-admin-list');
+            list.innerHTML = '';
+            clSorted().forEach(e => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700';
+                const info = document.createElement('div');
+                info.className = 'min-w-0';
+                const t = document.createElement('div');
+                t.className = 'font-bold text-sm text-slate-800 dark:text-white truncate';
+                t.textContent = e.version || 'Update';
+                const s = document.createElement('div');
+                s.className = 'text-[10px] font-bold uppercase text-slate-500 mt-1';
+                s.textContent = clFmtDate(e.date);
+                info.append(t, s);
+                const btns = document.createElement('div');
+                btns.className = 'flex shrink-0';
+                btns.innerHTML = `<button class="text-indigo-500 p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                    <button class="text-rose-500 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+                btns.children[0].onclick = () => clEdit(e.id);
+                btns.children[1].onclick = () => clDelete(e.id);
+                row.append(info, btns);
+                list.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function clReset() {
+            clEditing = null;
+            document.getElementById('cl-version').value = '';
+            document.getElementById('cl-notes').value = '';
+            document.getElementById('cl-date').value = clToday();
+            document.getElementById('cl-save-btn').innerText = 'Add Entry';
+            document.getElementById('cl-cancel-btn').classList.add('hidden');
+        }
+
+        function clSaveEntry() {
+            const version = document.getElementById('cl-version').value.trim();
+            const date = document.getElementById('cl-date').value || clToday();
+            const notes = document.getElementById('cl-notes').value.trim();
+            if (!version || !notes) return showToast('Version and notes are required.', 'error');
+            if (clEditing) {
+                const e = clEntries.find(x => x.id === clEditing);
+                if (e) Object.assign(e, { version, date, notes });
+            } else {
+                clEntries.unshift({ id: 'cl_' + Date.now(), version, date, notes });
+            }
+            clDirty = true;
+            clReset();
+            renderChangelogAdmin();
+            renderChangelog();
+            showToast('Entry staged. Click Publish Changelog to go live.', 'info');
+        }
+
+        function clEdit(id) {
+            const e = clEntries.find(x => x.id === id);
+            if (!e) return;
+            clEditing = id;
+            document.getElementById('cl-version').value = e.version || '';
+            document.getElementById('cl-date').value = e.date || clToday();
+            document.getElementById('cl-notes').value = e.notes || '';
+            document.getElementById('cl-save-btn').innerText = 'Update Entry';
+            document.getElementById('cl-cancel-btn').classList.remove('hidden');
+        }
+
+        function clDelete(id) {
+            if (!confirm('Delete this changelog entry?')) return;
+            clEntries = clEntries.filter(x => x.id !== id);
+            clDirty = true;
+            if (clEditing === id) clReset();
+            renderChangelogAdmin();
+            renderChangelog();
+        }
+
+        function publishChangelog() {
+            if (!db || !userId) return showToast('Cannot publish offline.', 'error');
+            const btn = document.getElementById('cl-publish-btn');
+            const orig = btn.innerHTML;
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> <span>Publishing...</span>`;
+            btn.disabled = true;
+            clRef().set({ entries: clEntries })
+                .then(() => { clDirty = false; renderChangelogAdmin(); showToast('Changelog published!', 'success'); })
+                .catch(err => { console.error(err); showToast(`Failed to publish (${err.code || 'error'}).`, 'error'); })
+                .finally(() => { btn.innerHTML = orig; btn.disabled = false; lucide.createIcons(); });
+        }
+
+        function copyClPrompt() {
+            const input = document.getElementById('cl-ai-prompt');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(input.value).then(() => showToast('Prompt copied to clipboard!', 'success'))
+                    .catch(() => { document.execCommand('copy'); showToast('Prompt copied! (Fallback)', 'success'); });
+            } catch (err) { document.execCommand('copy'); showToast('Prompt copied! (Fallback)', 'success'); }
+        }
+
+        // ================= DEV MODE =================
+        let siteDev = false;
+        const devUnlocked = () => sessionStorage.getItem('mq_devUnlocked') === '1';
+        const siteModeRef = () => gs().doc('siteMode');
+
+        function loadSiteMode() {
+            if (!db || !userId) return;
+            siteModeRef().onSnapshot(doc => {
+                siteDev = doc.exists && doc.data().dev === true;
+                applyDevScreen();
+            }, err => console.error('Site mode listener:', err));
+        }
+        function applyDevScreen() {
+            const show = siteDev && !devUnlocked();
+            document.getElementById('dev-screen').classList.toggle('hidden', !show);
+            renderDevCard();
+            if (!show) maybeShowChangelogPopup();
+        }
+        function renderDevCard() {
+            const open = devUnlocked();
+            document.getElementById('dev-card-locked').classList.toggle('hidden', open);
+            document.getElementById('dev-card-open').classList.toggle('hidden', !open);
+            document.getElementById('dev-status').innerText = siteDev
+                ? 'Dev mode is ON. Visitors see the under-construction screen.'
+                : 'Dev mode is OFF. The site is open to everyone.';
+            const btn = document.getElementById('dev-toggle-btn');
+            btn.innerText = siteDev ? 'Disable Dev Mode' : 'Enable Dev Mode';
+            btn.className = 'w-full text-white font-bold py-3 rounded-lg transition shadow ' + (siteDev ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700');
+        }
+        async function devLogin(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input.value) { showToast('Enter the password.', 'error'); return; }
+            const ok = await checkPassword('dev', input.value);
+            if (ok === true) {
+                sessionStorage.setItem('mq_devUnlocked', '1');
+                input.value = '';
+                applyDevScreen();
+            } else if (ok === false) showToast('Incorrect password.', 'error');
+            else showToast('Could not reach the login server.', 'error');
+        }
+        const unlockDevScreen = () => devLogin('dev-password');
+        const unlockDevCard = () => devLogin('dev-card-password');
+
+        function toggleDevMode() {
+            if (!db || !userId) return showToast('Cannot change mode offline.', 'error');
+            const next = !siteDev;
+            if (!confirm(next ? 'Turn ON dev mode? All visitors will see the under-construction screen.' : 'Turn OFF dev mode and reopen the site?')) return;
+            if (next) sessionStorage.setItem('mq_devUnlocked', '1');
+            siteModeRef().set({ dev: next })
+                .then(() => showToast(next ? 'Dev mode enabled.' : 'Dev mode disabled.', 'success'))
+                .catch(err => { console.error(err); showToast(`Failed to update (${err.code || 'error'}).`, 'error'); });
+        }
+
+        // ================= VISITS =================
+        const statsRef = () => gs().doc('stats');
+        function loadVisits() {
+            if (!db || !userId) return;
+            statsRef().onSnapshot(doc => {
+                const n = doc.exists ? (doc.data().visits || 0) : 0;
+                document.getElementById('visit-count').innerText = n.toLocaleString();
+            }, err => console.error('Visits listener:', err));
+        }
+        function countVisit() {
+            if (!db || !userId || sessionStorage.getItem('mq_counted')) return;
+            sessionStorage.setItem('mq_counted', '1');
+            statsRef().set({ visits: firebase.firestore.FieldValue.increment(1) }, { merge: true })
+                .catch(err => console.error('Visit count:', err));
+        }
+        // hide the counter over the quiz map
+        const _origSwitchView = switchView;
+        switchView = function (id) {
+            _origSwitchView(id);
+            document.getElementById('visit-counter').classList.toggle('hidden', id === 'quiz-view');
+        };
+
+        clReset();
+        renderChangelog();
+        renderDevCard();
+    </script>
+</body>
+</html>
