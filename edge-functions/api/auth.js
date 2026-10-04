@@ -1,5 +1,5 @@
 // edge-functions/api/auth.js  ->  POST /api/auth
-// Set ADMIN_PASSWORD and DEV_PASSWORD in your EdgeOne Pages project's environment variables, then redeploy.
+// Env vars (EdgeOne Pages project settings): ADMIN_PASSWORD, DEV_PASSWORD
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -7,9 +7,10 @@ const json = (body, status = 200) =>
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 
+const enc = new TextEncoder();
+
 // Constant-time comparison (hash first so lengths always match)
 async function safeEqual(a, b) {
-  const enc = new TextEncoder();
   const [ha, hb] = await Promise.all([
     crypto.subtle.digest('SHA-256', enc.encode(a)),
     crypto.subtle.digest('SHA-256', enc.encode(b)),
@@ -18,6 +19,12 @@ async function safeEqual(a, b) {
   let diff = 0;
   for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
   return diff === 0;
+}
+
+async function hmacHex(secret, msg) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function onRequestPost(context) {
@@ -46,7 +53,13 @@ export async function onRequestPost(context) {
   }
 
   if (await safeEqual(password, expected)) {
-    return json({ ok: true });
+    const res = { ok: true };
+    if (target === 'admin') {
+      // Short-lived signed token so other admin-only endpoints (e.g. /api/deploy) don't need the password again.
+      const exp = Date.now() + 30 * 60 * 1000;
+      res.token = `${exp}.${await hmacHex(expected, `admin.${exp}`)}`;
+    }
+    return json(res);
   }
 
   // Slow down brute-force attempts

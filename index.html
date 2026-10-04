@@ -55,6 +55,7 @@
         window.__app_id = "map-quiz-2ace3";
     </script>
 
+    <script>try{var _t=localStorage.getItem('theme');if(_t==='dark'||(!_t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');}catch(e){}</script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #f8fafc; }
         .dark body { background-color: #0f172a; }
@@ -113,6 +114,12 @@
             100% { transform: rotate(0deg); } 
         }
 
+        /* Boot cover: hides the app until dev-mode state is known */
+        #site-cover { position: fixed; inset: 0; z-index: 9500; background: #f8fafc; display: flex; align-items: center; justify-content: center; }
+        .dark #site-cover { background: #0f172a; }
+        .cover-spin { width: 32px; height: 32px; border: 4px solid #c7d2fe; border-top-color: #4f46e5; border-radius: 50%; animation: coverspin .8s linear infinite; }
+        @keyframes coverspin { to { transform: rotate(360deg); } }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -121,6 +128,8 @@
     </style>
 </head>
 <body class="text-slate-800 dark:text-slate-200 transition-colors duration-300">
+
+    <div id="site-cover"><div class="cover-spin"></div></div>
 
     <div id="toast-container" class="fixed bottom-6 right-6 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
 
@@ -404,6 +413,26 @@
                             <p id="dev-status" class="text-xs text-slate-500 mb-3 font-medium"></p>
                             <button onclick="toggleDevMode()" id="dev-toggle-btn" class="w-full text-white font-bold py-3 rounded-lg transition shadow"></button>
                         </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center">
+                                <i data-lucide="rocket" class="w-6 h-6 text-indigo-600 dark:text-indigo-400"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-slate-900 dark:text-white">Deployment</h3>
+                                <p class="text-xs text-slate-500 mt-1 font-medium">Rebuild and publish the latest version of the site.</p>
+                            </div>
+                        </div>
+                        <div class="mt-5 flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Last triggered</span>
+                            <span id="deploy-last" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Never</span>
+                        </div>
+                        <button onclick="triggerRedeploy()" id="deploy-btn" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition shadow flex justify-center items-center gap-2">
+                            <i data-lucide="rocket" class="w-4 h-4" id="deploy-icon"></i>
+                            <span id="deploy-spin" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span id="deploy-btn-label">Redeploy Site</span>
+                        </button>
                     </div>
                 </div>
 
@@ -710,7 +739,7 @@
             } else enableLocalMode();
         }
         
-        function enableLocalMode() { globalLocations = []; renderAdminList(); }
+        function enableLocalMode() { globalLocations = []; renderAdminList(); hideCover(); }
         
         document.addEventListener('DOMContentLoaded', () => {
             initFirebase();
@@ -922,6 +951,7 @@
             const ok = await checkPassword('admin', val);
             adminChecking = false;
             if (ok === true) {
+                adminToken = lastAuthToken;
                 document.getElementById('admin-lock').classList.add('hidden');
                 document.getElementById('admin-panel').classList.remove('hidden');
                 input.value = '';
@@ -1240,6 +1270,7 @@
 
     <script>
         // ================= SERVER AUTH =================
+        let adminToken = null, lastAuthToken = null;
         async function checkPassword(target, password) {
             try {
                 const r = await fetch('/api/auth', {
@@ -1250,6 +1281,7 @@
                 if (r.status === 401) return false;
                 if (!r.ok) return null;
                 const d = await r.json();
+                lastAuthToken = d.token || null;
                 return d.ok === true;
             } catch (err) { return null; }
         }
@@ -1452,11 +1484,12 @@
             siteModeRef().onSnapshot(doc => {
                 siteDev = doc.exists && doc.data().dev === true;
                 applyDevScreen();
-            }, err => console.error('Site mode listener:', err));
+            }, err => { console.error('Site mode listener:', err); hideCover(); });
         }
         function applyDevScreen() {
             const show = siteDev && !devUnlocked();
             document.getElementById('dev-screen').classList.toggle('hidden', !show);
+            hideCover();
             renderDevCard();
             if (!show) maybeShowChangelogPopup();
         }
@@ -1517,9 +1550,74 @@
             document.getElementById('visit-counter').classList.toggle('hidden', id === 'quiz-view');
         };
 
+        // ================= BOOT COVER =================
+        function hideCover() {
+            const c = document.getElementById('site-cover');
+            if (c) c.classList.add('hidden');
+        }
+        // A browser already unlocked for dev has nothing to wait for; otherwise fail open after 6s if Firestore is unreachable.
+        if (devUnlocked()) hideCover();
+        setTimeout(hideCover, 6000);
+
+        // ================= REDEPLOY =================
+        let deployBusy = false, deployCooldownTimer = null;
+        function renderDeployLast() {
+            const t = Number(localStorage.getItem('mq_lastDeploy'));
+            document.getElementById('deploy-last').innerText = t ? new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
+        }
+        function setDeployBtn(busy, label) {
+            const btn = document.getElementById('deploy-btn');
+            btn.disabled = busy;
+            document.getElementById('deploy-spin').classList.toggle('hidden', busy !== 'spin');
+            document.getElementById('deploy-icon').classList.toggle('hidden', busy === 'spin');
+            document.getElementById('deploy-btn-label').innerText = label;
+        }
+        function startDeployCooldown(sec) {
+            let left = sec;
+            clearInterval(deployCooldownTimer);
+            setDeployBtn(true, `Redeploy again in ${left}s`);
+            deployCooldownTimer = setInterval(() => {
+                left--;
+                if (left <= 0) { clearInterval(deployCooldownTimer); setDeployBtn(false, 'Redeploy Site'); }
+                else setDeployBtn(true, `Redeploy again in ${left}s`);
+            }, 1000);
+        }
+        async function triggerRedeploy() {
+            if (deployBusy) return;
+            if (!adminToken) return showToast('Log in to the admin panel first.', 'error');
+            if (!confirm('Redeploy the live site now? This rebuilds and publishes the latest version.')) return;
+            deployBusy = true;
+            setDeployBtn('spin', 'Triggering...');
+            let cooldown = false;
+            try {
+                const r = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: adminToken })
+                });
+                if (r.status === 401) {
+                    adminToken = null;
+                    document.getElementById('admin-panel').classList.add('hidden');
+                    document.getElementById('admin-lock').classList.remove('hidden');
+                    showToast('Admin session expired. Please log in again.', 'error');
+                } else if (r.ok) {
+                    localStorage.setItem('mq_lastDeploy', String(Date.now()));
+                    renderDeployLast();
+                    showToast('Redeployment triggered!', 'success');
+                    cooldown = true;
+                } else showToast(`Deploy failed (${r.status}).`, 'error');
+            } catch (err) {
+                showToast('Could not reach the deploy server.', 'error');
+            } finally {
+                deployBusy = false;
+                if (cooldown) startDeployCooldown(30); else setDeployBtn(false, 'Redeploy Site');
+            }
+        }
+
         clReset();
         renderChangelog();
         renderDevCard();
+        renderDeployLast();
     </script>
 </body>
 </html>
