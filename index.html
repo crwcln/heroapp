@@ -2,7 +2,7 @@
 <html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Map Quiz Pro</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,6 +56,17 @@
     </script>
 
     <script>try{var _t=localStorage.getItem('theme');if(_t==='dark'||(!_t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');}catch(e){}</script>
+    <script>
+        // Phone detection: phone user-agent / UA-Client-Hints, or a narrow viewport. Tablets and desktops keep the desktop layout.
+        (function () {
+            var ua = navigator.userAgent || '';
+            var phoneUA = /Android.+Mobile|iPhone|iPod|Windows Phone|IEMobile|Opera Mini|BlackBerry|Mobile Safari/i.test(ua) || !!(navigator.userAgentData && navigator.userAgentData.mobile);
+            var mq = window.matchMedia('(max-width: 640px)');
+            function apply() { document.documentElement.classList.toggle('is-mobile', phoneUA || mq.matches); }
+            apply();
+            if (mq.addEventListener) mq.addEventListener('change', apply); else mq.addListener(apply);
+        })();
+    </script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #f8fafc; }
         .dark body { background-color: #0f172a; }
@@ -114,6 +125,67 @@
             100% { transform: rotate(0deg); } 
         }
 
+        /* ===== Layout fix: views no longer extend under the nav (bottom 72px was clipped) ===== */
+        :root { --nav-h: 72px; }
+        #top-nav { height: var(--nav-h); }
+        .view-section { height: calc(100% - var(--nav-h)); }
+        #map-container { height: calc(100vh - var(--nav-h)); height: calc(100dvh - var(--nav-h)); }
+
+        /* ===== Mobile ===== */
+        #mobile-tabbar { display: none; }
+        html.is-mobile { --nav-h: calc(56px + env(safe-area-inset-top, 0px)); }
+        html.is-mobile, .is-mobile body { height: 100vh; height: 100dvh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+        .is-mobile button, .is-mobile a { touch-action: manipulation; }
+        .is-mobile input, .is-mobile textarea, .is-mobile select { font-size: 16px !important; } /* stops iOS zoom-on-focus */
+
+        .is-mobile #top-nav { padding: env(safe-area-inset-top, 0px) calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px)); }
+        .is-mobile #top-nav h1 { display: none; }
+        .is-mobile #nav-actions > button:not(#theme-btn), .is-mobile #nav-actions > div { display: none; }
+        .is-mobile #year-toggle button { width: 64px !important; }
+
+        .is-mobile #mobile-tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; gap: 4px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); background: rgba(255,255,255,.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid #e2e8f0; }
+        .dark.is-mobile #mobile-tabbar { background: rgba(2,6,23,.88); border-top-color: #1e293b; }
+        #mobile-tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 12px; font-size: 10px; font-weight: 700; color: #64748b; transition: color .2s, background .2s; }
+        .dark #mobile-tabbar button { color: #94a3b8; }
+        #mobile-tabbar button svg { width: 22px; height: 22px; }
+        #mobile-tabbar button.active { color: #4f46e5; background: rgba(99,102,241,.1); }
+        .dark #mobile-tabbar button.active { color: #a5b4fc; background: rgba(99,102,241,.18); }
+        .is-mobile body.in-quiz #mobile-tabbar { display: none; }
+
+        .is-mobile .view-section:not(#quiz-view) { justify-content: flex-start !important; padding: 16px 14px calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+        .is-mobile .view-section:not(#quiz-view) > .glass-panel { margin-top: auto; margin-bottom: auto; }
+        .is-mobile .glass-panel.rounded-3xl { padding: 20px; border-radius: 22px; }
+        .is-mobile #home-view .glass-panel { padding: 26px 18px; }
+        .is-mobile #global-quiz-title { font-size: 2.1rem; line-height: 1.15; }
+        .is-mobile #home-view .glass-panel > p { font-size: 15px; margin-bottom: 24px; }
+        .is-mobile #home-view .grid { gap: 12px; }
+        .is-mobile #home-view .grid > button { padding: 18px 16px; }
+        .is-mobile #home-view .grid > button > svg { width: 36px; height: 36px; margin-bottom: 8px; }
+        .is-mobile #leaderboard-view h2, .is-mobile #changelog-view h2, .is-mobile #custom-loc-view h2, .is-mobile #admin-panel h2 { font-size: 1.4rem; }
+        .is-mobile #lb-rank-label { display: none; }
+        .is-mobile #leaderboard-list > div { padding: 12px 14px; }
+        .is-mobile #admin-panel > div:first-child { flex-wrap: wrap; gap: 12px; }
+        .is-mobile #custom-loc-view .min-h-\[500px\], .is-mobile #editor-view .min-h-\[600px\] { min-height: 320px; }
+
+        .is-mobile .quiz-toolbar { top: 8px; width: calc(100% - 16px); padding: 6px 10px; gap: 8px; }
+        .is-mobile .quiz-toolbar button { min-width: 36px; min-height: 36px; display: flex; align-items: center; justify-content: center; }
+        .is-mobile .marker-pin { width: 24px; height: 24px; position: relative; }
+        .is-mobile .marker-pin::after { content: ''; position: absolute; inset: -12px; } /* bigger tap target */
+        .is-mobile .leaflet-popup-content { width: min(290px, 80vw) !important; }
+        .is-mobile .leaflet-popup-content .w-56 { width: 100% !important; }
+        .is-mobile .combo-item { padding: 12px; font-size: 15px; }
+        .is-mobile .custom-combo-list { max-height: 170px; }
+        @media (hover: none) { .marker-pin.unsolved:hover { transform: none; } }
+
+        .is-mobile #toast-container { left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); align-items: stretch; }
+        .is-mobile #global-msg-minimized { left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-width: none; }
+        .is-mobile #visit-counter { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+        .is-mobile body.in-quiz #toast-container { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+        @media (orientation: landscape) and (max-height: 500px) {
+            .is-mobile #mobile-tabbar button span { display: none; }
+            .is-mobile #mobile-tabbar button { padding: 4px 0; }
+        }
+
         /* Boot cover: hides the app until dev-mode state is known */
         #site-cover { position: fixed; inset: 0; z-index: 9500; background: #f8fafc; display: flex; align-items: center; justify-content: center; }
         .dark #site-cover { background: #0f172a; }
@@ -158,7 +230,7 @@
         <button class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
 
-    <nav class="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md text-slate-800 dark:text-white px-6 py-4 flex justify-between items-center z-20 relative h-[72px] shrink-0 border-b border-slate-200 dark:border-slate-800">
+    <nav id="top-nav" class="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md text-slate-800 dark:text-white px-6 py-4 flex justify-between items-center z-20 relative h-[72px] shrink-0 border-b border-slate-200 dark:border-slate-800">
         <div class="flex items-center gap-3 group cursor-pointer" onclick="switchView('home-view')">
             <i data-lucide="globe-2" class="text-indigo-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform"></i>
             <h1 class="text-xl font-extrabold tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
@@ -173,7 +245,7 @@
             <button id="yr-btn-twoyear" onclick="setYearMode('twoyear')" class="relative z-10 w-14 sm:w-20 py-1.5 rounded-full text-center transition-colors duration-300">2 Year</button>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-6">
+        <div id="nav-actions" class="flex items-center gap-2 sm:gap-6">
             <button onclick="switchView('leaderboard-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
                 <i data-lucide="trophy" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Leaderboard</span>
             </button>
@@ -189,7 +261,7 @@
             
             <div class="w-px h-6 bg-slate-300 dark:bg-slate-700 hidden sm:block"></div>
             
-            <button onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
+            <button id="theme-btn" onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
                 <i data-lucide="moon" id="theme-icon-moon" class="w-5 h-5 hidden"></i>
                 <i data-lucide="sun" id="theme-icon-sun" class="w-5 h-5 hidden"></i>
             </button>
@@ -545,6 +617,14 @@
     <div id="visit-counter" class="fixed bottom-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
         <i data-lucide="eye" class="w-3 h-3"></i> <span id="visit-count">&mdash;</span> visits
     </div>
+
+    <nav id="mobile-tabbar" aria-label="Main navigation">
+        <button data-tab="home-view" onclick="switchView('home-view')"><i data-lucide="home"></i><span>Home</span></button>
+        <button data-tab="leaderboard-view" onclick="switchView('leaderboard-view')"><i data-lucide="trophy"></i><span>Ranks</span></button>
+        <button data-tab="custom-loc-view" onclick="switchView('custom-loc-view')"><i data-lucide="map-pin"></i><span>My Map</span></button>
+        <button data-tab="changelog-view" onclick="switchView('changelog-view')"><i data-lucide="scroll-text"></i><span>News</span></button>
+        <button data-tab="editor-view" onclick="switchView('editor-view')"><i data-lucide="lock"></i><span>Admin</span></button>
+    </nav>
 
     <canvas id="confetti-canvas" class="hidden"></canvas>
     
@@ -1227,7 +1307,7 @@
                 marker.bindPopup(popupWrap, { minWidth: 220, offset: [0, -10], autoPanPaddingTopLeft: [10, 90] });
                 
                 // Auto focus input when dot is clicked
-                marker.on('popupopen', () => { setTimeout(() => { input.focus(); }, 50); });
+                marker.on('popupopen', () => { setTimeout(() => { input.focus(); }, 50); mobileCenterMarker(marker); });
             });
         }
 
@@ -1548,6 +1628,8 @@
         switchView = function (id) {
             _origSwitchView(id);
             document.getElementById('visit-counter').classList.toggle('hidden', id === 'quiz-view');
+            document.body.classList.toggle('in-quiz', id === 'quiz-view');
+            document.querySelectorAll('#mobile-tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
         };
 
         // ================= BOOT COVER =================
@@ -1618,6 +1700,21 @@
         renderChangelog();
         renderDevCard();
         renderDeployLast();
+
+        // ================= MOBILE =================
+        const isMobile = () => document.documentElement.classList.contains('is-mobile');
+        // Keep the tapped marker in the upper part of the screen so its popup (and answer list) stays clear of the on-screen keyboard.
+        function mobileCenterMarker(marker) {
+            if (!isMobile()) return;
+            setTimeout(() => {
+                if (!map) return;
+                const size = map.getSize();
+                const pt = map.latLngToContainerPoint(marker.getLatLng());
+                const dy = pt.y - Math.max(230, size.y * 0.4);
+                if (Math.abs(dy) > 8) map.panBy([0, dy], { animate: true, duration: 0.3 });
+            }, 400);
+        }
+        document.querySelector('#mobile-tabbar button[data-tab="home-view"]').classList.add('active');
     </script>
 </body>
 </html>
