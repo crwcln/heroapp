@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin()  { return request.auth != null && request.auth.token.admin == true; }
+
+    match /artifacts/{appId}/public/data {
+
+      // Quiz settings, changelog, site (dev) mode, stats: anyone signed in can read, only admin can write
+      match /globalSettings/{docId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+
+      // Visit counter: any visitor may add exactly 1 (admin can do anything via the rule above)
+      match /globalSettings/stats {
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['visits'])
+          && request.resource.data.visits == 1;
+        allow update: if signedIn()
+          && request.resource.data.keys().hasOnly(['visits'])
+          && request.resource.data.visits == resource.data.visits + 1;
+      }
+
+      // Leaderboards: anyone signed in can read and post a well-formed score; only admin can delete
+      match /{board}/{entryId} {
+        allow read: if signedIn() && board in ['leaderboard', 'leaderboardTwoYear'];
+        allow create: if signedIn() && board in ['leaderboard', 'leaderboardTwoYear']
+          && request.resource.data.keys().hasOnly(['userId', 'name', 'score', 'time', 'timestamp'])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.name is string && request.resource.data.name.size() <= 15
+          && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
+          && request.resource.data.time is number && request.resource.data.time >= 0;
+        allow delete: if isAdmin() && board in ['leaderboard', 'leaderboardTwoYear'];
+      }
+
+      // Anonymous usage analytics: visitors write only their own presence + daily counters; only admin reads
+      match /presence/{uid} {
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['lastSeen', 'device', 'os', 'browser', 'view', 'mode', 'theme', 'vw', 'vh']);
+        allow read: if isAdmin();
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      }
+      match /analytics/{dayId} {
+        allow create, update: if signedIn()
+          && request.resource.data.keys().hasOnly(['day', 'sessions', 'started', 'completed', 'quit', 'm_default', 'm_twoyear',
+              'd_mobile', 'd_tablet', 'd_desktop', 'o_ios', 'o_android', 'o_windows', 'o_mac', 'o_linux', 'o_chromeos', 'o_other',
+              'b_chrome', 'b_safari', 'b_firefox', 'b_edge', 'b_opera', 'b_samsung', 'b_other']);
+        allow read: if isAdmin();
+      }
+
+      // Feedback: visitors can only create; only admin can read, change status, or delete
+      match /feedback/{docId} {
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['id', 'type', 'typeLabel', 'area', 'title', 'description', 'userId', 'status', 'mode', 'attachments', 'createdAt', 'appVersion', 'contact', 'severity', 'frequency', 'steps', 'diagnostics'])
+          && request.resource.data.keys().hasAll(['id', 'type', 'title', 'description', 'userId', 'status', 'createdAt'])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.status == 'new'
+          && request.resource.data.title is string && request.resource.data.title.size() <= 120
+          && request.resource.data.description is string && request.resource.data.description.size() <= 2000
+          && request.resource.data.attachments.size() <= 5;
+        allow read, delete: if isAdmin();
+        allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+        // Attachments (photos/videos) are stored as base64 chunks: visitors can only create, admin reads/deletes
+        match /files/{chunkId} {
+          allow create: if signedIn()
+            && request.resource.data.keys().hasOnly(['userId', 'name', 'type', 'index', 'total', 'data'])
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.data is string && request.resource.data.data.size() <= 760000
+            && (request.resource.data.type.matches('image/.*') || request.resource.data.type.matches('video/.*'));
+          allow read, delete: if isAdmin();
+        }
+      }
+    }
+  }
+}
