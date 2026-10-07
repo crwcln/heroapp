@@ -47,7 +47,7 @@
                 if (!r.ok) { const err = new Error(d.error || r.status); err.d = d; throw err; }
                 sh.msgs.push({ r: 'model', t: d.reply });
             } catch (e) {
-                const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
+                const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
                 sh.msgs.push({ r: 'model', t: m || "Clio couldn't answer just now. Please try again.", err: true });
             }
             sh.busy = false; shRender();

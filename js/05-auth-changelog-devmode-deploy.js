@@ -1,5 +1,6 @@
 // ================= SERVER AUTH =================
-        let adminToken = null, lastAuthToken = null;
+        let adminToken = null, lastAuthToken = null, lastAuthErr = '';
+        const authFailMsg = () => lastAuthErr === 'not_configured' ? 'The login server has no password set. Add ADMIN_PASSWORD / DEV_PASSWORD in EdgeOne env vars, then redeploy.' : lastAuthErr === '404' ? 'Add edge-functions/api/auth.js and redeploy.' : 'Could not reach the login server.';
         async function checkPassword(target, password) {
             try {
                 const r = await fetch('/api/auth', {
@@ -8,11 +9,11 @@
                     body: JSON.stringify({ target, password })
                 });
                 if (r.status === 401) return false;
-                if (!r.ok) return null;
+                if (!r.ok) { const er = await r.json().catch(() => ({})); lastAuthErr = er.error || String(r.status); return null; }
                 const d = await r.json();
                 lastAuthToken = d.token || null;
                 return d.ok === true;
-            } catch (err) { return null; }
+            } catch (err) { lastAuthErr = 'network'; return null; }
         }
 
         // ================= CHANGELOG =================
@@ -242,7 +243,7 @@
                 input.value = '';
                 applyDevScreen();
             } else if (ok === false) { showToast('Incorrect password.', 'error'); badInput(input); }
-            else showToast('Could not reach the login server.', 'error');
+            else showToast(authFailMsg(), 'error');
         }
         const unlockDevScreen = () => devLogin('dev-password');
         const unlockDevCard = () => devLogin('dev-card-password');

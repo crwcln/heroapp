@@ -58,12 +58,13 @@
         }
 
         // ================= ADMIN ANALYTICS (live) =================
-        let anPresence = [], anDays = [], anUnsubs = [], anTimer = null;
+        let anPresence = [], anDays = [], anUnsubs = [], anTimer = null, anErr = '';
+        function anFail(e) { console.error(e); anErr = e.code === 'permission-denied' ? 'Permission denied. Publish the latest firestore.rules, and make sure the admin secure sign-in succeeded.' : 'Analytics failed: ' + (e.code || e.message); anRender(); }
         const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         function startAnalyticsAdmin() {
-            stopAnalyticsAdmin();
-            anUnsubs.push(anBase().collection('presence').orderBy('lastSeen', 'desc').limit(300).onSnapshot(s => { anPresence = s.docs.map(d => d.data()); anRender(); }, e => console.error('presence', e)));
-            anUnsubs.push(anBase().collection('analytics').orderBy('day', 'desc').limit(14).onSnapshot(s => { anDays = s.docs.map(d => d.data()); anRender(); }, e => console.error('analytics', e)));
+            stopAnalyticsAdmin(); anErr = '';
+            anUnsubs.push(anBase().collection('presence').orderBy('lastSeen', 'desc').limit(300).onSnapshot(s => { anPresence = s.docs.map(d => d.data()); anRender(); }, anFail));
+            anUnsubs.push(anBase().collection('analytics').orderBy('day', 'desc').limit(14).onSnapshot(s => { anDays = s.docs.map(d => d.data()); anRender(); }, anFail));
             anTimer = setInterval(anRender, 10000);
         }
         function stopAnalyticsAdmin() { anUnsubs.forEach(u => u()); anUnsubs = []; clearInterval(anTimer); anPresence = []; anDays = []; }
@@ -73,6 +74,8 @@
         function anRender() {
             const panel = document.getElementById('admin-panel');
             if (panel.dataset.active !== 'analytics' || panel.classList.contains('hidden')) return;
+            const msg = anErr || (!anUnsubs.length ? 'Waiting for the admin secure sign-in. If it failed, a toast explains why.' : '');
+            if (msg) { document.getElementById('an-kpis').innerHTML = '<div class=\"an-box\" style=\"grid-column:1/-1;border-color:#f43f5e\"><h4>Analytics unavailable</h4><p class=\"text-sm\">' + esc(msg) + '</p></div>'; return; }
             const now = Date.now();
             const live = anPresence.filter(p => p.lastSeen && p.lastSeen.toMillis && now - p.lastSeen.toMillis() < 150000);
             const today = anDays.find(d => d.day === anDay()) || {};

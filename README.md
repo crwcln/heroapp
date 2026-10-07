@@ -1,5 +1,8 @@
 # Hero
 
+**Duplicating this repo?** change `SITE.id` in `js/00-site-config.js` so each copy has its own data.
+
+
 Static site (EdgeOne Pages) + Firebase + EdgeOne Edge Functions.
 
     index.html          markup

@@ -20,10 +20,10 @@
         function setConsent(v) {
             consent = v; setCookie('cairn_consent', v);
             if (v === 'all') { setCookie('cairn_prefs', JSON.stringify(prefs)); setCookie('cairn_last', Date.now()); }
-            document.getElementById('cookie-banner').classList.remove('show');
+            document.getElementById('cookie-banner').classList.remove('show'); document.body.classList.remove('cookie-open'); setTimeout(() => window.tutMaybe && tutMaybe(), 700);
         }
         applyPrefs();
-        setTimeout(() => { if (!consent) document.getElementById('cookie-banner').classList.add('show'); }, 2200);
+        setTimeout(() => { if (!consent) { document.getElementById('cookie-banner').classList.add('show'); document.body.classList.add('cookie-open'); } }, 2200);
         if (consent === 'all') {
             const last = Number(decodeURIComponent(getCookie('cairn_last'))), days = Math.floor((Date.now() - last) / 864e5);
             if (last && days >= 1) setTimeout(() => showToast(`Welcome back! Last visit was ${days} day${days > 1 ? 's' : ''} ago.`, 'info'), 3000);
@@ -38,6 +38,6 @@
         }
         document.getElementById('admin-password').addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); });
         document.querySelectorAll('#nav-actions > button').forEach(b => { const s = b.querySelector('span'); b.dataset.tip = s ? s.textContent.trim() : 'Toggle theme'; });
-        const FACTS = ['The Nile and the Amazon both claim the title of longest river.', 'Russia spans eleven time zones.', 'The Mariana Trench is deeper than Everest is tall.', 'Istanbul sits on two continents.', 'Canada has more lakes than the rest of the world combined.'];
+        const FACTS = [quoteLine()];
         (function () { const f = document.getElementById('cv-fact'); let i = Math.floor(Math.random() * FACTS.length); f.textContent = FACTS[i];
             const t = setInterval(() => { if (!document.getElementById('site-cover') || document.getElementById('site-cover').classList.contains('hidden')) return clearInterval(t); f.style.opacity = 0; setTimeout(() => { i = (i + 1) % FACTS.length; f.textContent = FACTS[i]; f.style.opacity = 1; }, 300); }, 2400); })();

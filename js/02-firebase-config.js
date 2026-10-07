@@ -7,4 +7,4 @@ window.__firebase_config = JSON.stringify({
             appId: "1:1029601259661:web:f368231ab42e2a173332c4",
             measurementId: "G-NY4E3ZMSY9"
         });
-        window.__app_id = "map-quiz-2ace3";
+        // app id now comes from js/00-site-config.js

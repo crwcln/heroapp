@@ -1,7 +1,7 @@
 // ================= 1 YEAR / 2 YEAR MODE =================
         const QUIZZES = {
-            default: { doc: 'defaultQuiz', lb: 'leaderboard',        custom: 'mapQuizCustom',     seen: 'mq_lastSeenMsg',   label: '1 Year', defTitle: 'Global Challenge',   startLabel: 'Start Global Quiz',   rankLabel: 'Global Rankings',   setupTitle: 'Global Quiz Setup' },
-            twoyear: { doc: 'twoYearQuiz', lb: 'leaderboardTwoYear', custom: 'mapQuizCustom2Year', seen: 'mq_lastSeenMsg2Y', label: '2 Year', defTitle: '2 Year Challenge',   startLabel: 'Start 2 Year Quiz',   rankLabel: '2 Year Rankings',   setupTitle: '2 Year Quiz Setup' }
+            default: { doc: 'defaultQuiz', lb: 'leaderboard',        custom: 'mapQuizCustom',     seen: 'mq_lastSeenMsg',   label: '1 Year', defTitle: 'The Grand Tour',   startLabel: 'Begin the 1 Year Tour',   rankLabel: '1 Year Rankings',   setupTitle: '1 Year Tour Setup' },
+            twoyear: { doc: 'twoYearQuiz', lb: 'leaderboardTwoYear', custom: 'mapQuizCustom2Year', seen: 'mq_lastSeenMsg2Y', label: '2 Year', defTitle: 'The Second Tour',   startLabel: 'Begin the 2 Year Tour',   rankLabel: '2 Year Rankings',   setupTitle: '2 Year Quiz Setup' }
         };
         let yearMode = localStorage.getItem('mq_yearMode') === 'twoyear' ? 'twoyear' : 'default';
         const store = {

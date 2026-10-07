@@ -5,7 +5,7 @@ const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 // gemini-2.5-flash has been returning 404 since Sep 2026; the *-latest alias follows Google's current Flash model.
-const DEFAULT_MODELS = ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3-flash-preview'];
+const DEFAULT_MODELS = ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite-preview', 'gemini-flash-latest', 'gemini-3.5-flash']; // fastest first
 
 const SYSTEM = `You are Clio, the study guide inside Hero (named for Herodotus). You are named for the Greek muse of history, a geography map-quiz site.
 Help people learn places: locations, regions, rivers, seas, oceans, continents, empires and trade routes.
@@ -29,22 +29,23 @@ export async function onRequestPost(context) {
   const payload = JSON.stringify({
     systemInstruction: { parts: [{ text: SYSTEM + (ctx ? `\nThe user is currently studying: ${ctx}.` : '') }] },
     contents,
-    generationConfig: { maxOutputTokens: 2048, temperature: 0.7 },
+    generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
   });
-  let r, tried = [];
+  let r = null;
+  const tried = [];
   for (const model of models) {
     try {
       r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: payload,
+        signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
       });
-    } catch {
-      return json({ ok: false, error: 'upstream_unreachable' }, 502);
-    }
-    if (r.status !== 404) break; // retired/unknown model: try the next one
+    } catch { tried.push(model); r = null; continue; }
+    if (r.ok || ![404, 429, 500, 502, 503, 504].includes(r.status)) break;   // busy, retired or erroring: try the next model
     tried.push(model);
   }
+  if (!r) return json({ ok: false, error: 'upstream_unreachable', tried }, 502);
   if (r.status === 429) return json({ ok: false, error: 'rate_limited' }, 429);
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));

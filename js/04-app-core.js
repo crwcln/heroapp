@@ -100,7 +100,7 @@
         // ================= FIREBASE SETUP =================
         let db = null, auth = null;
         let globalLocations = [];
-        let globalQuizTitle = "Global Challenge";
+        let globalQuizTitle = "The Grand Tour";
         let currentGlobalMessage = "";
         const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'map-quiz-pro-default';
         let userId = null;
@@ -325,10 +325,11 @@
             lucide.createIcons();
         }
 
-        function removeUserLoc(idx) {
-            customLocations.splice(idx, 1);
-            localStorage.setItem(QUIZZES[yearMode].custom, JSON.stringify(customLocations));
-            renderUserCustomList();
+        async function removeUserLoc(idx) {
+            const L0 = customLocations[idx]; if (!L0) return;
+            if (!(await customConfirm({ title: 'Remove location?', message: `"${L0.name}" will be removed from My Map.`, confirmText: 'Remove', danger: true }))) return;
+            await rowOut('#user-custom-list', idx); customLocations.splice(idx, 1);
+            localStorage.setItem(QUIZZES[yearMode].custom, JSON.stringify(customLocations)); renderUserCustomList(); showToast('Location removed.', 'success');
         }
 
         // ================= ADMIN LOGIC =================
@@ -347,7 +348,7 @@
                 document.getElementById('admin-panel').classList.remove('hidden');
                 input.value = '';
             } else if (ok === false) { showToast("Incorrect password.", "error"); badInput(input); }
-            else showToast("Could not reach the login server.", "error");
+            else showToast(authFailMsg(), "error");
         }
 
         async function geocodeAndAddPlace() {
@@ -385,11 +386,15 @@
             lucide.createIcons();
         }
 
-        function removeAdminLoc(idx) { globalLocations.splice(idx, 1); renderAdminList(); }
+        async function removeAdminLoc(idx) {
+            const L0 = adminLocs()[idx]; if (!L0) return;
+            if (!(await customConfirm({ title: 'Remove location?', message: `"${L0.name}" will be removed from this quiz once you deploy.`, confirmText: 'Remove', danger: true }))) return;
+            await rowOut('#custom-list', idx); adminLocs().splice(idx, 1); renderAdminList(); showToast('Location removed.', 'success');
+        }
 
         function saveGlobalQuiz() {
             if(!db || !userId) return showToast("Cannot deploy offline.", "error");
-            const newTitle = document.getElementById('admin-quiz-title').value.trim() || 'Global Challenge';
+            const newTitle = document.getElementById('admin-quiz-title').value.trim() || 'The Grand Tour';
             const newMessage = document.getElementById('admin-global-msg').value.trim();
             
             const btn = document.getElementById('save-global-btn');
@@ -493,6 +498,7 @@
 
             activeQuizData.forEach(loc => {
                 const marker = L.marker([loc.lat, loc.lng], { icon: unsolvedIcon }).addTo(map);
+                marker._loc = loc; hlBind(marker, loc);
                 if (gameMode === 'find') marker.on('click', () => findClick(marker, loc));
 
                 const popupWrap = document.createElement('div');
