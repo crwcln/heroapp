@@ -90,7 +90,7 @@
             }
         }
 
-        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        if (localStorage.getItem('theme') !== 'light') {
             document.documentElement.classList.add('dark');
             document.getElementById('theme-icon-sun').classList.remove('hidden');
         } else {
@@ -482,7 +482,7 @@
             mapIsSatellite = !mapIsSatellite;
             // Both of these are free maps that do not require an API key
             tileLayer.setUrl(mapIsSatellite 
-                ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' 
+                ? TILE_DARK 
                 : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
         }
 
@@ -491,7 +491,7 @@
             map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 8, zoomControl: false }).setView([25, 20], 2.5);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-            tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+            tileLayer = L.tileLayer(TILE_DARK, { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
 
             const unsolvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin unsolved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
             const solvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });

@@ -1,3 +1,4 @@
+const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
 // ===== MAP HIGHLIGHT + PREMIUM EXTRAS =====
 // Outlines the area behind a marker (country, continent, sea/ocean, river, region) using Natural Earth boundary data
 // loaded on demand from jsDelivr; places without a matching shape get an animated pulse ring instead.

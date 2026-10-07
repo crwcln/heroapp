@@ -90,7 +90,7 @@
             c.querySelector('#tut-next').onclick = () => { if (last) tutEnd(); else { tutI++; tutShow(); } };
         }
         function tutEnd() { localStorage.setItem('hero_tut', '1'); document.querySelectorAll('.tut-hl').forEach(e => e.classList.remove('tut-hl')); const c = document.getElementById('tut'); if (c) c.remove(); }
-        window.tutMaybe = () => { if (!localStorage.getItem('hero_tut') && consent && document.getElementById('dev-screen').classList.contains('hidden') && document.getElementById('changelog-popup').classList.contains('hidden')) tutShow(); };
+        window.tutMaybe = () => { if (!document.getElementById('intro') && !localStorage.getItem('hero_tut') && consent && document.getElementById('dev-screen').classList.contains('hidden') && document.getElementById('changelog-popup').classList.contains('hidden')) tutShow(); };
         setTimeout(tutMaybe, 5200);
 
         // ================= CUSTOM DROPDOWNS (desktop only; phones keep native pickers) =================
