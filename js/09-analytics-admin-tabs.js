@@ -59,7 +59,11 @@
 
         // ================= ADMIN ANALYTICS (live) =================
         let anPresence = [], anDays = [], anUnsubs = [], anTimer = null, anErr = '';
-        function anFail(e) { console.error(e); anErr = e.code === 'permission-denied' ? 'Permission denied. Publish the latest firestore.rules, and make sure the admin secure sign-in succeeded.' : 'Analytics failed: ' + (e.code || e.message); anRender(); }
+        async function anFail(e) {
+            console.error(e); let why = '';
+            try { const t = await auth.currentUser.getIdTokenResult(true); why = t.claims.admin ? ' Admin sign-in is fine, so publish firestore.rules (the presence and analytics blocks).' : ' You are not signed in as admin: secure sign-in failed, so fix /api/firebase-token first.'; } catch (_) { /* ignore */ }
+            anErr = (e.code === 'permission-denied' ? 'Permission denied.' : 'Analytics failed: ' + (e.code || e.message)) + why; anRender();
+        }
         const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         function startAnalyticsAdmin() {
             stopAnalyticsAdmin(); anErr = '';

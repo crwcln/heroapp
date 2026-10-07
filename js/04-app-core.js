@@ -387,9 +387,9 @@
         }
 
         async function removeAdminLoc(idx) {
-            const L0 = adminLocs()[idx]; if (!L0) return;
+            const L0 = globalLocations[idx]; if (!L0) return;
             if (!(await customConfirm({ title: 'Remove location?', message: `"${L0.name}" will be removed from this quiz once you deploy.`, confirmText: 'Remove', danger: true }))) return;
-            await rowOut('#custom-list', idx); adminLocs().splice(idx, 1); renderAdminList(); showToast('Location removed.', 'success');
+            await rowOut('#custom-list', idx); globalLocations.splice(idx, 1); renderAdminList(); showToast('Location removed.', 'success');
         }
 
         function saveGlobalQuiz() {

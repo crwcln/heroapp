@@ -82,7 +82,7 @@
             let tx = 0, ty = 0, cx = 0, cy = 0, run = false; const root = document.documentElement;
             const step = () => {
                 cx += (tx - cx) * .05; cy += (ty - cy) * .05;
-                root.style.setProperty('--mx', cx.toFixed(3)); root.style.setProperty('--my', cy.toFixed(3));
+                fxMove(cx, cy);
                 if (Math.abs(tx - cx) > .002 || Math.abs(ty - cy) > .002) requestAnimationFrame(step); else run = false;
             };
             addEventListener('mousemove', e => {

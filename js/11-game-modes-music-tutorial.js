@@ -5,7 +5,7 @@
         function recordMiss(name) { const m = getMiss(); m[name] = { n: ((m[name] && m[name].n) || 0) + 1, t: Date.now() }; localStorage.setItem(missKey(), JSON.stringify(m)); missBadge(); }
         const topMissed = () => Object.entries(getMiss()).sort((a, b) => b[1].n - a[1].n || b[1].t - a[1].t).slice(0, 12);
         function missBadge() { const n = Object.keys(getMiss()).length; document.getElementById('miss-count').textContent = n ? `(${n})` : ''; }
-        function setGameMode(m) { gameMode = m; localStorage.setItem('hero_gm', m); document.querySelectorAll('#mode-pick [data-gm]').forEach(b => b.classList.toggle('on', b.dataset.gm === m)); showToast(m === 'find' ? 'Find the region: you get a name, tap its marker.' : 'Identify: tap a marker, then name it.', 'info'); }
+        function setGameMode(m) { gameMode = m; localStorage.setItem('hero_gm', m); document.querySelectorAll('#mode-pick [data-gm]').forEach(b => b.classList.toggle('on', b.dataset.gm === m)); showToast(m === 'find' ? 'Find the Land: you get a name, tap its marker.' : 'Identify: tap a marker, then name it.', 'info'); }
         function renderReview() {
             const list = document.getElementById('review-list'), rows = topMissed(); list.innerHTML = '';
             if (!rows.length) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Nothing missed yet. Play a round and your weak spots will show up here.</p>'; return; }
@@ -71,7 +71,7 @@
         // ================= TUTORIAL =================
         const TUT = [['Welcome to Hero', 'Named for Herodotus, the "father of history". Learn the world one place at a time.', null],
             ['Pick your year', 'Switch between the 1 Year and 2 Year quizzes here. Each has its own places and leaderboard.', '#year-toggle'],
-            ['Choose how to play', 'Identify: tap a marker and name it. Find the region: you get a name and tap its marker. Review missed replays your weak spots.', '#mode-pick'],
+            ['Choose how to play', 'Identify: tap a marker and name it. Find the Land: you get a name and tap its marker. Revisit the Forgotten replays your weak spots.', '#mode-pick'],
             ['Meet Clio', 'Clio, the muse of history, answers questions and gives memory tricks.', '#sherpa-fab'],
             ['Make it yours', 'Colorways, backgrounds, fonts and music are in Settings.', '#settings-btn']];
         let tutI = 0;

@@ -1,7 +1,7 @@
 :root { --i50:250 246 242;--i100:242 232 223;--i200:229 210 191;--i300:212 180 148;--i400:190 142 95;--i500:168 105 42;--i600:143 89 36;--i700:118 74 29;--i800:92 58 23;--i900:67 42 17;--i950:42 26 10;--p50:248 243 243;--p100:238 224 225;--p200:220 193 196;--p300:198 151 156;--p400:169 99 106;--p500:140 47 57;--p600:119 40 48;--p700:98 33 40;--p800:77 26 31;--p900:56 19 23;--p950:35 12 14;--brand-300:#d4b494;--brand-500:#a8692a;--brand-600:#8f5924;--brand-700:#764a1d;--sec:#8c2f39;--bg-a:rgba(168,105,42,.16);--bg-b:rgba(140,47,57,.10);--bg-base:#f5efe4;--line:#e4dac8;--field:#fffdf8;--ink-500:#7a7165; }
 html.dark { --bg-a: rgba(168,105,42,.14); --bg-b: rgba(140,47,57,.12); --bg-base: #0d0e12; --line: rgba(214,196,170,.16); --field: rgba(24,21,18,.72); --ink-500: #a1978a; }
 html[data-theme=cairn] { --sec: #8c2f39; }
-body::before { background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='640' viewBox='0 0 640 640' fill='none' stroke='%23a8692a' stroke-opacity='.13' stroke-width='1.2'><path d='M0 80C110 20 210 150 320 80S530 20 640 80'/><path d='M0 150C120 90 200 230 320 150S520 90 640 150'/><path d='M0 220C100 170 220 290 320 220S540 160 640 220'/><path d='M0 290C130 230 190 350 320 290S510 230 640 290'/><path d='M0 360C110 310 230 420 320 360S530 300 640 360'/><path d='M0 430C120 370 200 490 320 430S520 370 640 430'/><path d='M0 500C100 450 220 560 320 500S540 440 640 500'/><path d='M0 570C130 510 190 630 320 570S510 510 640 570'/></svg>"); }
+#fx-a { background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='640' viewBox='0 0 640 640' fill='none' stroke='%23a8692a' stroke-opacity='.13' stroke-width='1.2'><path d='M0 80C110 20 210 150 320 80S530 20 640 80'/><path d='M0 150C120 90 200 230 320 150S520 90 640 150'/><path d='M0 220C100 170 220 290 320 220S540 160 640 220'/><path d='M0 290C130 230 190 350 320 290S510 230 640 290'/><path d='M0 360C110 310 230 420 320 360S530 300 640 360'/><path d='M0 430C120 370 200 490 320 430S520 370 640 430'/><path d='M0 500C100 450 220 560 320 500S540 440 640 500'/><path d='M0 570C130 510 190 630 320 570S510 510 640 570'/></svg>"); }
 
 html, body { font-family: 'Hanken Grotesk', system-ui, sans-serif; }
 h1, h2, h3, #global-quiz-title, .cm-card h3 { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; letter-spacing: -.01em; }
@@ -20,9 +20,9 @@ h1, h2, h3, #global-quiz-title, .cm-card h3 { font-family: 'Playfair Display', G
 .qtip-b { position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%) translateY(-4px); width: 250px; padding: 12px 14px; border-radius: 12px; background: rgba(16,15,13,.96); color: #f5efe4; font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; }
 .qtip:hover .qtip-b, .qtip:focus .qtip-b { opacity: 1; transform: translateX(-50%); }
 path.hl { fill-opacity: .38; stroke-width: 2; stroke-linejoin: round; pointer-events: none; animation: hlIn .6s ease-out both, hlBreath 3s ease-in-out .6s infinite; }
-path.hl-land { fill: #34d399; stroke: #10b981; } path.hl-continent { fill: #a78bfa; stroke: #7c3aed; } path.hl-water { fill: #38bdf8; stroke: #0284c7; }
+path.hl-land { fill: #34d399; stroke: #10b981; } path.hl-continent { fill: #a78bfa; stroke: #7c3aed; } path.hl-water { fill: #38bdf8; stroke: var(--brand-700); }
 path.hl-region { fill: #f59e0b; stroke: #b45309; } path.hl-empire { fill: #a855f7; stroke: #7e22ce; } path.hl-route { fill: #fb923c; stroke: #c2410c; }
-path.hl-river { fill: none; stroke: #0ea5e9; stroke-width: 4; stroke-dasharray: 14 8; animation: hlFlow 1.2s linear infinite; }
+path.hl-river { fill: none; stroke: var(--sec); stroke-width: 4; stroke-dasharray: 14 8; animation: hlFlow 1.2s linear infinite; }
 path.hl-pulse { fill-opacity: .25; animation: hlPulse 1.6s ease-out infinite; }
 @keyframes hlIn { from { fill-opacity: 0; stroke-opacity: 0; } to { fill-opacity: .38; stroke-opacity: 1; } } @keyframes hlBreath { 50% { fill-opacity: .2; } }
 @keyframes hlFlow { to { stroke-dashoffset: -22; } } @keyframes hlPulse { from { stroke-width: 2; stroke-opacity: 1; } to { stroke-width: 16; stroke-opacity: 0; } }
@@ -32,3 +32,20 @@ body.cookie-open #sherpa-fab { display: none; }
 html.in-frame *, html.in-frame *::before, html.in-frame *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html.in-frame body::before, html.in-frame body::after, html.in-frame::before { display: none !important; }
 html.in-frame .glass-panel { background: var(--field); }
+:root { --brand-rgb: 168,105,42; --sec-rgb: 140,47,57; }
+html[data-theme=dusk] { --brand-rgb: 124,58,237; --sec-rgb: 236,72,153; }
+html[data-theme=ember] { --brand-rgb: 234,88,12; --sec-rgb: 245,158,11; }
+html[data-theme=moss] { --brand-rgb: 22,163,74; --sec-rgb: 132,204,22; }
+html[data-theme=coral] { --brand-rgb: 225,29,72; --sec-rgb: 251,146,60; }
+html[data-theme=graphite] { --brand-rgb: 100,116,139; --sec-rgb: 56,189,248; }
+
+/* performance: static layers, light blur, few infinite animations */
+body::before, body::after, html::before { display: none !important; }
+#fx-a, #fx-b { position: fixed; pointer-events: none; z-index: 0; will-change: translate; }
+#fx-a { inset: -40px; background-size: 640px 640px; opacity: .9; }
+#fx-b { left: -18vmax; top: -18vmax; width: 60vmax; height: 60vmax; border-radius: 50%; background: radial-gradient(circle, var(--bg-a), transparent 62%); }
+html[data-bg=aurora] #fx-a { background-image: radial-gradient(40vmax 30vmax at 20% 30%, var(--bg-a), transparent), radial-gradient(35vmax 28vmax at 80% 60%, var(--bg-b), transparent); background-size: auto; }
+html[data-bg=grid] #fx-a { background-image: radial-gradient(rgba(122,113,101,.3) 1px, transparent 1.5px); background-size: 26px 26px; }
+html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.in-frame #fx-b { display: none; }
+.glass-panel, #top-nav { -webkit-backdrop-filter: blur(10px) !important; backdrop-filter: blur(10px) !important; }
+#home-view .grid > button > svg, #home-view .glass-panel > div:first-child::after, #sherpa-fab, #sherpa-fab::before, #global-quiz-title { animation: none !important; }

@@ -1,4 +1,4 @@
-tailwind.config = {
+module.exports = Object.assign({ content: ['./index.html', './js/*.js'] }, {
             darkMode: 'class',
             theme: {
                 extend: {
@@ -24,4 +24,4 @@ tailwind.config = {
                     }
                 }
             }
-        }
+        });

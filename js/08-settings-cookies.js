@@ -15,7 +15,7 @@
         function setPref(k, v) {
             prefs[k] = v; applyPrefs();
             if (consent === 'all') setCookie('cairn_prefs', JSON.stringify(prefs));
-            if (k !== 'cloak' && k !== 'vol') showToast(k === 'motion' ? (v === 'on' ? 'Animations on' : 'Animations off') : 'Saved', 'success');
+            if (k !== 'cloak' && k !== 'vol') showToast(k === 'motion' ? (v === 'on' ? 'Animations on' : 'Animations off') : 'So it is written', 'success');
         }
         function setConsent(v) {
             consent = v; setCookie('cairn_consent', v);

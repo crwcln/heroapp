@@ -47,5 +47,7 @@ const rowOut = (sel, idx) => new Promise(res => { const r = document.querySelect
 
 // quote of the day on the home page
 (function () { const q = quoteOfDay(); document.getElementById('qotd-t').textContent = '\u201c' + q.t + '\u201d'; document.getElementById('qotd-a').textContent = q.a; })();
-// lighter rendering inside an iframe (e.g. about:blank): no particle loop
-if (document.documentElement.classList.contains('in-frame')) { const pc = document.getElementById('particles-bg'); if (pc) pc.style.display = 'none'; }
+// background layers (real elements so moving them never restyles the page) + no particle loop
+const fxA = document.createElement('div'), fxB = document.createElement('div'); fxA.id = 'fx-a'; fxB.id = 'fx-b'; document.body.prepend(fxB, fxA);
+const fxMove = (x, y) => { fxA.style.translate = `${-x * 22}px ${-y * 22}px`; fxB.style.translate = `${x * 60}px ${y * 60}px`; };
+{ const pc = document.getElementById('particles-bg'); if (pc) pc.style.display = 'none'; }
