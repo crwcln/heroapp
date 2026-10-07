@@ -63,7 +63,8 @@
             if (c === 'sign_failed') return `The Firebase private key couldn't be read (${d.detail || 'check the chunks'}). Re-split it with the one-liner.`;
             if (c === 'unauthorized') return 'The admin session was rejected. auth.js and firebase-token.js must share the same ADMIN_PASSWORD; log in again.';
             if (c === '404') return 'Add edge-functions/api/firebase-token.js and redeploy.';
-            if (String(c).startsWith('auth/')) return `Firebase rejected the token (${c}). The service account must belong to project map-quiz-2ace3.`;
+            if (String(c).startsWith('auth/')) return `Firebase rejected the token (${c}). The service account must belong to project heroapp-cc053
+.`;
             return `Secure sign-in failed (${c}). Open /api/firebase-token in a browser to check your setup.`;
         }
         let adminLockTimer = null;
