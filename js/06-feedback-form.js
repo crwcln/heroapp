@@ -166,6 +166,7 @@
         async function fbSubmit() {
             if (fbBusy) return;
             const type = fbEl('fb-type').value, title = fbVal('fb-title'), desc = fbVal('fb-desc'), contact = fbVal('fb-contact');
+            if (fbSecret(type, title, desc)) return;
             let first = null;
             const bad = (id, msg) => { fbFieldError(id, msg); if (!first) first = id; };
             fbFieldError('fb-title'); fbFieldError('fb-desc'); fbFieldError('fb-contact');

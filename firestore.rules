@@ -49,6 +49,20 @@ service cloud.firestore {
         allow read: if isAdmin();
       }
 
+      // Banned devices: a browser may read only its own ban doc (by id); only admin can list/write
+      match /bans/{deviceId} {
+        allow get: if signedIn();
+        allow list, write: if isAdmin();
+      }
+      // Flappy Bird board
+      match /flappy/{id} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.keys().hasOnly(['name', 'score', 'userId', 'ts'])
+          && request.resource.data.userId == request.auth.uid && request.resource.data.name is string && request.resource.data.name.size() <= 15
+          && request.resource.data.score is number && request.resource.data.score >= 1 && request.resource.data.score <= 500;
+        allow delete: if isAdmin();
+      }
+
       // Feedback: visitors can only create; only admin can read, change status, or delete
       match /feedback/{docId} {
         allow create: if signedIn()

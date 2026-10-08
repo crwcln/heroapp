@@ -16,7 +16,7 @@ const INTRO_SCENES = [
 ];
 let introTimer = null;
 function introEnd() {
-    clearTimeout(introTimer); const el = document.getElementById('intro'); if (!el) return;
+    clearTimeout(introTimer); document.documentElement.classList.remove('intro-first'); const el = document.getElementById('intro'); if (!el) return;
     el.classList.add('out'); setTimeout(() => { el.remove(); if (window.tutMaybe) tutMaybe(); }, 950);
 }
 function introPlay() {
@@ -37,11 +37,25 @@ function introPlay() {
         el.querySelector('.in-cap').innerHTML = `<h2></h2><p></p>`; el.querySelector('.in-cap h2').textContent = s.h; el.querySelector('.in-cap p').textContent = s.p;
         introTimer = setTimeout(() => show(i + 1), s.d);
     };
-    setTimeout(() => { el.classList.add('film'); bar.style.transition = `width ${total}ms linear`; bar.style.width = '100%'; show(0); }, 1500);   // hold white, then reveal the night sky
+    setTimeout(() => {
+        el.classList.add('film');
+        if (SITE.introVideo) {   // your own MP4 (see js/00-site-config.js); falls back to the built-in film if it can't load
+            const v = document.createElement('video'); v.className = 'in-video'; v.src = SITE.introVideo; v.muted = true; v.autoplay = true; v.playsInline = true;
+            v.onended = introEnd; v.onerror = () => { v.remove(); snd.remove(); bar.style.transition = `width ${total}ms linear`; bar.style.width = '100%'; show(0); };
+            v.ontimeupdate = () => { if (v.duration) bar.style.width = (v.currentTime / v.duration * 100) + '%'; };
+            const snd = document.createElement('button'); snd.className = 'in-sound'; snd.textContent = 'Sound on'; snd.onclick = () => { v.muted = !v.muted; snd.textContent = v.muted ? 'Sound on' : 'Sound off'; };
+            el.append(v, snd); v.play().catch(() => {}); return;
+        }
+        bar.style.transition = `width ${total}ms linear`; bar.style.width = '100%'; show(0);
+    }, 1500);   // hold white, then reveal the night sky
 }
+document.getElementById('version-badge').textContent = 'HERO v' + SITE.version;
+document.getElementById('version-badge').textContent = 'HERO v' + SITE.version;
+{ const pw = document.getElementById('admin-password'); if (pw) pw.addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); }); }
 (function introAuto() {
     const row = [...document.querySelectorAll('#settings-view .st-row')].find(r => r.textContent.includes('Replay the tutorial'));
     if (row) row.insertAdjacentHTML('afterend', '<div class="st-row" style="margin-top:10px"><div class="font-bold text-sm">Replay the intro film</div><button class="cm-btn ghost" onclick="introPlay()">Replay</button></div>');
+    if (document.documentElement.classList.contains('intro-first')) return introPlay();   // first visit: straight in, no loader
     if (localStorage.getItem(introKey()) || matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('in-frame')) return;
     const c = document.getElementById('site-cover'), go = () => setTimeout(() => { if (document.getElementById('dev-screen').classList.contains('hidden')) introPlay(); }, 500);
     if (!c || c.classList.contains('hidden')) go();

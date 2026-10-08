@@ -49,3 +49,12 @@ html[data-bg=grid] #fx-a { background-image: radial-gradient(rgba(122,113,101,.3
 html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.in-frame #fx-b { display: none; }
 .glass-panel, #top-nav { -webkit-backdrop-filter: blur(10px) !important; backdrop-filter: blur(10px) !important; }
 #home-view .grid > button > svg, #home-view .glass-panel > div:first-child::after, #sherpa-fab, #sherpa-fab::before, #global-quiz-title { animation: none !important; }
+        /* badge logo */
+        .brand-mark .badge, .ld-logo .badge, .in-logo .badge { fill: var(--brand-600); stroke: var(--sec); stroke-width: 1.6; }
+        html.dark .brand-mark .badge, html.dark .ld-logo .badge, html.dark .in-logo .badge { fill: var(--brand-700); }
+        .brand-mark .glyph, .ld-logo .glyph, .in-logo .glyph { fill: var(--sec); }
+
+.is-mobile #version-badge { display: none; }
+
+#top-nav > div:first-child > svg.brand-mark { background: none; padding: 0; box-shadow: none; width: 40px; height: 40px; color: inherit !important; }
+#top-nav > div:first-child > svg.brand-mark .badge { filter: drop-shadow(0 4px 10px rgba(var(--sec-rgb), .25)); }

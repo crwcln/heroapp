@@ -38,6 +38,7 @@
         function sherpaToggle() { document.body.classList.toggle('sh-open'); if (document.body.classList.contains('sh-open')) setTimeout(() => document.getElementById('shi-p').focus(), 350); }
         async function sherpaSend(text) {
             text = (text || '').trim();
+            if (secretAsk(text)) return;
             if (!text || sh.busy || Date.now() - sh.last < 1000) return;
             sh.last = Date.now(); sh.msgs.push({ r: 'user', t: text.slice(0, 1000) }); sh.busy = true; shRender();
             try {

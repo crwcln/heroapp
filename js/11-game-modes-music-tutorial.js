@@ -29,8 +29,20 @@
             if (!b) { b = document.createElement('div'); b.id = 'find-banner'; document.getElementById('quiz-view').appendChild(b); }
             b.innerHTML = '<small></small><span></span>'; b.firstChild.textContent = findQueue[0].category || 'Find'; b.lastChild.textContent = findQueue[0].name;
         }
+        function shuffled(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+        { const r = document.getElementById('rand-locs'); if (r) r.checked = localStorage.getItem('hero_rand') === '1'; }
         const _sq2 = startQuiz;
         startQuiz = function (m) {
+            const rnd = document.getElementById('rand-locs');
+            if (m !== 'review' && rnd && rnd.checked && !(typeof LEGENDS !== 'undefined' && globalLocations === LEGENDS)) {   // random 10-15 places, works in all 3 game modes
+                const custom = m === 'custom', pool = custom ? customLocations : globalLocations;
+                if (pool.length > 5) {
+                    const saved = pool, picked = shuffled(pool).slice(0, Math.min(pool.length, 10 + Math.floor(Math.random() * 6)));
+                    if (custom) customLocations = picked; else globalLocations = picked;
+                    try { _sq2(m); } finally { if (custom) customLocations = saved; else globalLocations = saved; }
+                    findQueue = gameMode === 'find' ? shuffled(activeQuizData) : []; findBanner(); return;
+                }
+            }
             if (m === 'review') {
                 const names = new Set(topMissed().map(e => e[0])), list = store[yearMode].locs.filter(l => names.has(l.name));
                 if (!list.length) return showToast('No missed places yet. Play a round first!', 'info');

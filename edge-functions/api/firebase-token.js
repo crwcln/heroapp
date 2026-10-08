@@ -104,6 +104,10 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: 'unauthorized' }, 401);
   }
 
+  const saProject = (email.split('@')[1] || '').split('.')[0];
+  if (body.projectId && saProject && body.projectId !== saProject) {
+    return json({ ok: false, error: 'project_mismatch', expected: String(body.projectId), got: saProject }, 409);
+  }
   try {
     return json({ ok: true, customToken: await mintCustomToken(email, pk) });
   } catch (e) {
@@ -117,5 +121,5 @@ export function onRequestGet(context) {
   const chunks = [];
   for (let i = 1; i <= 12; i++) { const p = e[`FIREBASE_PRIVATE_KEY_${i}`]; if (!p) break; chunks.push(String(p).trim().length); }
   const keyChars = e.FIREBASE_PRIVATE_KEY ? String(e.FIREBASE_PRIVATE_KEY).length : chunks.reduce((a, b) => a + b, 0);
-  return json({ ADMIN_PASSWORD: !!e.ADMIN_PASSWORD, FIREBASE_CLIENT_EMAIL: !!e.FIREBASE_CLIENT_EMAIL, keyChunks: chunks.length, keyChars, keyLooksComplete: keyChars >= 1500 });
+  return json({ serviceAccountProject: (String(e.FIREBASE_CLIENT_EMAIL || '').split('@')[1] || '').split('.')[0] || null, ADMIN_PASSWORD: !!e.ADMIN_PASSWORD, FIREBASE_CLIENT_EMAIL: !!e.FIREBASE_CLIENT_EMAIL, keyChunks: chunks.length, keyChars, keyLooksComplete: keyChars >= 1500 });
 }

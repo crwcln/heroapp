@@ -63,8 +63,13 @@
             if (c === 'sign_failed') return `The Firebase private key couldn't be read (${d.detail || 'check the chunks'}). Re-split it with the one-liner.`;
             if (c === 'unauthorized') return 'The admin session was rejected. auth.js and firebase-token.js must share the same ADMIN_PASSWORD; log in again.';
             if (c === '404') return 'Add edge-functions/api/firebase-token.js and redeploy.';
+ HEAD
+            if (c === 'project_mismatch') return `Wrong service account: this site uses Firebase project "${d.expected}" but your FIREBASE_CLIENT_EMAIL belongs to "${d.got}". Generate a new private key in "${d.expected}" and update the FIREBASE_* env vars.`;
+            if (String(c).startsWith('auth/')) return `Firebase rejected the token (${c}). The service account must belong to project ${firebase.app().options.projectId}; regenerate its key and update the FIREBASE_* env vars.`;
+
             if (String(c).startsWith('auth/')) return `Firebase rejected the token (${c}). The service account must belong to project heroapp-cc053
 .`;
+ _0a68a4c1f48af580e2308f9340e66c7a0de13627
             return `Secure sign-in failed (${c}). Open /api/firebase-token in a browser to check your setup.`;
         }
         let adminLockTimer = null;
@@ -76,7 +81,7 @@
         }
         async function adminSecureSignIn() {
             try {
-                const r = await fetch('/api/firebase-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: adminToken }) });
+                const r = await fetch('/api/firebase-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: adminToken, projectId: firebase.app().options.projectId }) });
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok || !d.customToken) { const err = new Error(d.error || r.status); err.d = d; throw err; }
                 await auth.signInWithCustomToken(d.customToken);

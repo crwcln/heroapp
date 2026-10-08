@@ -304,7 +304,8 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
         #home-view .grid > *:nth-child(1) { animation-delay: .32s; } #home-view .grid > *:nth-child(2) { animation-delay: .40s; } #home-view .grid > *:nth-child(3) { animation-delay: .48s; }
         #home-view .grid > button > svg { animation: floaty 4.5s ease-in-out infinite; }
         #home-view .grid > button:nth-child(2) > svg { animation-delay: -2s; }
-        #global-quiz-title { background-size: 200% auto; animation: gradShift 6s ease-in-out infinite alternate; }
+        #global-quiz-title { animation: none; }
+        #tagline { display: inline-block; background: linear-gradient(90deg, var(--brand-500), var(--sec), var(--brand-500)); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; animation: gradShift 3.5s linear infinite; }
         #home-view .glass-panel > div:first-child { position: relative; overflow: hidden; }
         #home-view .glass-panel > div:first-child::after { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); animation: sheen 4s ease-in-out infinite; }
         #leaderboard-list > div, #changelog-list > div, #inbox-list > div, #cl-admin-list > div { animation: rowIn .45s cubic-bezier(.2,.8,.2,1) both; }
@@ -344,7 +345,7 @@ html[data-theme=graphite]{--i50:246 247 248;--i100:232 234 238;--i200:208 213 22
 
         .cv-wrap { text-align: center; color: var(--brand-600); }
         .cv-logo { width: 84px; height: 84px; margin: 0 auto; overflow: visible; }
-        .cv-logo rect, .cv-logo circle { transform-box: fill-box; transform-origin: center; animation: stoneIn .6s cubic-bezier(.34,1.56,.64,1) both; }
+        .cv-logo rect.badge, .cv-logo circle { transform-box: fill-box; transform-origin: center; animation: stoneIn .6s cubic-bezier(.34,1.56,.64,1) both; }
         .cv-logo rect:nth-child(1) { animation-delay: .05s; } .cv-logo rect:nth-child(2) { animation-delay: .25s; } .cv-logo rect:nth-child(3) { animation-delay: .45s; } .cv-logo circle { animation-delay: .65s; }
         @keyframes stoneIn { from { transform: translateY(-40px) scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
         .cv-name { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 28px; letter-spacing: -.02em; margin-top: 14px; }
@@ -495,4 +496,5 @@ html[data-theme=graphite]{--i50:246 247 248;--i100:232 234 238;--i200:208 213 22
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        #version-badge { position: fixed; bottom: 8px; right: 12px; z-index: 29; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--ink-500); opacity: .65; font-variant-numeric: tabular-nums; pointer-events: none; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }

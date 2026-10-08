@@ -36,8 +36,7 @@
             el.classList.remove('bad'); void el.offsetWidth; el.classList.add('bad');
             el.addEventListener('input', () => el.classList.remove('bad'), { once: true });
         }
-        document.getElementById('admin-password').addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); });
-        document.querySelectorAll('#nav-actions > button').forEach(b => { const s = b.querySelector('span'); b.dataset.tip = s ? s.textContent.trim() : 'Toggle theme'; });
+                document.querySelectorAll('#nav-actions > button').forEach(b => { const s = b.querySelector('span'); b.dataset.tip = s ? s.textContent.trim() : 'Toggle theme'; });
         const FACTS = [quoteLine()];
         (function () { const f = document.getElementById('cv-fact'); let i = Math.floor(Math.random() * FACTS.length); f.textContent = FACTS[i];
             const t = setInterval(() => { if (!document.getElementById('site-cover') || document.getElementById('site-cover').classList.contains('hidden')) return clearInterval(t); f.style.opacity = 0; setTimeout(() => { i = (i + 1) % FACTS.length; f.textContent = FACTS[i]; f.style.opacity = 1; }, 300); }, 2400); })();

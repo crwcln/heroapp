@@ -1,6 +1,14 @@
 {
   "name": "hero",
   "private": true,
-  "scripts": { "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o css/tailwind.css --minify" },
-  "devDependencies": { "tailwindcss": "^3.4.17" }
+  "version": "1.0.0",
+  "scripts": {
+    "release:patch": "node scripts/bump-version.js patch && npm run build:css",
+    "release:minor": "node scripts/bump-version.js minor && npm run build:css",
+    "release:major": "node scripts/bump-version.js major && npm run build:css",
+    "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o css/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
 }
