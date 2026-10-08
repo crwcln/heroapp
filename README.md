@@ -16,3 +16,9 @@ ADMIN_PASSWORD, DEV_PASSWORD, DEPLOY_WEBHOOK_URL, FIREBASE_CLIENT_EMAIL,
 FIREBASE_PRIVATE_KEY_1..N (private key split in <=450-char chunks), GEMINI_API_KEY, optional GEMINI_MODEL.
 
 Config checks (no secrets shown): open /api/firebase-token and /api/chat in a browser.
+
+## Firebase project checklist (after switching projects)
+Web config in `js/02-firebase-config.js` and the service account behind `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY_n` must be from the **same** Firebase project. Enable Anonymous sign-in, create Firestore, publish `firestore.rules`, add your site domain under Authentication > Settings > Authorized domains. Open `/api/firebase-token` to see which project the service account belongs to.
+
+## Intro film
+First visit: no loader, the page stays dark, then the intro plays. Put your MP4 in `media/` and set `introVideo` in `js/00-site-config.js`. Bump `intro` to show it again to everyone.

@@ -1,18 +1,6 @@
 {
   "name": "hero",
   "private": true,
-  "scripts": {
-    "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o css/tailwind.css --minify"
-  },
-  "devDependencies": {
-    "tailwindcss": "^3.4.17"
-  },
-  "dependencies": {
-    "@react-three/fiber": "^9.8.1",
-    "@remotion/google-fonts": "^4.0.534",
-    "@remotion/media-utils": "^4.0.534",
-    "@remotion/three": "^4.0.534",
-    "@remotion/transitions": "^4.0.534",
-    "three": "^0.186.1"
-  }
+  "scripts": { "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o css/tailwind.css --minify" },
+  "devDependencies": { "tailwindcss": "^3.4.17" }
 }

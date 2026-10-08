@@ -11,7 +11,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=JetBrains+Mono:wght@500;700&family=Nunito:wght@600;700;800&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-    <script src="js/00-site-config.js"></script>
     <script src="js/00-quotes.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -19,7 +18,8 @@
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
     <script src="js/02-firebase-config.js"></script>
-    <script>try{var _t=localStorage.getItem('theme');if(_t!=='light')document.documentElement.classList.add('dark');}catch(e){}</script>
+    <script src="js/00-site-config.js"></script>
+    <script>try{var _t=localStorage.getItem('theme');if(_t!=='light')document.documentElement.classList.add('dark');if(!localStorage.getItem('hero_intro_'+SITE.intro)&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&window.top===window.self){document.documentElement.classList.add('intro-first');setTimeout(function(){document.documentElement.classList.remove('intro-first')},120000);}}catch(e){}</script>
     <script>
         // Phone detection: phone user-agent / UA-Client-Hints, or a narrow viewport. Tablets and desktops keep the desktop layout.
         (function () {
@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="css/premium.css">
     <link rel="stylesheet" href="css/night.css">
     <link rel="stylesheet" href="css/intro.css">
+    <link rel="stylesheet" href="css/secret.css">
     <link rel="stylesheet" href="css/tailwind.css">
 </head>
 <body class="text-slate-800 dark:text-slate-200 transition-colors duration-300">
@@ -636,5 +637,6 @@
     <script src="js/11-game-modes-music-tutorial.js"></script>
     <script src="js/12-map-highlight.js"></script>
     <script src="js/13-intro.js"></script>
+    <script src="js/14-secret.js"></script>
 </body>
 </html>

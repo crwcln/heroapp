@@ -1,5 +1,9 @@
 import React from 'react';
 import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from 'remotion';
+import {loadFont} from '@remotion/google-fonts/Spectral';
+
+loadFont('normal', {weights: ['400', '500', '600', '700']});
+loadFont('italic', {weights: ['400', '500']});
 
 const T = {
   bg: '#0a0b1a', card: 'rgba(14,15,36,.86)', ink: '#ece9ff', muted: '#8b8ab0',
@@ -47,19 +51,44 @@ const Base = ({title, subtitle, children, tag, admin = false}: {title: string; s
     </div>
     <div style={{position: 'absolute', left: 110, right: 110, top: 350, height: 490, display: 'grid', placeItems: 'center'}}>{children}</div>
     {tag && <div style={{position: 'absolute', left: 0, right: 0, bottom: 92, textAlign: 'center', fontFamily: sans, fontSize: 18, fontWeight: 700, letterSpacing: '.14em', color: admin ? T.steel : T.amber}}>{tag}</div>}
-    <div style={{position: 'absolute', left: 0, bottom: 0, height: 5, width: `${Math.min(100, frame / 4)}%`, background: admin ? T.steel : `linear-gradient(90deg, ${T.indigo}, ${T.amber})`}} />
   </SceneFrame>;
 };
 
-const MapArt = () => <svg viewBox="0 0 860 400" style={{width: '100%', height: '100%'}}>
-  <g fill="#171a38" stroke="#68699d" strokeWidth="2">
-    <path d="M63 92 117 47 204 58 250 101 222 145 191 157 176 207 140 238 112 197 79 188 56 143Z"/><path d="m211 239 41-12 35 32-8 59-26 61-27-30-8-51Z"/>
-    <path d="m342 101 58-31 57 13 24 30-41 27-57-3-21 35-39-19Z"/><path d="m401 172 62-30 63 20 30 67-29 82-46 56-35-29-11-69-41-41Z"/>
-    <path d="m481 83 72-36 105 20 49 49-21 53-65 8-38 43-53-32-53-22Z"/><path d="m646 268 53-19 42 34-15 44-58 4-33-27Z"/>
-  </g>
-  <path d="M425 183 Q445 230 457 276 T486 345" fill="none" stroke={T.blue} strokeWidth="5" strokeDasharray="12 12"/>
-  <g><circle cx="444" cy="225" r="15" fill={T.blue}/><circle cx="218" cy="146" r="13" fill={T.green}/><circle cx="549" cy="148" r="16" fill={T.violet}/><circle cx="480" cy="293" r="14" fill={T.purple}/></g>
-</svg>;
+const MapArt = ({frame = 0, highlighted = false}: {frame?: number; highlighted?: boolean}) => {
+  const ease = Easing.bezier(0.22, 1, 0.36, 1);
+  const water = highlighted ? interpolate(frame, [12, 42], [0, 0.82], {extrapolateRight: 'clamp', easing: ease}) : 0;
+  const land = highlighted ? interpolate(frame, [48, 82], [0, 0.78], {extrapolateRight: 'clamp', easing: ease}) : 0;
+  const continent = highlighted ? interpolate(frame, [90, 126], [0, 0.68], {extrapolateRight: 'clamp', easing: ease}) : 0;
+  const empire = highlighted ? interpolate(frame, [138, 174], [0, 0.76], {extrapolateRight: 'clamp', easing: ease}) : 0;
+  const riverDraw = highlighted ? interpolate(frame, [180, 245], [1, 0], {extrapolateRight: 'clamp', easing: ease}) : 0;
+  const pin = (at: number) => highlighted ? interpolate(frame, [at, at + 22], [0, 1], {extrapolateRight: 'clamp', easing: ease}) : 1;
+  return <svg viewBox="0 0 860 400" preserveAspectRatio="xMidYMid meet" style={{width: '100%', height: '100%', overflow: 'visible'}}>
+    <defs><radialGradient id="map-halo"><stop offset="0" stopColor="#6b69e6" stopOpacity=".2"/><stop offset="1" stopColor="#6b69e6" stopOpacity="0"/></radialGradient></defs>
+    <ellipse cx="437" cy="205" rx="355" ry="188" fill="url(#map-halo)"/>
+    <g fill="#171a38" stroke="#68699d" strokeWidth="1.7" strokeLinejoin="round">
+      <path d="M58 119 C62 96 76 76 102 65 C122 53 142 47 164 53 C181 54 192 65 210 69 C229 74 247 86 260 101 C273 114 263 127 247 132 C235 139 222 134 211 147 C199 160 187 168 171 175 C158 188 163 205 149 220 C137 233 124 218 119 202 C112 184 98 181 86 165 C72 149 63 136 58 119 Z"/>
+      <path d="M184 204 C199 199 211 207 220 219 C228 231 236 235 247 244 C261 254 270 270 267 289 C265 315 252 343 240 365 C233 380 223 370 219 356 C212 338 211 317 203 298 C195 279 185 267 180 248 C176 232 176 214 184 204 Z"/>
+      <path d="M321 116 C331 100 345 90 359 86 C373 77 385 68 402 70 C414 70 422 80 434 81 C447 82 456 91 460 102 C465 113 454 121 442 125 C428 130 414 124 401 132 C392 137 388 150 378 155 C368 160 359 151 352 145 C341 139 327 138 321 128 C318 124 318 120 321 116 Z"/>
+      <path d="M384 165 C397 153 411 151 425 157 C437 162 450 156 463 159 C477 160 488 169 499 177 C514 187 522 201 528 218 C536 239 526 257 519 273 C512 291 504 309 492 325 C482 340 471 358 457 369 C445 378 434 365 430 351 C424 334 426 318 417 303 C408 287 393 276 388 257 C382 240 380 221 371 203 C365 188 372 174 384 165 Z"/>
+      <path d="M449 106 C451 89 466 77 483 71 C498 63 515 58 533 63 C551 55 568 58 585 64 C601 66 618 70 634 78 C651 84 667 90 681 103 C696 115 700 127 690 139 C680 152 662 148 649 153 C635 159 624 168 610 178 C598 189 585 194 571 185 C558 177 549 166 534 162 C520 158 506 158 494 148 C481 140 470 135 459 124 C452 119 447 113 449 106 Z"/>
+      <path d="M649 261 C660 249 676 244 691 248 C707 249 720 257 731 268 C741 280 740 295 730 305 C719 315 702 312 689 318 C675 322 660 316 651 306 C643 295 640 276 649 261 Z"/>
+      <path d="M708 215 C717 210 727 212 734 219 C740 226 738 235 731 240 C724 244 715 241 710 235 C706 229 704 220 708 215 Z"/>
+    </g>
+    {highlighted && <g strokeLinejoin="round">
+      <path d="M376 148 C396 138 420 141 437 148 C453 153 464 163 476 173 C458 181 439 180 421 177 C402 174 388 166 376 148 Z" fill={T.blue} opacity={water}/>
+      <path d="M423 181 C435 178 447 183 456 193 C466 204 469 220 465 235 C460 250 452 261 446 277 C439 262 437 246 433 232 C429 217 419 199 423 181 Z" fill={T.green} opacity={land}/>
+      <path d="M398 169 C415 158 434 161 450 171 C466 181 474 199 471 216 C460 207 447 204 435 204 C421 204 407 194 398 169 Z" fill={T.violet} opacity={continent}/>
+      <path d="M465 157 C480 148 500 150 513 160 C524 168 530 182 528 195 C518 204 504 205 490 200 C477 195 465 179 465 157 Z" fill={T.purple} opacity={empire}/>
+    </g>}
+    <path d="M438 182 C442 198 445 213 447 229 C450 246 456 260 460 276 C464 292 469 309 478 324" fill="none" stroke={T.blue} strokeWidth="4" strokeLinecap="round" strokeDasharray="9 10" strokeDashoffset={riverDraw * 180} opacity={highlighted ? Math.max(0.28, riverDraw) : 0.72}/>
+    <g filter="drop-shadow(0 0 9px rgba(255,255,255,.3))">
+      <g opacity={pin(18)}><circle cx="444" cy="225" r="18" fill="none" stroke={T.blue} strokeWidth="2" opacity=".6"/><circle cx="444" cy="225" r="8" fill={T.blue}/></g>
+      <g opacity={pin(56)}><circle cx="218" cy="146" r="17" fill="none" stroke={T.green} strokeWidth="2" opacity=".6"/><circle cx="218" cy="146" r="8" fill={T.green}/></g>
+      <g opacity={pin(98)}><circle cx="549" cy="148" r="19" fill="none" stroke={T.violet} strokeWidth="2" opacity=".6"/><circle cx="549" cy="148" r="9" fill={T.violet}/></g>
+      <g opacity={pin(146)}><circle cx="480" cy="193" r="19" fill="none" stroke={T.purple} strokeWidth="2" opacity=".6"/><circle cx="480" cy="193" r="9" fill={T.purple}/></g>
+    </g>
+  </svg>;
+};
 
 export const IntroScene = () => {
   const f = useCurrentFrame();
@@ -71,7 +100,7 @@ export const IntroScene = () => {
       <div style={{fontFamily: serif, color: T.amber, fontSize: 36, marginTop: 14}}>Meet Hero.</div>
     </div>
     <AbsoluteFill style={{background: '#fff', opacity: interpolate(f, [95, 100, 102, 108], [0, 1, 1, 0], {extrapolateRight: 'clamp', extrapolateLeft: 'clamp'}), pointerEvents: 'none'}} />
-  </SceneFrame>;
+  </AbsoluteFill></SceneFrame>;
 };
 
 export const HomeScene = () => <Base title="Geography with history attached." subtitle="Pick your tour: one year, or two." tag="QUOTE OF THE DAY  ·  YEAR TOGGLE">
@@ -85,10 +114,12 @@ export const HomeScene = () => <Base title="Geography with history attached." su
 
 export const MapScene = () => {
   const f = useCurrentFrame();
+  const camera = interpolate(f, [0, 70, 243], [-2.5, 0.5, 1.5], {extrapolateRight: 'clamp', easing: Easing.bezier(0.22, 1, 0.36, 1)});
+  const scale = interpolate(f, [0, 243], [0.985, 1.015], {extrapolateRight: 'clamp', easing: Easing.bezier(0.22, 1, 0.36, 1)});
   return <Base title="Name the Place." subtitle="Countries, seas, rivers—even empires light up." tag="DARK MAP  ·  REGION HIGHLIGHTS  ·  NEW">
-    <Panel style={{width: 1020, height: 440, padding: 24, transform: `perspective(1400px) rotateX(5deg) rotateY(${Math.sin(f / 24) * 3}deg)`}}>
+    <Panel style={{width: 1020, height: 440, padding: 24, transform: `perspective(1400px) rotateX(3deg) rotateY(${camera}deg) scale(${scale})`}}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px 20px'}}><b style={{fontFamily: serif, fontSize: 29}}>Explore the ancient world</b><Tag>NAME THE PLACE</Tag></div>
-      <div style={{height: 345}}><MapArt/></div>
+      <div style={{height: 345}}><MapArt frame={f} highlighted/></div>
     </Panel>
   </Base>;
 };
@@ -98,7 +129,7 @@ export const FindScene = () => {
   return <Base title="Find the Land." subtitle="Hero names a place. You find it." tag="BEAT THE CLOCK  ·  NEW GAME MODE">
     <Panel style={{width: 950, height: 430, padding: 26}}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><b style={{fontFamily: serif, fontSize: 31}}>Find: The Nile</b><Tag>00:{Math.max(0, 30 - Math.floor(f / 5)).toString().padStart(2, '0')}</Tag></div>
-      <div style={{height: 315, marginTop: 12}}><MapArt/></div>
+      <div style={{height: 315, marginTop: 12}}><MapArt frame={f}/></div>
       <div style={{position: 'absolute', bottom: 16, left: 28, width: `${tick}%`, height: 5, background: T.green, borderRadius: 9}} />
     </Panel>
   </Base>;
@@ -140,5 +171,5 @@ export const FinaleScene = () => {
   const f = useCurrentFrame();
   const spin = interpolate(f, [0, 80, 140, 179], [-12, 9, 0, 0], {extrapolateRight: 'clamp'});
   const flash = interpolate(f, [0, 4, 10], [0, 0.9, 0], {extrapolateRight: 'clamp', extrapolateLeft: 'clamp'});
-  return <SceneFrame frame={f}><Header/><AbsoluteFill style={{display: 'grid', placeItems: 'center'}}><div style={{transform: `rotateY(${spin}deg)`, textAlign: 'center'}}><div style={{display: 'flex', justifyContent: 'center'}}><Logo size={88}/></div><div style={{fontFamily: serif, fontSize: 88, fontWeight: 700, marginTop: 38}}>All new. All Hero.</div><div style={{fontFamily: serif, color: T.amber, fontSize: 34, marginTop: 16}}>Studying, redefined.</div><div style={{fontSize: 20, color: T.muted, letterSpacing: '.12em', marginTop: 20}}>WHERE HISTORY HAPPENED</div></div></AbsoluteFill><AbsoluteFill style={{background: '#fff', opacity: flash, pointerEvents: 'none'}}/></SceneFrame>;
+  return <SceneFrame frame={f}><Header/><AbsoluteFill style={{display: 'grid', placeItems: 'center'}}><div style={{transform: `rotateY(${spin}deg)`, textAlign: 'center'}}><div style={{display: 'flex', justifyContent: 'center'}}><Logo size={88}/></div><div style={{fontFamily: serif, fontSize: 88, fontWeight: 700, marginTop: 38}}>All new. All Hero.</div><div style={{fontFamily: serif, color: T.amber, fontSize: 34, marginTop: 16}}>Studying, redefined.</div><div style={{fontSize: 20, color: T.muted, letterSpacing: '.12em', marginTop: 20}}>WHERE HISTORY HAPPENED</div><div style={{fontFamily: sans, fontSize: 23, color: T.ink, marginTop: 32}}>heroapp.edgeone.dev</div></div></AbsoluteFill><AbsoluteFill style={{background: '#fff', opacity: flash, pointerEvents: 'none'}}/></SceneFrame>;
 };

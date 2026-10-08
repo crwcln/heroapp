@@ -28,3 +28,9 @@
 .in-bub { max-width: 82%; padding: 14px 18px; border-radius: 20px; font-size: 20px; line-height: 1.45; animation: fadeUp .6s ease both; } .in-bub.me { justify-self: end; background: #6b69e6; color: #fff; border-bottom-right-radius: 6px; } .in-bub.ai { background: rgba(18,19,43,.9); border: 1px solid rgba(160,158,230,.3); border-bottom-left-radius: 6px; }
 .in-themes { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; max-width: 520px; } .in-themes i { width: 74px; height: 74px; border-radius: 50%; animation: inPop .6s cubic-bezier(.34,1.56,.64,1) both; box-shadow: 0 0 40px -6px currentColor; }
 .in-go { padding: 20px 56px; border-radius: 18px; font-size: 30px; font-weight: 700; color: #05060f; background: linear-gradient(135deg, #ffb454, #ffd9a0); animation: fadeUp .8s ease both, inBeat 1.6s ease-in-out 1s infinite; box-shadow: 0 0 60px -8px #ffb454; } @keyframes inBeat { 50% { transform: scale(1.06); } }
+
+/* first visit: the page stays dark and invisible until the intro takes over (no flash, no loader) */
+html.intro-first, html.intro-first body { background: #0a0b1a !important; }
+html.intro-first body > *:not(#intro) { visibility: hidden !important; }
+.in-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 2; }
+.in-sound { position: absolute; top: 18px; left: 18px; z-index: 7; padding: 9px 18px; border-radius: 999px; border: 1px solid rgba(236,233,255,.35); background: rgba(5,6,15,.55); color: #ece9ff; font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
