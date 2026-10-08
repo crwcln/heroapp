@@ -120,7 +120,7 @@ Do **not** show: the tab-cloak feature, SMS login codes (not built), a custom ca
 Codex cannot create audio. **You supply:**
 - `public/vo/01.mp3` to `public/vo/10.mp3`: one file per scene from the VO column (generate with a TTS tool or record). Energetic read for 1 to 8 and 10; slow, low, serious for 9.
 - `public/music/upbeat.mp3`: royalty-free, about 124 BPM, bright electronic/orchestral hybrid.
-- `public/music/serious.mp3`: about 80 BPM, sparse, minor, low pulse.
+- `public/music/serious.mp3`: same music, lowered volume
 Sync cuts to the beat: with 124 BPM there is a beat every ~14.5 frames; have hard cuts and flashes land on beats where possible. Duck the music by 6 dB under VO.
 
 ```tsx
