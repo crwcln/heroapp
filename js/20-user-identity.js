@@ -2,10 +2,29 @@
 (function () {
     const pendingEmailKey = 'hero_pending_email', pendingNameKey = 'hero_pending_name';
     let accountDialog, accountStatus, accountForm, authGate, gateStatus, gateForm, authMode = 'register';
-    let profileSub = null, profileScores = [], knownProfiles = [], profileWriteKey = '', profileWriteTask = null, profileSavedKey = '';
+    let profileSub = null, profileScores = [], knownProfiles = [], profileWriteKey = '', profileWriteTask = null, profileSavedKey = '', profilePhoto = '', profilePhotoUid = '';
     const dataCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data');
     const currentMember = () => auth && auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.emailVerified && auth.currentUser.uid !== 'admin' ? auth.currentUser : null;
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    function updatePhotoPreview(box, photo) {
+        if (!box) return;
+        box.replaceChildren();
+        if (photo) { const image = document.createElement('img'); image.src = photo; image.alt = 'Profile picture preview'; box.appendChild(image); }
+        else { const initial = document.createElement('span'); initial.textContent = (currentMember()?.displayName || 'H').trim().charAt(0).toUpperCase(); box.appendChild(initial); }
+    }
+    async function compressProfilePhoto(file) {
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('Choose a PNG, JPG, or WebP image.');
+        if (file.size > 12 * 1024 * 1024) throw new Error('Choose an image smaller than 12 MB.');
+        const bitmap = await createImageBitmap(file), side = Math.min(bitmap.width, bitmap.height), cropX = (bitmap.width - side) / 2, cropY = (bitmap.height - side) / 2;
+        const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+        canvas.getContext('2d').drawImage(bitmap, cropX, cropY, side, side, 0, 0, 256, 256); bitmap.close();
+        let quality = .78, blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        while (blob && blob.size > 100000 && quality > .42) { quality -= .1; blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality)); }
+        if (!blob || blob.size > 100000) throw new Error('That image could not be compressed enough. Try a simpler photo.');
+        const bytes = new Uint8Array(await blob.arrayBuffer()); let binary = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return 'data:image/jpeg;base64,' + btoa(binary);
+    }
 
     function setStatus(msg, error = false) {
         if (!accountStatus) return;
@@ -32,22 +51,46 @@
         const user = currentMember();
         if (user) {
             const name = localStorage.getItem('hero_member_name') || user.displayName || '';
-            accountForm.innerHTML = '<p class="text-sm text-slate-600 dark:text-slate-300">Signed in and verified as <strong id="hero-member-email"></strong>.</p><label class="block text-xs font-bold uppercase tracking-wide mt-4 mb-1">Display name</label><input id="hero-member-name" maxlength="40" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="name"><button id="hero-member-save" class="cm-btn go w-full mt-3">Save profile</button><div class="border-t mt-5 pt-4"><h3 class="font-bold text-sm">Password</h3><p class="text-xs text-slate-500 mt-1">Set or change the password for this account.</p><input id="hero-member-password" type="password" minlength="8" autocomplete="new-password" class="w-full p-3 mt-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="New password (at least 8 characters)"><button id="hero-member-password-save" class="cm-btn ghost w-full mt-2">Update password</button></div><button id="hero-member-signout" class="cm-btn ghost w-full mt-4">Sign out</button>';
+            accountForm.innerHTML = '<p class="text-sm text-slate-600 dark:text-slate-300">Signed in and verified as <strong id="hero-member-email"></strong>.</p><div class="member-photo-edit"><div class="member-photo-edit-preview" id="hero-member-photo-preview"></div><div><strong>Profile picture</strong><p>Choose a square photo. It is resized before being saved to your profile.</p><label class="cm-btn ghost" for="hero-member-photo-file">Choose photo</label><input id="hero-member-photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden><button id="hero-member-photo-remove" type="button" class="hero-auth-link">Remove photo</button></div></div><label class="block text-xs font-bold uppercase tracking-wide mt-4 mb-1">Display name</label><input id="hero-member-name" maxlength="40" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="name"><button id="hero-member-save" class="cm-btn go w-full mt-3">Save profile</button><div class="border-t mt-5 pt-4"><h3 class="font-bold text-sm">Password</h3><p class="text-xs text-slate-500 mt-1">To change it, confirm your current password first. If you forgot it, request a reset email.</p><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1" for="hero-member-old-password">Current password</label><input id="hero-member-old-password" type="password" autocomplete="current-password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="Current password"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1" for="hero-member-password">New password</label><input id="hero-member-password" type="password" minlength="8" autocomplete="new-password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="At least 8 characters"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1" for="hero-member-password-confirm">Confirm new password</label><input id="hero-member-password-confirm" type="password" minlength="8" autocomplete="new-password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="Type the new password again"><button id="hero-member-password-save" class="cm-btn ghost w-full mt-2">Update password</button><button id="hero-member-password-reset" type="button" class="hero-auth-link mt-2">I forgot my current password — email me a reset link</button></div><button id="hero-member-signout" class="cm-btn ghost w-full mt-4">Sign out</button>';
             accountForm.querySelector('#hero-member-email').textContent = user.email || '';
             accountForm.querySelector('#hero-member-name').value = name;
+            updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), profilePhotoUid === user.uid ? profilePhoto : '');
+            accountForm.querySelector('#hero-member-photo-file').onchange = async event => {
+                const file = event.target.files && event.target.files[0]; event.target.value = '';
+                if (!file) return;
+                try {
+                    const photo = await compressProfilePhoto(file);
+                    const saved = await saveProfile(user, accountForm.querySelector('#hero-member-name').value.trim(), photo);
+                    if (saved) { profilePhoto = photo; profilePhotoUid = user.uid; updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), photo); await refreshMemberProfile(user); }
+                } catch (error) { setStatus(error.message || 'Could not save that profile photo.', true); }
+            };
+            accountForm.querySelector('#hero-member-photo-remove').onclick = async () => {
+                const saved = await saveProfile(user, accountForm.querySelector('#hero-member-name').value.trim(), '');
+                if (saved) { profilePhoto = ''; profilePhotoUid = user.uid; updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), ''); await refreshMemberProfile(user); }
+            };
             accountForm.querySelector('#hero-member-save').onclick = async () => {
                 const nextName = accountForm.querySelector('#hero-member-name').value.trim();
                 if (nextName.length < 2 || nextName.length > 40) return setStatus('Name must be 2 to 40 characters.', true);
                 localStorage.setItem('hero_member_name', nextName);
-                await saveProfile(user, nextName);
+                await saveProfile(user, nextName, profilePhotoUid === user.uid ? profilePhoto : undefined);
                 await refreshMemberProfile(user);
             };
             accountForm.querySelector('#hero-member-password-save').onclick = async () => {
+                const oldPassword = accountForm.querySelector('#hero-member-old-password').value;
                 const password = accountForm.querySelector('#hero-member-password').value;
+                const confirmation = accountForm.querySelector('#hero-member-password-confirm').value;
+                if (!oldPassword) return setStatus('Enter your current password first.', true);
                 if (password.length < 8) return setStatus('Use a password with at least 8 characters.', true);
-                try { await user.updatePassword(password); accountForm.querySelector('#hero-member-password').value = ''; setStatus('Password updated.'); }
-                catch (e) { setStatus(e.code === 'auth/requires-recent-login' ? 'Sign out and sign back in, then try changing your password again.' : `Could not update password (${e.code || 'error'}).`, true); }
+                if (password !== confirmation) return setStatus('The new passwords do not match.', true);
+                try {
+                    const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPassword);
+                    await user.reauthenticateWithCredential(credential);
+                    await user.updatePassword(password);
+                    accountForm.querySelector('#hero-member-old-password').value = ''; accountForm.querySelector('#hero-member-password').value = ''; accountForm.querySelector('#hero-member-password-confirm').value = '';
+                    setStatus('Password updated.');
+                } catch (e) { setStatus(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'That current password is not correct.' : `Could not update password (${e.code || 'error'}).`, true); }
             };
+            accountForm.querySelector('#hero-member-password-reset').onclick = () => sendProfilePasswordReset(user);
             accountForm.querySelector('#hero-member-signout').onclick = signOut;
             setAccountLabel(name || 'Profile');
         } else {
@@ -108,8 +151,58 @@
     async function resetPassword() {
         const email = gateForm.querySelector('#gate-email').value.trim().toLowerCase();
         if (!email) return setGateStatus('Enter your email address first.');
-        try { await auth.sendPasswordResetEmail(email); setGateStatus('If an account exists for that address, a password reset email is on its way.'); }
+        try { await auth.sendPasswordResetEmail(email, { url: location.origin + location.pathname }); setGateStatus('If an account exists for that address, a password reset email is on its way.'); }
         catch (e) { setGateStatus(`Could not send reset email (${e.code || 'error'}).`, true); }
+    }
+    async function sendProfilePasswordReset(user) {
+        if (!user || !user.email) return setStatus('This account has no email address for password recovery.', true);
+        try { await auth.sendPasswordResetEmail(user.email, { url: location.origin + location.pathname }); setStatus(`A password reset link was sent to ${user.email}. Check your inbox.`); }
+        catch (e) { setStatus(`Could not send reset email (${e.code || 'error'}).`, true); }
+    }
+    async function handlePasswordResetAction() {
+        const params = new URLSearchParams(location.search);
+        const mode = params.get('mode');
+        if (!['resetPassword', 'verifyEmail'].includes(mode) || !params.get('oobCode') || !auth) return;
+        const code = params.get('oobCode');
+        let page = document.getElementById('hero-password-reset-page');
+        if (!page) { page = document.createElement('div'); page.id = 'hero-password-reset-page'; page.className = 'hero-password-reset-page'; page.innerHTML = '<main class="hero-password-reset-card"><div class="hero-auth-mark">H</div><p class="hero-auth-eyebrow">HERO ACCOUNT</p><h1 id="hero-action-title">Choose a new password</h1><p id="hero-reset-description" class="hero-password-reset-copy">Verifying your secure link…</p><form id="hero-reset-form" class="hidden" novalidate><label class="hero-auth-label" for="hero-reset-password">New password</label><input id="hero-reset-password" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><label class="hero-auth-label" for="hero-reset-confirm">Confirm password</label><input id="hero-reset-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again"><button class="hero-auth-submit" type="submit">Save new password</button></form><p id="hero-reset-status" class="hero-auth-status" role="status"></p><button id="hero-reset-home" class="hero-auth-secondary" type="button">Return to sign in</button></main>'; document.body.appendChild(page); }
+        const description = page.querySelector('#hero-reset-description'), form = page.querySelector('#hero-reset-form'), status = page.querySelector('#hero-reset-status');
+        page.querySelector('#hero-action-title').textContent = mode === 'verifyEmail' ? 'Verify your email' : 'Choose a new password';
+        page.classList.add('is-open');
+        if (mode === 'verifyEmail') {
+            form.classList.add('hidden');
+            try {
+                await auth.applyActionCode(code);
+                if (auth.currentUser) { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); await window.__heroApplyAuthUser(auth.currentUser); }
+                description.textContent = auth.currentUser?.email ? `${auth.currentUser.email} is verified. You can return to Hero now.` : 'Your email is verified. Return to Hero and sign in to continue.';
+                status.textContent = 'Email verified successfully.';
+            } catch (error) { description.textContent = 'This verification link is invalid or has expired. Sign in and request a fresh verification email.'; status.textContent = ''; }
+        } else {
+        let email = '';
+        try {
+            email = await auth.verifyPasswordResetCode(code);
+            description.textContent = `Reset password for ${email}. Choose a new password below.`;
+            form.classList.remove('hidden');
+            form.onsubmit = async event => {
+                event.preventDefault();
+                const next = form.querySelector('#hero-reset-password').value, confirm = form.querySelector('#hero-reset-confirm').value;
+                if (next.length < 8) { status.textContent = 'Use at least 8 characters.'; return; }
+                if (next !== confirm) { status.textContent = 'Those passwords do not match.'; return; }
+                const button = form.querySelector('button'); button.disabled = true; status.textContent = 'Saving your new password…';
+                try {
+                    await auth.confirmPasswordReset(code, next);
+                    if (auth.currentUser) await auth.signOut();
+                    history.replaceState({}, document.title, location.pathname);
+                    description.textContent = 'Your password has been changed. Sign in with the new password to continue.';
+                    form.classList.add('hidden'); status.textContent = 'Password updated successfully.'; button.disabled = false;
+                } catch (error) { status.textContent = error.code === 'auth/weak-password' ? 'Choose a stronger password.' : `Could not update password (${error.code || 'error'}). Request a fresh reset link and try again.`; button.disabled = false; }
+            };
+        } catch (error) {
+            description.textContent = 'This reset link is invalid or has expired. Return to sign in and request a fresh link.';
+            status.textContent = '';
+        }
+        }
+        page.querySelector('#hero-reset-home').onclick = () => { page.classList.remove('is-open'); history.replaceState({}, document.title, location.pathname); if (gateForm) { authMode = 'login'; renderGateForm(); setGateStatus('Sign in with your password, or request another reset link.'); } };
     }
     async function resendVerification() {
         if (!auth.currentUser) return;
@@ -158,22 +251,24 @@
         finally { window.__heroEmailLinkPending = false; }
     }
 
-    async function saveProfile(user, name) {
+    async function saveProfile(user, name, photoURL) {
         if (!db || !user || user.isAnonymous || !user.emailVerified || !user.email) return false;
         if (!name || name.length < 2 || name.length > 40) { setStatus('Add a name to finish your profile.', true); return false; }
-        const key = `${user.uid}|${user.email}|${name}`;
+        const photoKey = photoURL === undefined ? 'keep-photo' : photoURL;
+        const key = `${user.uid}|${user.email}|${name}|${photoKey}`;
         if (key === profileSavedKey) return true;
         if (profileWriteTask && key === profileWriteKey) return profileWriteTask;
         profileWriteKey = key;
         profileWriteTask = (async () => {
             try {
+                await user.getIdToken(true);
                 const stamp = firebase.firestore.FieldValue.serverTimestamp();
-                await Promise.all([
-                    dataCol().collection('members').doc(user.uid).set({ userId: user.uid, name, email: user.email, updatedAt: stamp }, { merge: true }),
-                    dataCol().collection('deviceProfiles').doc(deviceId()).set({ deviceId: deviceId(), userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
-                ]);
+                const member = { userId: user.uid, name, email: user.email, updatedAt: stamp };
+                if (photoURL !== undefined) member.photoURL = photoURL;
+                await dataCol().collection('members').doc(user.uid).set(member, { merge: true });
+                await dataCol().collection('deviceProfiles').doc(deviceId()).set({ deviceId: deviceId(), userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
                 profileSavedKey = key; window.dispatchEvent(new Event('hero-profiles-updated')); setStatus('Profile saved.'); return true;
-            } catch (e) { setStatus(`Profile could not be saved (${e.code || 'error'}). Deploy the updated Firestore rules and retry.`, true); return false; }
+            } catch (e) { setStatus(e.code === 'permission-denied' ? 'Firestore denied the profile write. Deploy the updated Firestore rules, then sign out and back in before retrying.' : `Profile could not be saved (${e.code || 'error'}).`, true); return false; }
             finally { profileWriteTask = null; }
         })();
         return profileWriteTask;
@@ -199,7 +294,13 @@
         const box = document.getElementById('member-profile-content');
         if (!box || !user || user.isAnonymous) return;
         try {
-            const boards = await Promise.all(['leaderboard', 'leaderboardTwoYear', 'flappy'].map(name => dataCol().collection(name).where('userId', '==', user.uid).get()));
+            const [boards, memberDoc] = await Promise.all([
+                Promise.all(['leaderboard', 'leaderboardTwoYear', 'flappy'].map(name => dataCol().collection(name).where('userId', '==', user.uid).get())),
+                dataCol().collection('members').doc(user.uid).get()
+            ]);
+            profilePhoto = memberDoc.exists && typeof memberDoc.data().photoURL === 'string' ? memberDoc.data().photoURL : '';
+            profilePhotoUid = user.uid;
+            updatePhotoPreview(accountForm?.querySelector('#hero-member-photo-preview'), profilePhoto);
             profileScores = boards.slice(0, 2).flatMap((snap, i) => snap.docs.map(doc => ({ ...doc.data(), tour: i ? '2 Year' : '1 Year' })));
             profileScores.push(...boards[2].docs.map(doc => ({ ...doc.data(), tour: 'Flappy Bird', flappy: true })));
             const quizScores = profileScores.filter(row => !row.flappy);
@@ -216,7 +317,9 @@
             const role = roleName(isAdmin, total);
             box.replaceChildren();
             const heading = document.createElement('div'); heading.className = 'member-profile-heading';
-            const avatar = document.createElement('div'); avatar.className = 'member-avatar'; avatar.textContent = (user.displayName || localStorage.getItem('hero_member_name') || user.email || 'H').trim().charAt(0).toUpperCase();
+            const avatar = document.createElement('div'); avatar.className = 'member-avatar';
+            if (profilePhoto) { const image = document.createElement('img'); image.className = 'member-avatar-photo'; image.src = profilePhoto; image.alt = 'Profile picture'; avatar.appendChild(image); }
+            else avatar.textContent = (user.displayName || localStorage.getItem('hero_member_name') || user.email || 'H').trim().charAt(0).toUpperCase();
             const identity = document.createElement('div'); identity.innerHTML = '<h2></h2><p></p><span class="member-role"></span>';
             identity.querySelector('h2').textContent = localStorage.getItem('hero_member_name') || user.displayName || 'Hero player';
             identity.querySelector('p').textContent = user.email || '';
@@ -300,8 +403,10 @@
 
     window.addEventListener('DOMContentLoaded', makeUI);
     window.addEventListener('hero-firebase-ready', finishEmailLink);
+    window.addEventListener('hero-firebase-ready', handlePasswordResetAction);
     window.addEventListener('hero-auth-state', async e => {
         const { user, authorized, isAdmin } = e.detail || {};
+        if (!user || profilePhotoUid && profilePhotoUid !== user.uid) { profilePhoto = ''; profilePhotoUid = ''; }
         renderAccount();
         if (authorized) {
             authGate?.classList.add('hidden');
