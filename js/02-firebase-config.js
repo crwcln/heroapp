@@ -1,10 +1,10 @@
 window.__firebase_config = JSON.stringify({
-            apiKey: "AIzaSyCkCUFv7D5xNCKOp3bIXcgOZsEdaG8OAhQ",
-            authDomain: "map-quiz-2ace3.firebaseapp.com",
-            projectId: "map-quiz-2ace3",
-            storageBucket: "map-quiz-2ace3.firebasestorage.app",
-            messagingSenderId: "1029601259661",
-            appId: "1:1029601259661:web:f368231ab42e2a173332c4",
-            measurementId: "G-NY4E3ZMSY9"
+            apiKey: "AIzaSyDipGTQS0jPqKBJnFgEZ4tBA3QGC2Xotx8",
+            authDomain: "heroapp-cc053.firebaseapp.com",
+            projectId: "heroapp-cc053",
+            storageBucket: "heroapp-cc053.firebasestorage.app",
+            messagingSenderId: "991029808496",
+            appId: "1:991029808496:web:18c0b97c8dec11f7db13b5",
+            measurementId: "G-YN3V70ZNE2"
         });
         // app id now comes from js/00-site-config.js
