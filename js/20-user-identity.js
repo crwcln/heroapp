@@ -260,15 +260,23 @@
         if (profileWriteTask && key === profileWriteKey) return profileWriteTask;
         profileWriteKey = key;
         profileWriteTask = (async () => {
+            let writeTarget = `artifacts/${appId}/public/data/members/${user.uid}`;
             try {
                 await user.getIdToken(true);
                 const stamp = firebase.firestore.FieldValue.serverTimestamp();
                 const member = { userId: user.uid, name, email: user.email, updatedAt: stamp };
                 if (photoURL !== undefined) member.photoURL = photoURL;
                 await dataCol().collection('members').doc(user.uid).set(member, { merge: true });
+                writeTarget = `artifacts/${appId}/public/data/deviceProfiles/${deviceId()}`;
                 await dataCol().collection('deviceProfiles').doc(deviceId()).set({ deviceId: deviceId(), userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
                 profileSavedKey = key; window.dispatchEvent(new Event('hero-profiles-updated')); setStatus('Profile saved.'); return true;
-            } catch (e) { setStatus(e.code === 'permission-denied' ? 'Firestore denied the profile write. Deploy the updated Firestore rules, then sign out and back in before retrying.' : `Profile could not be saved (${e.code || 'error'}).`, true); return false; }
+            } catch (e) {
+                console.error('Profile save failed:', { code: e.code, projectId: firebase.app().options.projectId, path: writeTarget, error: e });
+                setStatus(e.code === 'permission-denied'
+                    ? `Firestore denied ${writeTarget} in project ${firebase.app().options.projectId}. Publish this repo's firestore.rules to that exact Firebase project, then sign out and back in.`
+                    : `Profile could not be saved (${e.code || 'error'}).`, true);
+                return false;
+            }
             finally { profileWriteTask = null; }
         })();
         return profileWriteTask;

@@ -320,27 +320,41 @@
         async function triggerRedeploy() {
             if (deployBusy) return;
             if (!adminToken) return showToast('Log in to the admin panel again first (your session token is missing or expired).', 'error');
-            if (!(await customConfirm({ title: 'Redeploy site?', message: 'This rebuilds and publishes the latest version to your live site.', confirmText: 'Redeploy' }))) return;
+            const message = document.getElementById('deploy-message')?.value.trim() || '';
+            if (!message || message.length > 120 || /[\r\n]/.test(message)) return showToast('Enter a commit message (up to 120 characters).', 'error');
+            if (!(await customConfirm({ title: 'Create commit and redeploy?', message: `A new commit will be created on the deployment branch. Commit message: ${message}`, confirmText: 'Create and redeploy' }))) return;
             deployBusy = true;
-            setDeployBtn('spin', 'Triggering...');
+            setDeployBtn('spin', 'Creating commit...');
             let cooldown = false;
             try {
                 const r = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: adminToken })
+                    body: JSON.stringify({ token: adminToken, message })
                 });
+                const d = await r.json().catch(() => ({}));
                 if (r.status === 401) {
                     lockAdmin();
                     showToast('Admin session expired. Please log in again.', 'error');
                 } else if (r.ok) {
                     localStorage.setItem('mq_lastDeploy', String(Date.now()));
                     renderDeployLast();
-                    showToast('Redeployment triggered!', 'success');
+                    showToast(`Commit created (${d.commitSha?.slice(0, 7) || 'new'}). Redeployment triggered.`, 'success');
                     cooldown = true;
                 } else {
-                    const d = await r.json().catch(() => ({}));
-                    showToast({ not_configured: 'Deploy is not configured: set DEPLOY_WEBHOOK_URL and ADMIN_PASSWORD in EdgeOne env vars, then redeploy.', hook_failed: `EdgeOne rejected the webhook (HTTP ${d.status}). Regenerate it and update DEPLOY_WEBHOOK_URL.`, hook_unreachable: 'Could not reach the EdgeOne webhook.' }[d.error] || (r.status === 404 ? 'Add edge-functions/api/deploy.js and redeploy.' : `Deploy failed (${r.status}).`), 'error');
+                    if (d.commitCreated) {
+                        localStorage.setItem('mq_lastDeploy', String(Date.now())); renderDeployLast();
+                        showToast(`Commit ${d.commitSha?.slice(0, 7) || 'created'}, but the build could not be triggered. Check DEPLOY_WEBHOOK_URL in EdgeOne.`, 'error');
+                    } else {
+                        showToast({
+                            not_configured: 'Add GITHUB_TOKEN in EdgeOne environment variables, then redeploy this site.',
+                            invalid_deploy_config: 'Check GITHUB_REPOSITORY and DEPLOY_BRANCH in EdgeOne environment variables.',
+                            invalid_message: 'Enter a commit message up to 120 characters.',
+                            github_failed: d.status === 403 ? 'GitHub denied the commit. Check that GITHUB_TOKEN can write repository contents and that the branch allows updates.' : `Could not create the GitHub commit (HTTP ${d.status || r.status}). Check GITHUB_TOKEN, GITHUB_REPOSITORY, and DEPLOY_BRANCH.`,
+                            hook_failed: `The commit was created, but EdgeOne rejected the build trigger (HTTP ${d.status}). Check DEPLOY_WEBHOOK_URL.`,
+                            hook_unreachable: 'The commit was created, but the EdgeOne build trigger could not be reached.'
+                        }[d.error] || (r.status === 404 ? 'Add edge-functions/api/deploy.js and redeploy.' : `Deploy failed (${r.status}).`), 'error');
+                    }
                 }
             } catch (err) {
                 console.error('deploy error', err); showToast('Could not reach /api/deploy. Make sure edge-functions/api/deploy.js is deployed, then redeploy the site.', 'error');

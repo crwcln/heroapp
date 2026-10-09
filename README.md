@@ -12,8 +12,11 @@ Static site (EdgeOne Pages) + Firebase + EdgeOne Edge Functions.
     firestore.rules     paste into Firebase console -> Firestore -> Rules
 
 ## EdgeOne environment variables (each value max 500 bytes)
-ADMIN_PASSWORD, DEV_PASSWORD, DEPLOY_WEBHOOK_URL, FIREBASE_CLIENT_EMAIL,
+ADMIN_PASSWORD, DEV_PASSWORD, DEPLOY_WEBHOOK_URL, GITHUB_TOKEN, GITHUB_REPOSITORY,
+optional DEPLOY_BRANCH (defaults to `main`), FIREBASE_CLIENT_EMAIL,
 FIREBASE_PRIVATE_KEY_1..N (private key split in <=450-char chunks), GEMINI_API_KEY, optional GEMINI_MODEL.
+
+The Steward deployment action creates an empty Git commit on `DEPLOY_BRANCH` with the message entered in the admin panel, then calls `DEPLOY_WEBHOOK_URL`. Set `GITHUB_REPOSITORY` to `owner/repo` and `GITHUB_TOKEN` to a GitHub token that can read and write repository contents. Keep the token in EdgeOne environment variables; never place it in frontend code. The branch must allow the token to push commits.
 
 Config checks (no secrets shown): open /api/firebase-token and /api/chat in a browser.
 
