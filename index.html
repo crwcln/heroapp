@@ -88,20 +88,26 @@
             <button aria-label="Clio" title="Clio" onclick="switchView('ai-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
                 <i data-lucide="bot" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Clio</span>
             </button>
-            <button aria-label="Private Charts" title="Private Charts" onclick="switchView('custom-loc-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
-                <i data-lucide="compass" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Private Charts</span>
+            <button aria-label="Settings" title="Settings" onclick="switchView('settings-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="sliders-horizontal" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Settings</span>
             </button>
-            <button aria-label="Announcements" title="Announcements" onclick="switchView('announcements-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
-                <i data-lucide="megaphone" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Announcements</span>
+            <button aria-label="Send a Word" title="Send a Word" onclick="switchView('feedback-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="circle-help" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Send a Word</span>
+            </button>
+            <button aria-label="Stewards" title="Stewards" onclick="switchView('editor-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="key-round" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Stewards</span>
+            </button>
+            <button aria-label="Personal Practice" title="Personal Practice" onclick="startQuiz('custom')" class="flex items-center gap-2 text-sm font-semibold hover:text-emerald-600 dark:hover:text-emerald-400 transition group">
+                <i data-lucide="compass" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Personal Practice</span>
             </button>
           </div>
           <details id="nav-more" class="nav-more">
             <summary aria-label="More navigation" title="More"><i data-lucide="ellipsis" aria-hidden="true"></i><span class="hidden sm:inline">More</span></summary>
             <div class="nav-more-menu" role="menu">
-              <button role="menuitem" id="settings-btn" onclick="switchView('settings-view');document.getElementById('nav-more').open=false"><i data-lucide="sliders-horizontal"></i><span>Settings and Customs</span></button>
+              <button role="menuitem" onclick="switchView('custom-loc-view');document.getElementById('nav-more').open=false"><i data-lucide="map"></i><span>Private Charts</span></button>
+              <button role="menuitem" onclick="switchView('announcements-view');document.getElementById('nav-more').open=false"><i data-lucide="megaphone"></i><span>Announcements</span></button>
+              <button role="menuitem" onclick="switchView('changelog-view');document.getElementById('nav-more').open=false"><i data-lucide="scroll"></i><span>The Chronicle</span></button>
               <button role="menuitem" onclick="switchView('about-view');document.getElementById('nav-more').open=false"><i data-lucide="info"></i><span>About</span></button>
-              <button role="menuitem" onclick="switchView('feedback-view');document.getElementById('nav-more').open=false"><i data-lucide="circle-help"></i><span>Send a Word</span></button>
-              <button role="menuitem" onclick="switchView('editor-view');document.getElementById('nav-more').open=false"><i data-lucide="key-round"></i><span>Stewards</span></button>
               <button role="menuitem" onclick="openInAboutBlank();document.getElementById('nav-more').open=false"><i data-lucide="external-link"></i><span>Open Blank</span></button>
             </div>
           </details>
