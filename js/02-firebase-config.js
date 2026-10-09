@@ -6,5 +6,4 @@ window.__firebase_config = JSON.stringify({
             messagingSenderId: "991029808496",
             appId: "1:991029808496:web:18c0b97c8dec11f7db13b5",
             measurementId: "G-YN3V70ZNE2"
-        });
-        // app id now comes from js/00-site-config.js
+        }); 
