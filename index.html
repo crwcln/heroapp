@@ -19,6 +19,7 @@
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
     <script src="js/02-firebase-config.js"></script>
     <script src="js/00-site-config.js"></script>
+    <script src="js/21-runtime-bugs.js"></script>
     <script>try{var _t=localStorage.getItem('theme');if(_t!=='light')document.documentElement.classList.add('dark');if(!localStorage.getItem('hero_intro_'+SITE.intro)&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&window.top===window.self){document.documentElement.classList.add('intro-first');setTimeout(function(){document.documentElement.classList.remove('intro-first')},120000);}}catch(e){}</script>
     <script>
         // Phone detection: phone user-agent / UA-Client-Hints, or a narrow viewport. Tablets and desktops keep the desktop layout.
@@ -651,7 +652,7 @@
         </div>
     </div>
     <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" alt=""></div>
-    <div id="cookie-banner" class="glass-panel"><p class="text-sm font-semibold text-slate-700 dark:text-slate-200">We keep small cookies to remember your colors, script, tab title and last visit.</p>
+    <div id="cookie-banner" class="glass-panel"><p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Small cookies remember your preferences and last visit. Accept enables basic analytics and automatic browser error reports. If you sign in, stewards can associate reports with your verified account. Essential only disables analytics and error reports.</p>
         <div class="flex gap-2 mt-3"><button class="cm-btn go" onclick="setConsent('all')">Accept</button><button class="cm-btn ghost" onclick="setConsent('essential')">Essential only</button></div></div>
     <button id="sherpa-fab" aria-label="Ask Clio" onclick="sherpaToggle()"><i data-lucide="bot"></i><span class="fab-tip">Ask Clio</span></button>
     <div id="sherpa-panel" class="glass-panel"></div>
@@ -674,7 +675,6 @@
     <script src="js/17-features.js"></script>
     <script src="js/18-bulk-select.js"></script>
     <script src="js/19-announcements.js"></script>
-    <script src="js/18-bulk-select.js"></script>
-    <script src="js/19-announcements.js"></script>
+    <script src="js/20-user-identity.js"></script>
 </body>
 </html>

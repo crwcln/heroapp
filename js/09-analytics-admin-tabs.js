@@ -1,7 +1,8 @@
 // ================= ANALYTICS COLLECTION (anonymous: device class, page, mode) =================
         const anBase = () => db.collection('artifacts').doc(appId).collection('public').doc('data');
-        const anOK = () => consent !== 'essential';
+        const anOK = () => consent === 'all';
         const anDay = () => new Date().toISOString().slice(0, 10);
+        let anBeatTimer = null, anVisibility = null;
         function devInfo() {
             const ua = navigator.userAgent, touch = navigator.maxTouchPoints > 1;
             const tablet = /iPad|Tablet/i.test(ua) || (/Macintosh/.test(ua) && touch) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
@@ -22,18 +23,21 @@
             anBase().collection('presence').doc(userId).set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp(), device: i.device, os: i.os, browser: i.browser, view: fbCurView, mode: yearMode, theme: prefs.theme, vw: innerWidth, vh: innerHeight }).catch(() => {});
         }
         function startAnalytics() {
-            if (!anOK()) return;
+            if (!anOK() || anBeatTimer) return;
             if (!sessionStorage.getItem('mq_an')) { sessionStorage.setItem('mq_an', '1'); const i = devInfo(); track(['sessions', 'd_' + i.device, 'o_' + i.os, 'b_' + i.browser]); }
-            beat(); setInterval(beat, 60000);
-            document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
+            beat(); anBeatTimer = setInterval(beat, 60000);
+            anVisibility = () => { if (!document.hidden) beat(); };
+            document.addEventListener('visibilitychange', anVisibility);
         }
+        function stopAnalytics() { clearInterval(anBeatTimer); anBeatTimer = null; if (anVisibility) document.removeEventListener('visibilitychange', anVisibility); anVisibility = null; }
+        window.addEventListener('hero-consent-change', e => { if (e.detail && e.detail.consent === 'all') startAnalytics(); else stopAnalytics(); });
         const _sq = startQuiz;
         startQuiz = function (m) { _sq(m); if (activeQuizData && activeQuizData.length) track(['started', 'm_' + yearMode]); };
         const _eq = endQuizEarly;
         endQuizEarly = function () { const full = activeQuizData && solvedCount === activeQuizData.length; _eq(); track([full ? 'completed' : 'quit']); };
 
         // ================= ADMIN TABS =================
-        const ATABS = [['quiz', 'Quiz', 'map-pin'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['analytics', 'Analytics', 'bar-chart-3'], ['site', 'Site', 'sliders-horizontal']];
+        const ATABS = [['quiz', 'Quiz', 'map-pin'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['site', 'Site', 'sliders-horizontal']];
         function initAdminTabs() {
             const panel = document.getElementById('admin-panel');
             Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site' })
@@ -55,6 +59,7 @@
             document.querySelectorAll('#admin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
             panel.querySelectorAll('[data-atab]').forEach(c => c.classList.toggle('atab-off', c.dataset.atab !== t));
             if (t === 'analytics') anRender();
+            if (t === 'bugs' && window.renderRuntimeBugs) window.renderRuntimeBugs();
         }
 
         // ================= ADMIN ANALYTICS (live) =================

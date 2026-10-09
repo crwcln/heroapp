@@ -20,6 +20,7 @@
         function setConsent(v) {
             consent = v; setCookie('cairn_consent', v);
             if (v === 'all') { setCookie('cairn_prefs', JSON.stringify(prefs)); setCookie('cairn_last', Date.now()); }
+            window.dispatchEvent(new CustomEvent('hero-consent-change', { detail: { consent: v } }));
             document.getElementById('cookie-banner').classList.remove('show'); document.body.classList.remove('cookie-open'); setTimeout(() => window.tutMaybe && tutMaybe(), 700);
         }
         applyPrefs();

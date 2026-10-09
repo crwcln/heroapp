@@ -41,6 +41,43 @@ service cloud.firestore {
         allow read: if isAdmin();
         allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
       }
+
+      // A verified user may link a name/email to the random id stored by this browser.
+      // Only stewards can list these mappings; the owner can create or update this browser's record.
+      match /deviceProfiles/{deviceId} {
+        allow create, update: if signedIn()
+          && request.auth.token.email_verified == true
+          && request.resource.data.keys().hasOnly(['deviceId', 'userId', 'name', 'email', 'updatedAt'])
+          && request.resource.data.deviceId == deviceId
+          && deviceId.matches('d_[A-Za-z0-9-]{12}')
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2
+          && request.resource.data.name.size() <= 40;
+        allow read: if isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // Browser-captured uncaught exceptions and unhandled promise rejections.
+      match /runtimeBugs/{bugId} {
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['type', 'message', 'stack', 'source', 'line', 'column', 'fingerprint', 'page', 'userId', 'deviceId', 'appVersion', 'status', 'createdAt'])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.deviceId.matches('d_[A-Za-z0-9-]{12}')
+          && request.resource.data.type in ['exception', 'rejection']
+          && request.resource.data.message is string && request.resource.data.message.size() <= 500
+          && request.resource.data.stack is string && request.resource.data.stack.size() <= 1800
+          && request.resource.data.source is string && request.resource.data.source.size() <= 300
+          && request.resource.data.page is string && request.resource.data.page.size() <= 200
+          && request.resource.data.appVersion is string && request.resource.data.appVersion.size() <= 30
+          && request.resource.data.status == 'new';
+        allow read, delete: if isAdmin();
+        allow update: if isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt'])
+          && request.resource.data.status in ['new', 'resolved'];
+      }
+
       match /analytics/{dayId} {
         allow create, update: if signedIn()
           && request.resource.data.keys().hasOnly(['day', 'sessions', 'started', 'completed', 'quit', 'm_default', 'm_twoyear',

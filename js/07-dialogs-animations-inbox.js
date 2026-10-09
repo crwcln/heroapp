@@ -81,6 +81,7 @@
                 if (!r.ok || !d.customToken) { const err = new Error(d.error || r.status); err.d = d; throw err; }
                 await auth.signInWithCustomToken(d.customToken);
                 startInbox(); startAnalyticsAdmin();
+                window.dispatchEvent(new Event('hero-admin-authenticated'));
             } catch (e) {
                 console.error('Secure sign-in failed:', e);
                 document.getElementById('inbox-sub').innerText = 'Secure sign-in failed';
@@ -95,6 +96,7 @@
             document.getElementById('admin-panel').classList.add('hidden');
             document.getElementById('admin-lock').classList.remove('hidden');
             if (wasAdmin) { try { await auth.signInAnonymously(); } catch (e) { /* ignore */ } }
+            window.dispatchEvent(new Event('hero-admin-locked'));
             if (msg) showToast(msg, wasAdmin ? 'info' : 'error');
         }
 

@@ -113,15 +113,19 @@
                     auth = firebase.auth();
                     db = firebase.firestore();
 
-                    await auth.signInAnonymously();
+                    if (!auth.currentUser || auth.currentUser.uid === 'admin') await auth.signInAnonymously();
+                    window.dispatchEvent(new Event('hero-firebase-ready'));
 
                     auth.onAuthStateChanged(user => {
                         if (user) {
-                            const _firstAuth = !userId; userId = user.uid; if (!_firstAuth) return;
-                            loadGlobalSettings();
-                            loadLeaderboard();
-                            loadChangelog(); loadSiteMode(); loadVisits(); countVisit(); startAnalytics();
+                            const _firstAuth = !userId; userId = user.uid;
+                            if (_firstAuth) {
+                                loadGlobalSettings();
+                                loadLeaderboard();
+                                loadChangelog(); loadSiteMode(); loadVisits(); countVisit(); startAnalytics();
+                            }
                         }
+                        window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user } }));
                     });
                 } catch (e) {
                     console.error("Firebase init failed:", e);
