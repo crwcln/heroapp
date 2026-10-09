@@ -29,4 +29,5 @@ See [`CONFIG.md`](CONFIG.md) for the full environment variable list, including t
 ## Version and CSS
 
 - `npm run release:patch`, `npm run release:minor`, or `npm run release:major` updates the site and package version.
+- Run `npm run setup:git-hooks` once per clone. VS Code commits then get a `v<version>:` prefix from `SITE.version` in `js/00-site-config.js`; any message you type is kept after the prefix.
 - `npm run build:css` rebuilds `css/tailwind.css` from `tailwind.input.css` and `tailwind.config.js`.

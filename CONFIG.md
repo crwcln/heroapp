@@ -53,3 +53,4 @@ The Steward redeploy action creates an empty Git commit with the message entered
 - `edge-functions/api/` contains server-side EdgeOne endpoints. Secrets are read from `context.env` here.
 - `firestore.rules` defines database permissions and must be published to the active Firebase project.
 - `scripts/bump-version.js` and `npm run release:patch|minor|major` update the site and package versions.
+- Run `npm run setup:git-hooks` once per clone to prefix VS Code/Git commit subjects with the version in `js/00-site-config.js`.
