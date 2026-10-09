@@ -4,7 +4,7 @@
 // one Firebase project never see each other's data.
 const SITE = {
   id: 'hero-2026',        // change when duplicating this repo; namespaces ALL Firestore data
-  name: 'Hero', version: '1.0.9', intro: 1, introVideo: '',
+  name: 'Hero', version: '1.1.0', intro: 1, introVideo: '',
   tagline: 'STUDYING, REDEFINED.',
   // Flip a feature off here instead of deleting code (js/17-features.js applies these).
   features: { clio: true, music: true, tutorial: true, cookies: true, secrets: true, flappyBird: true, randomLocations: true },

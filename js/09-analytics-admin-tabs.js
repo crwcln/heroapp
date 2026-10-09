@@ -42,7 +42,7 @@
         endQuizEarly = function () { const full = activeQuizData && solvedCount === activeQuizData.length; _eq(); track([full ? 'completed' : 'quit']); };
 
         // ================= ADMIN TABS =================
-        const ATABS = [['quiz', 'Quiz', 'map-pin'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['site', 'Site', 'sliders-horizontal']];
+        const ATABS = [['quiz', 'Quiz', 'map-pin'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['global', 'Global', 'megaphone'], ['site', 'Site', 'sliders-horizontal']];
         function initAdminTabs() {
             const panel = document.getElementById('admin-panel');
             Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site' })
@@ -51,6 +51,10 @@
             an.dataset.atab = 'analytics'; an.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
             an.innerHTML = '<div id="an-kpis" class="an-grid"></div><div class="an-box"><h4>Sessions, last 14 days</h4><div id="an-chart" class="an-chart"></div></div><div id="an-split" class="an-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div><div class="an-box"><h4>Live sessions</h4><div id="an-live" class="an-scroll"></div></div>';
             panel.appendChild(an);
+            const global = document.createElement('section');
+            global.dataset.atab = 'global'; global.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
+            global.innerHTML = '<div><h3 class="text-lg font-bold">Global announcements</h3><p class="text-sm text-slate-500">Send a message to everyone using this site. It appears on the Announcements page and as the site-wide notice.</p></div><input id="ann-title" maxlength="100" placeholder="Announcement title" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 dark:text-white"><textarea id="ann-body" maxlength="3000" rows="5" placeholder="Write your announcement" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 dark:text-white"></textarea><input id="ann-tags" maxlength="120" placeholder="Tags, separated by commas (optional)" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 dark:text-white"><button onclick="postAnnouncement()" class="cm-btn go"><i data-lucide="send"></i> Post globally</button><div><h4 class="font-bold mb-2">Recent announcements</h4><div id="ann-admin-list" class="space-y-2 max-h-72 overflow-y-auto"></div></div>';
+            panel.appendChild(global);
             const nav = document.createElement('div');
             nav.id = 'admin-tabs';
             nav.innerHTML = ATABS.map(([k, l, i]) => `<button data-t="${k}" onclick="setAdminTab('${k}')"><i data-lucide="${i}"></i><span>${l}</span><b id="atb-${k}" class="hidden"></b></button>`).join('');
@@ -64,6 +68,7 @@
             document.querySelectorAll('#admin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
             panel.querySelectorAll('[data-atab]').forEach(c => c.classList.toggle('atab-off', c.dataset.atab !== t));
             if (t === 'analytics') anRender();
+            if (t === 'global' && window.startAnnouncements) startAnnouncements();
             if (t === 'bugs' && window.renderRuntimeBugs) window.renderRuntimeBugs();
         }
 

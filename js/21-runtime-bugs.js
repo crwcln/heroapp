@@ -89,8 +89,6 @@
             } else {
                 const reopen = document.createElement('button'); reopen.className = 'cm-btn ghost'; reopen.textContent = 'Reopen'; reopen.onclick = () => setBugStatus(b._id, 'new'); actions.appendChild(reopen);
             }
-            if (b.deviceId) { const ban = document.createElement('button'); ban.className = 'cm-btn ghost'; ban.textContent = 'Ban browser'; ban.onclick = () => banDevice(b.deviceId, 'Browser banned by steward'); actions.appendChild(ban); }
-            if (p.userId) { const banAccount = document.createElement('button'); banAccount.className = 'cm-btn ghost'; banAccount.textContent = 'Ban account'; banAccount.onclick = () => banDevice('u_' + p.userId, 'Account banned by steward'); actions.appendChild(banAccount); }
             heading.append(details, actions); card.appendChild(heading);
             if (b.stack) { const disclosure = document.createElement('details'); disclosure.className = 'mt-3'; const summary = document.createElement('summary'); summary.className = 'cursor-pointer text-xs text-indigo-600'; summary.textContent = 'Stack trace'; const pre = document.createElement('pre'); pre.className = 'text-[10px] whitespace-pre-wrap break-all bg-slate-50 dark:bg-slate-900 rounded-lg p-3 mt-2'; pre.textContent = b.stack; disclosure.append(summary, pre); card.appendChild(disclosure); }
             box.appendChild(card);

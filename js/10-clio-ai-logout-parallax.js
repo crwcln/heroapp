@@ -1,5 +1,5 @@
 // ================= SHERPA (Gemini via /api/chat) =================
-        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), busy: false, last: 0 };
+        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0 };
         const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
         const shFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^\s*[-*] /gm, '\u2022 ').replace(/\n/g, '<br>');
         function shUI(k, full) {
@@ -7,17 +7,26 @@
                 <button class="sh-ib" title="New chat" onclick="shClear()"><i data-lucide="rotate-ccw"></i></button>
                 ${full ? '' : '<button class="sh-ib" title="Open full page" onclick="switchView(\'ai-view\')"><i data-lucide="maximize-2"></i></button><button class="sh-ib" title="Close" onclick="sherpaToggle()"><i data-lucide="x"></i></button>'}</div>
                 <div class="sh-msgs" id="shm-${k}"></div>
-                <div class="sh-in"><textarea id="shi-${k}" rows="1" maxlength="1000" placeholder="Ask about any place, region or route..."></textarea><button class="sh-send" id="shs-${k}" aria-label="Send"><i data-lucide="send"></i></button></div>`;
+                <div class="sh-preview" id="shprev-${k}" aria-live="polite"></div>
+                <div class="sh-in"><input id="shfile-${k}" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><button class="sh-ib sh-attach" type="button" id="shattach-${k}" aria-label="Attach images to send to Clio's AI" title="Images are sent to Clio's AI provider for analysis"><i data-lucide="paperclip"></i></button><textarea id="shi-${k}" rows="1" maxlength="1000" placeholder="Ask Clio or drop an image..."></textarea><button class="sh-send" id="shs-${k}" aria-label="Send"><i data-lucide="send"></i></button></div>`;
         }
         ['p', 'v'].forEach(k => {
             document.getElementById(k === 'p' ? 'sherpa-panel' : 'ai-shell').innerHTML = shUI(k, k === 'v');
         });
         lucide.createIcons();
         ['p', 'v'].forEach(k => {
-            const ta = document.getElementById('shi-' + k), go = () => { const v = ta.value; ta.value = ''; ta.style.height = 'auto'; sherpaSend(v); };
+            const ta = document.getElementById('shi-' + k), fileInput = document.getElementById('shfile-' + k), go = () => { const v = ta.value; ta.value = ''; ta.style.height = 'auto'; sherpaSend(v); };
             ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } });
             ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; });
             document.getElementById('shs-' + k).onclick = go;
+            document.getElementById('shattach-' + k).onclick = () => fileInput.click();
+            fileInput.addEventListener('change', async () => { await shQueueFiles(fileInput.files); fileInput.value = ''; });
+            const msgBox = document.getElementById('shm-' + k);
+            const dropZone = msgBox.parentElement;
+            dropZone.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); msgBox.classList.add('sh-drop-active'); } });
+            dropZone.addEventListener('dragleave', e => { if (!dropZone.contains(e.relatedTarget)) msgBox.classList.remove('sh-drop-active'); });
+            dropZone.addEventListener('drop', async e => { if (e.dataTransfer.files.length) e.preventDefault(); msgBox.classList.remove('sh-drop-active'); if ([...(e.dataTransfer.files || [])].some(f => f.type.startsWith('image/'))) await shQueueFiles(e.dataTransfer.files); });
+            ta.addEventListener('paste', async e => { const files = [...(e.clipboardData && e.clipboardData.files || [])]; if (files.some(f => f.type.startsWith('image/'))) { e.preventDefault(); await shQueueFiles(files); } });
         });
         function shRender() {
             ['p', 'v'].forEach(k => {
@@ -27,23 +36,48 @@
                     box.querySelectorAll('.sh-chip').forEach(b => { b.onclick = () => sherpaSend(b.textContent); });
                     lucide.createIcons();
                 }
-                sh.msgs.forEach(m => { const d = document.createElement('div'); d.className = 'sh-msg ' + (m.r === 'user' ? 'me' : 'bot') + (m.err ? ' err' : ''); d.innerHTML = shFmt(m.t); box.appendChild(d); });
+                sh.msgs.forEach(m => { const d = document.createElement('div'); d.className = 'sh-msg ' + (m.r === 'user' ? 'me' : 'bot') + (m.err ? ' err' : ''); d.innerHTML = shFmt(m.t); (m.images || []).forEach(img => { const el = document.createElement('img'); el.src = img.url; el.alt = 'Image attached to message'; el.className = 'sh-message-image'; d.appendChild(el); }); box.appendChild(d); });
                 if (sh.busy) { const d = document.createElement('div'); d.className = 'sh-msg bot'; d.innerHTML = '<span class="sh-dots"><i></i><i></i><i></i></span>'; box.appendChild(d); }
                 box.scrollTop = box.scrollHeight;
                 document.getElementById('shs-' + k).disabled = sh.busy;
+                const previews = document.getElementById('shprev-' + k); previews.innerHTML = '';
+                sh.pendingImages.forEach((img, i) => { const wrap = document.createElement('span'); wrap.className = 'sh-preview-item'; const im = document.createElement('img'); im.src = img.url; im.alt = 'Image ready to send'; const rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '×'; rm.setAttribute('aria-label', 'Remove image'); rm.onclick = () => { sh.pendingImages.splice(i, 1); shRender(); }; wrap.append(im, rm); previews.appendChild(wrap); });
             });
-            sessionStorage.setItem('sh_msgs', JSON.stringify(sh.msgs.slice(-30)));
+            sessionStorage.setItem('sh_msgs', JSON.stringify(sh.msgs.slice(-30).map(m => ({ r: m.r, t: m.t, err: !!m.err }))));
         }
-        function shClear() { sh.msgs = []; shRender(); }
+        async function shQueueFiles(files) {
+            const picked = [...(files || [])].filter(f => f.type.startsWith('image/'));
+            const slots = Math.max(0, 2 - sh.pendingImages.length);
+            for (const file of picked.slice(0, slots)) {
+                try { sh.pendingImages.push(await shCompressImage(file)); }
+                catch (_) { showToast('That image could not be read. Try a PNG, JPG, or WebP file.', 'error'); }
+            }
+            if (picked.length > slots) showToast('Clio accepts up to two images per message.', 'error');
+            shRender();
+        }
+        async function shCompressImage(file) {
+            if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('unsupported image');
+            if (file.size > 15 * 1024 * 1024) throw new Error('too large');
+            const bitmap = await createImageBitmap(file), scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .82));
+            if (!blob) throw new Error('image conversion failed');
+            const bytes = new Uint8Array(await blob.arrayBuffer()); let binary = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+            const data = btoa(binary); return { mimeType: 'image/jpeg', data, url: 'data:image/jpeg;base64,' + data };
+        }
+        function shClear() { sh.msgs = []; sh.pendingImages = []; shRender(); }
         function sherpaToggle() { document.body.classList.toggle('sh-open'); if (document.body.classList.contains('sh-open')) setTimeout(() => document.getElementById('shi-p').focus(), 350); }
         async function sherpaSend(text) {
             text = (text || '').trim();
             if (secretAsk(text)) return;
-            if (!text || sh.busy || Date.now() - sh.last < 1000) return;
-            sh.last = Date.now(); sh.msgs.push({ r: 'user', t: text.slice(0, 1000) }); sh.busy = true; shRender();
+            const images = sh.pendingImages.splice(0);
+            if ((!text && !images.length) || sh.busy || Date.now() - sh.last < 1000) { sh.pendingImages.unshift(...images); return; }
+            sh.last = Date.now(); sh.msgs.push({ r: 'user', t: text.slice(0, 1000) || 'Please describe this image in a geography or history learning context.', images }); sh.busy = true; shRender();
             try {
                 const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t })), ctx: (window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}` }) });
+                    body: JSON.stringify({ messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: (window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}` }) });
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok) { const err = new Error(d.error || r.status); err.d = d; throw err; }
                 sh.msgs.push({ r: 'model', t: d.reply });

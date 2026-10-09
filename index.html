@@ -81,33 +81,26 @@
             <button id="yr-btn-twoyear" onclick="setYearMode('twoyear')" class="relative z-10 w-14 sm:w-20 py-1.5 rounded-full text-center transition-colors duration-300">2 Year</button>
         </div>
         <div id="nav-actions" class="flex items-center gap-2 sm:gap-6">
+          <div class="nav-primary-links">
             <button onclick="switchView('leaderboard-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
                 <i data-lucide="award" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Hall of Heroes</span>
-            </button>
-            <button onclick="switchView('custom-loc-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-emerald-600 dark:hover:text-emerald-400 transition group">
-                <i data-lucide="compass" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Private Charts</span>
             </button>
             <button onclick="switchView('ai-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
                 <i data-lucide="bot" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Clio</span>
             </button>
-            <button id="settings-btn" onclick="switchView('settings-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
-                <i data-lucide="sliders-horizontal" class="w-4 h-4 group-hover:rotate-90 transition-transform duration-500"></i> <span class="hidden sm:inline">Customs</span>
-            </button>
-            <button onclick="switchView('announcements-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
-                <i data-lucide="megaphone" class="w-4 h-4"></i> <span class="hidden sm:inline">Announcements</span>
-            </button>
-            <button onclick="switchView('about-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
-                <i data-lucide="info" class="w-4 h-4"></i> <span class="hidden sm:inline">About</span>
-            </button>
-            <button onclick="switchView('feedback-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
-                <i data-lucide="circle-help" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Send a Word</span>
-            </button>
-            <button onclick="switchView('editor-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-rose-600 dark:hover:text-rose-400 transition group">
-                <i data-lucide="key-round" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Stewards</span>
-            </button>
-            <button onclick="openInAboutBlank()" class="flex items-center gap-2 text-sm font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition group">
-                <i data-lucide="external-link" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Open Blank</span>
-            </button>
+          </div>
+          <details id="nav-more" class="nav-more">
+            <summary aria-label="More navigation" title="More"><i data-lucide="ellipsis" aria-hidden="true"></i><span class="hidden sm:inline">More</span></summary>
+            <div class="nav-more-menu" role="menu">
+              <button role="menuitem" onclick="switchView('custom-loc-view');document.getElementById('nav-more').open=false"><i data-lucide="compass"></i><span>Private Charts</span></button>
+              <button role="menuitem" id="settings-btn" onclick="switchView('settings-view');document.getElementById('nav-more').open=false"><i data-lucide="sliders-horizontal"></i><span>Customs</span></button>
+              <button role="menuitem" onclick="switchView('announcements-view');document.getElementById('nav-more').open=false"><i data-lucide="megaphone"></i><span>Announcements</span></button>
+              <button role="menuitem" onclick="switchView('about-view');document.getElementById('nav-more').open=false"><i data-lucide="info"></i><span>About</span></button>
+              <button role="menuitem" onclick="switchView('feedback-view');document.getElementById('nav-more').open=false"><i data-lucide="circle-help"></i><span>Send a Word</span></button>
+              <button role="menuitem" onclick="switchView('editor-view');document.getElementById('nav-more').open=false"><i data-lucide="key-round"></i><span>Stewards</span></button>
+              <button role="menuitem" onclick="openInAboutBlank();document.getElementById('nav-more').open=false"><i data-lucide="external-link"></i><span>Open Blank</span></button>
+            </div>
+          </details>
             <div class="w-px h-6 bg-slate-300 dark:bg-slate-700 hidden sm:block"></div>
             <button id="theme-btn" onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
                 <i data-lucide="moon" id="theme-icon-moon" class="w-5 h-5 hidden"></i>
@@ -437,12 +430,7 @@
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Global Message (Leave blank to disable)</label>
                         <textarea id="admin-global-msg" rows="2" placeholder="Welcome to this week's challenge!" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm"></textarea>
                         <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Announcements</label>
-                            <input type="text" id="ann-title" placeholder="Title" class="w-full p-3 mb-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm font-bold">
-                            <textarea id="ann-body" rows="2" placeholder="Message" class="w-full p-3 mb-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-sm"></textarea>
-                            <input type="text" id="ann-tags" placeholder="Tags, comma separated (e.g. Update, Event)" class="w-full p-3 mb-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-900 dark:text-white text-xs">
-                            <button onclick="postAnnouncement()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition shadow-sm mb-2">Post Announcement</button>
-                            <div id="ann-admin-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div>
+                            <p class="text-xs text-slate-500">Write and manage global announcements from the dedicated Global tab.</p>
                         </div>
                         <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
                             <label class="block text-xs font-bold text-rose-500 uppercase tracking-wide mb-2">Danger Zone</label>

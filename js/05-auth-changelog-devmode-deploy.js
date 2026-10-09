@@ -281,7 +281,7 @@
             document.body.classList.toggle('in-quiz', id === 'quiz-view');
             if (id === 'feedback-view') fbPrevView = fbCurView;
             fbCurView = id;
-            document.querySelectorAll('#nav-actions > button[onclick^="switchView"]').forEach(b => b.classList.toggle('nav-active', b.getAttribute('onclick').includes("'" + id + "'")));
+            document.querySelectorAll('#nav-actions button[onclick^="switchView"]').forEach(b => b.classList.toggle('nav-active', b.getAttribute('onclick').includes("'" + id + "'")));
             document.querySelectorAll('#mobile-tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
         };
 

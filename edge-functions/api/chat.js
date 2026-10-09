@@ -19,15 +19,27 @@ export async function onRequestPost(context) {
   let body;
   try { body = await context.request.json(); } catch { return json({ ok: false, error: 'bad_request' }, 400); }
   const msgs = Array.isArray(body && body.messages) ? body.messages.slice(-10) : [];
+  const invalidImages = msgs.some((m) => Array.isArray(m && m.images) && (m.images.length > 2 || m.images.some((image) => !image || !['image/jpeg', 'image/png', 'image/webp'].includes(image.mimeType) || typeof image.data !== 'string' || image.data.length > 1600000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(image.data))));
+  if (invalidImages) return json({ ok: false, error: 'bad_request' }, 400);
   const contents = msgs
-    .filter((m) => m && typeof m.text === 'string' && m.text.trim())
-    .map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.text.slice(0, 1000) }] }));
+    .filter((m) => m && ((typeof m.text === 'string' && m.text.trim()) || (Array.isArray(m.images) && m.images.length)))
+    .map((m) => {
+      const parts = [];
+      if (typeof m.text === 'string' && m.text.trim()) parts.push({ text: m.text.slice(0, 1000) });
+      for (const image of (Array.isArray(m.images) ? m.images.slice(0, 2) : [])) {
+        const mime = image && image.mimeType;
+        const data = image && image.data;
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime) || typeof data !== 'string' || data.length > 1600000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return null;
+        parts.push({ inline_data: { mime_type: mime, data } });
+      }
+      return parts.length ? { role: m.role === 'model' ? 'model' : 'user', parts } : null;
+    }).filter(Boolean);
   if (!contents.length || contents[contents.length - 1].role !== 'user') return json({ ok: false, error: 'bad_request' }, 400);
 
-  const ctx = typeof body.ctx === 'string' ? body.ctx.slice(0, 120) : '';
+  const ctx = typeof body.ctx === 'string' ? body.ctx.slice(0, 240) : '';
   const models = [...new Set([context.env.GEMINI_MODEL, ...DEFAULT_MODELS].filter(Boolean))];
   const payload = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM + (ctx ? `\n` : '') }] },
+    systemInstruction: { parts: [{ text: SYSTEM + (ctx ? `\nCurrent site context: ${ctx}` : '') }] },
     contents,
     generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
   });

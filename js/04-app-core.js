@@ -136,9 +136,14 @@
                     auth = firebase.auth();
                     db = firebase.firestore();
 
-                    window.dispatchEvent(new Event('hero-firebase-ready'));
-                    auth.onAuthStateChanged(async user => {
-                        await applyFirebaseUser(user);
+                    const beginAuth = () => {
+                        window.dispatchEvent(new Event('hero-firebase-ready'));
+                        auth.onAuthStateChanged(async user => { await applyFirebaseUser(user); });
+                    };
+                    // Members sign in for a browser session; a fresh session starts at the signup gate.
+                    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(beginAuth).catch(error => {
+                        console.warn('Session-only sign-in persistence unavailable:', error);
+                        auth.setPersistence(firebase.auth.Auth.Persistence.NONE).then(beginAuth).catch(beginAuth);
                     });
                 } catch (e) {
                     console.error("Firebase init failed:", e);
@@ -150,6 +155,9 @@
         function enableLocalMode() { globalLocations = []; renderAdminList(); hideCover(); }
         
         document.addEventListener('DOMContentLoaded', () => {
+            const moreNav = document.getElementById('nav-more');
+            document.addEventListener('click', event => { if (moreNav && moreNav.open && !moreNav.contains(event.target)) moreNav.open = false; });
+            document.addEventListener('keydown', event => { if (event.key === 'Escape' && moreNav) moreNav.open = false; });
             initFirebase();
             initVanillaParticles();
             document.getElementById('player-name').value = localStorage.getItem('mq_playerName') || '';
@@ -185,7 +193,7 @@
 
         // ================= DATA & STATE =================
         let customLocations = JSON.parse(localStorage.getItem(QUIZZES[yearMode].custom)) || [];
-        let map = null, tileLayer = null, mapUsesHotStyle = false;
+        let map = null, tileLayer = null, mapStyleIndex = 0;
         let activeQuizData = [], quizStats = {}, points = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
 
         function switchView(viewId) {
@@ -501,20 +509,23 @@
 
         function toggleMapStyle() {
             if(!map) return;
-            mapUsesHotStyle = !mapUsesHotStyle;
-            tileLayer.setUrl(mapUsesHotStyle ? TILE_HOT : TILE_STANDARD);
-            tileLayer.setAttribution(mapUsesHotStyle
-                ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> | Tiles <a href="https://www.openstreetmap.fr/">OpenStreetMap France</a> / <a href="https://www.hotosm.org/">HOT</a>'
-                : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>');
+            mapStyleIndex = (mapStyleIndex + 1) % 3;
+            const styles = [
+                { url: TILE_SATELLITE, attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community' },
+                { url: TILE_STANDARD, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' },
+                { url: TILE_HOT, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> | Tiles <a href="https://www.openstreetmap.fr/">OpenStreetMap France</a> / <a href="https://www.hotosm.org/">HOT</a>' }
+            ];
+            tileLayer.setUrl(styles[mapStyleIndex].url);
+            tileLayer.setAttribution(styles[mapStyleIndex].attribution);
         }
 
         function initMap() {
             if (map) { map.remove(); map = null; }
-            map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 8, zoomControl: false }).setView([25, 20], 2.5);
+            map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 14, zoomControl: false }).setView([25, 20], 2.5);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-            mapUsesHotStyle = false;
-            tileLayer = L.tileLayer(TILE_STANDARD, { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' }).addTo(map);
+            mapStyleIndex = 0;
+            tileLayer = L.tileLayer(TILE_SATELLITE, { attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community' }).addTo(map);
 
             const unsolvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin unsolved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
             const solvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
