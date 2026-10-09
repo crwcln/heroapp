@@ -1,8 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
     function isAdmin()  { return request.auth != null && request.auth.token.admin == true; }
+    // Public app access requires a verified email; steward sessions use a trusted custom claim.
+    function signedIn() { return isAdmin() || (request.auth != null && request.auth.token.email_verified == true); }
 
     match /artifacts/{appId}/public/data {
 
@@ -26,11 +27,13 @@ service cloud.firestore {
       match /{board}/{entryId} {
         allow read: if signedIn() && board in ['leaderboard', 'leaderboardTwoYear'];
         allow create: if signedIn() && board in ['leaderboard', 'leaderboardTwoYear']
-          && request.resource.data.keys().hasOnly(['userId', 'name', 'score', 'time', 'timestamp'])
+          && request.resource.data.keys().hasOnly(['userId', 'name', 'score', 'time', 'timestamp', 'tour', 'perfect'])
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.name is string && request.resource.data.name.size() <= 15
           && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
-          && request.resource.data.time is number && request.resource.data.time >= 0;
+          && request.resource.data.time is number && request.resource.data.time >= 0
+          && (!('tour' in request.resource.data) || request.resource.data.tour in ['1 Year', '2 Year'])
+          && (!('perfect' in request.resource.data) || request.resource.data.perfect is bool);
         allow delete: if isAdmin() && board in ['leaderboard', 'leaderboardTwoYear'];
       }
 
@@ -47,6 +50,22 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['userId', 'deviceId', 'lastSeen', 'device', 'os', 'browser', 'view', 'mode', 'theme', 'vw', 'vh']);
         allow read: if isAdmin();
         allow delete: if isAdmin() || (signedIn() && (presenceId == request.auth.uid || resource.data.userId == request.auth.uid));
+      }
+
+      // Private account profile. Role and achievements are never accepted from client writes.
+      match /members/{memberId} {
+        allow get: if isAdmin() || (signedIn() && request.auth.uid == memberId);
+        allow list: if isAdmin();
+        allow create, update: if signedIn() && !isAdmin()
+          && request.auth.uid == memberId
+          && request.resource.data.keys().hasOnly(['userId', 'name', 'email', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['userId', 'name', 'email', 'updatedAt'])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2
+          && request.resource.data.name.size() <= 40;
+        allow delete: if isAdmin();
       }
 
       // A verified user may link a name/email to the random id stored by this browser.

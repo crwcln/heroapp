@@ -88,8 +88,8 @@
                 showToast(secureMsg(e), 'error'); document.getElementById('inbox-sub').innerText = 'Secure sign-in failed';
             }
         }
-        // Firebase auth persistence is shared by tabs. If another tab locks itself and
-        // switches the shared user to anonymous, restore this tab's still-valid admin session.
+        // Firebase auth persistence is shared by tabs. If another tab signs out, restore
+        // this tab's still-valid admin session.
         let adminRepairInFlight = false;
         window.addEventListener('hero-auth-state', async e => {
             if (!adminToken || !e.detail || !e.detail.user || adminRepairInFlight) return;
@@ -103,13 +103,13 @@
             } finally { adminRepairInFlight = false; }
         });
         async function lockAdmin(msg) {
-            const wasAdmin = !!adminToken;   // only re-anonymize (and only show an 'info' toast) if we were actually signed in as admin
+            const wasAdmin = !!adminToken;
             adminToken = null;
             clearTimeout(adminLockTimer);
             stopInbox(); stopAnalyticsAdmin();
             document.getElementById('admin-panel').classList.add('hidden');
             document.getElementById('admin-lock').classList.remove('hidden');
-            if (wasAdmin) { try { await auth.signInAnonymously(); } catch (e) { /* ignore */ } }
+            if (wasAdmin) { try { await auth.signOut(); } catch (e) { /* ignore */ } }
             window.dispatchEvent(new Event('hero-admin-locked'));
             if (msg) showToast(msg, wasAdmin ? 'info' : 'error');
         }
