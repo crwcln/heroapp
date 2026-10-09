@@ -120,6 +120,9 @@
                     let startingAnonymous = false;
                     auth.onAuthStateChanged(async user => {
                         if (!user) {
+                            // Email-link completion must claim the auth state before anonymous
+                            // sign-in starts, or the anonymous request can race the credential.
+                            if (window.__heroEmailLinkPending) return;
                             if (!startingAnonymous) {
                                 startingAnonymous = true;
                                 try { await auth.signInAnonymously(); }
@@ -181,7 +184,7 @@
 
         // ================= DATA & STATE =================
         let customLocations = JSON.parse(localStorage.getItem(QUIZZES[yearMode].custom)) || [];
-        let map = null, tileLayer = null, mapIsSatellite = true;
+        let map = null, tileLayer = null, mapUsesHotStyle = false;
         let activeQuizData = [], quizStats = {}, points = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
 
         function switchView(viewId) {
@@ -492,13 +495,10 @@
 
         function toggleMapStyle() {
             if(!map) return;
-            mapIsSatellite = !mapIsSatellite;
-            // Both of these are free maps that do not require an API key
-            tileLayer.setUrl(mapIsSatellite 
-                ? TILE_DARK 
-                : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-            tileLayer.setAttribution(mapIsSatellite
-                ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            mapUsesHotStyle = !mapUsesHotStyle;
+            tileLayer.setUrl(mapUsesHotStyle ? TILE_HOT : TILE_STANDARD);
+            tileLayer.setAttribution(mapUsesHotStyle
+                ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> | Tiles <a href="https://www.openstreetmap.fr/">OpenStreetMap France</a> / <a href="https://www.hotosm.org/">HOT</a>'
                 : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>');
         }
 
@@ -507,7 +507,8 @@
             map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 8, zoomControl: false }).setView([25, 20], 2.5);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-            tileLayer = L.tileLayer(TILE_DARK, { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' }).addTo(map);
+            mapUsesHotStyle = false;
+            tileLayer = L.tileLayer(TILE_STANDARD, { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' }).addTo(map);
 
             const unsolvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin unsolved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
             const solvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });

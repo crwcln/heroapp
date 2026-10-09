@@ -26,6 +26,22 @@ path.hl-outline { stroke: #f8fafc; stroke-width: 3.5px; opacity: .95; }
 path.hl-land { fill: #34d399; stroke: #10b981; } path.hl-continent { fill: #a78bfa; stroke: #7c3aed; } path.hl-water { fill: #38bdf8; stroke: var(--brand-700); }
 path.hl-region { fill: #f59e0b; stroke: #b45309; } path.hl-empire { fill: #a855f7; stroke: #7e22ce; } path.hl-route { fill: #fb923c; stroke: #c2410c; }
 path.hl-river { fill: none; stroke: var(--sec); stroke-width: 4; stroke-dasharray: 14 8; animation: hlFlow 1.2s linear infinite; }
+
+.hero-verify-overlay { position: fixed; inset: 0; z-index: 9800; display: grid; place-items: center; padding: 22px; background: radial-gradient(ellipse at 50% 30%, rgba(79,70,229,.24), transparent 55%), rgba(8,12,26,.82); backdrop-filter: blur(14px); animation: heroVerifyFade .28s ease-out both; }
+.hero-verify-card { position: relative; isolation: isolate; width: min(100%, 470px); overflow: hidden; padding: 38px 34px 30px; border: 1px solid rgba(255,255,255,.18); border-radius: 28px; color: #f8fafc; text-align: center; background: linear-gradient(150deg, rgba(28,35,68,.98), rgba(11,17,37,.98)); box-shadow: 0 32px 100px rgba(0,0,0,.45), inset 0 1px rgba(255,255,255,.12); animation: heroVerifyRise .4s cubic-bezier(.2,.8,.2,1) both; }
+.hero-verify-glow { position: absolute; z-index: -1; top: -120px; left: 50%; width: 280px; height: 220px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(circle, rgba(52,211,153,.24), transparent 70%); filter: blur(12px); }
+.hero-verify-mark { display: grid; width: 76px; height: 76px; place-items: center; margin: 0 auto 20px; border: 1px solid rgba(110,231,183,.48); border-radius: 24px; color: #a7f3d0; background: linear-gradient(145deg, rgba(16,185,129,.22), rgba(79,70,229,.18)); box-shadow: 0 0 40px rgba(52,211,153,.14), inset 0 1px rgba(255,255,255,.16); }
+.hero-verify-mark svg { width: 38px; height: 38px; stroke-width: 1.7; }
+.hero-verify-eyebrow { margin: 0 0 8px; color: #a5b4fc; font-size: 10px; font-weight: 900; letter-spacing: .22em; }
+.hero-verify-card h2 { margin: 0; color: #fff; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(28px, 7vw, 38px); font-weight: 700; line-height: 1.12; }
+.hero-verify-copy { max-width: 360px; margin: 14px auto 24px; color: #cbd5e1; font-size: 14px; line-height: 1.65; }
+.hero-verify-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.hero-verify-actions .cm-btn { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; gap: 8px; }
+.hero-verify-actions svg { width: 17px; height: 17px; }
+.hero-verify-note { margin: 20px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.5; }
+@keyframes heroVerifyFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes heroVerifyRise { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .hero-verify-overlay, .hero-verify-card { animation: none; } }
 path.hl-pulse { fill-opacity: .25; animation: hlPulse 1.6s ease-out infinite; }
 @keyframes hlIn { from { fill-opacity: 0; stroke-opacity: 0; } to { fill-opacity: .38; stroke-opacity: 1; } } @keyframes hlBreath { 50% { fill-opacity: .2; } }
 @keyframes hlFlow { to { stroke-dashoffset: -22; } } @keyframes hlPulse { from { stroke-width: 2; stroke-opacity: 1; } to { stroke-width: 16; stroke-opacity: 0; } }
@@ -57,7 +73,7 @@ html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.
         html.dark .brand-mark .badge, html.dark .ld-logo .badge, html.dark .in-logo .badge { fill: var(--brand-700); }
         .brand-mark .glyph, .ld-logo .glyph, .in-logo .glyph { fill: var(--sec); }
 
-.is-mobile #version-badge { display: none; }
+.is-mobile #version-badge { display: block; bottom: 8px; right: 10px; }
 
 #top-nav > div:first-child > svg.brand-mark { background: none; padding: 0; box-shadow: none; width: 40px; height: 40px; color: inherit !important; }
 #top-nav > div:first-child > svg.brand-mark .badge { filter: drop-shadow(0 4px 10px rgba(var(--sec-rgb), .25)); }
@@ -65,3 +81,49 @@ html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.
 
 
 .tut-hl { outline: 3px solid var(--brand-500); outline-offset: 4px; border-radius: 14px; animation: fabRing 1.6s ease-out infinite; z-index: 9250; position: relative; }
+
+/* Moderation timeout screen and ban manager */
+.timeout-overlay { position: fixed; inset: 0; z-index: 100000; display: grid; place-items: center; overflow-y: auto; padding: 24px; background: radial-gradient(ellipse at 50% 0%, rgba(var(--brand-rgb),.22), transparent 55%), rgba(8,12,24,.96); color: #f8fafc; }
+.timeout-card { position: relative; isolation: isolate; overflow: hidden; width: min(100%, 760px); padding: clamp(22px,5vw,42px); border: 1px solid rgba(255,255,255,.15); border-radius: 28px; background: linear-gradient(145deg,rgba(25,32,50,.98),rgba(13,18,32,.98)); box-shadow: 0 32px 100px rgba(0,0,0,.55); }
+.timeout-orbit { position: absolute; z-index: -1; width: 360px; height: 360px; border: 1px solid rgba(var(--brand-rgb),.13); border-radius: 50%; pointer-events: none; }
+.timeout-orbit-one { top: -250px; right: -100px; box-shadow: 0 0 0 30px rgba(var(--brand-rgb),.025),0 0 0 65px rgba(var(--brand-rgb),.02); }
+.timeout-orbit-two { left: -300px; bottom: -320px; }
+.timeout-brand { display: flex; align-items: center; gap: 10px; color: #fff; font-size: 12px; font-weight: 900; letter-spacing: .16em; }
+.timeout-brand i { margin-left: 5px; color: #fbbf24; font-size: 10px; font-style: normal; }
+.timeout-brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(251,191,36,.6); border-radius: 11px; color: #fbbf24; font-family: Georgia,serif; font-size: 20px; }
+.timeout-icon { display: grid; place-items: center; width: 52px; height: 52px; margin-top: 28px; border: 1px solid rgba(248,113,113,.3); border-radius: 16px; background: rgba(248,113,113,.1); color: #fca5a5; }
+.timeout-icon svg { width: 25px; }
+.timeout-eyebrow { color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+.timeout-card > .timeout-eyebrow { margin: 20px 0 7px; }
+.timeout-card h1 { margin: 0; color: white; font-size: clamp(30px,6vw,46px); font-weight: 850; letter-spacing: -.04em; }
+.timeout-intro { max-width: 580px; margin: 10px 0 22px; color: #bac4d5; line-height: 1.65; }
+.timeout-details { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.timeout-detail { min-width: 0; padding: 16px; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: rgba(255,255,255,.045); }
+.timeout-detail span { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 9px; font-weight: 800; letter-spacing: .13em; }
+.timeout-detail strong { display: block; color: white; font-size: 16px; overflow-wrap: anywhere; }
+.timeout-detail small { display: block; margin-top: 5px; color: #94a3b8; }
+.timeout-game { margin-top: 16px; padding: 18px; border: 1px solid rgba(var(--brand-rgb),.28); border-radius: 20px; background: linear-gradient(120deg,rgba(var(--brand-rgb),.11),rgba(255,255,255,.035)); }
+.timeout-game-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.timeout-game h2 { margin: 5px 0 0; color: white; font-size: 18px; }
+.timeout-score { color: #94a3b8; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.timeout-score b { margin-left: 5px; color: #fbbf24; font-size: 18px; }
+.timeout-game > p { min-height: 20px; margin: 9px 0; color: #bac4d5; font-size: 12px; }
+.timeout-game-board { position: relative; height: 150px; overflow: hidden; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; background-image: radial-gradient(rgba(255,255,255,.1) 1px,transparent 1px); background-size: 22px 22px; background-color: rgba(4,8,18,.38); }
+.timeout-star { position: absolute; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid rgba(251,191,36,.45); border-radius: 50%; background: #fbbf24; color: #422006; box-shadow: 0 0 25px rgba(251,191,36,.45); cursor: pointer; transform: translate(-50%,-50%); }
+.timeout-star svg { width: 20px; }
+.timeout-star.hidden { display: none; }
+.timeout-start { margin-top: 12px; padding: 10px 16px; border: 0; border-radius: 11px; background: #fbbf24; color: #211500; font-weight: 800; cursor: pointer; }
+.timeout-start:hover { background: #fcd34d; }
+.timeout-footer { margin: 15px 0 0; color: #8490a4; font-size: 11px; text-align: center; }
+.ban-admin-form { display: grid; grid-template-columns: minmax(180px,1.5fr) minmax(130px,.8fr) minmax(160px,1fr) auto; gap: 8px; margin-top: 14px; }
+.ban-admin-form .fb-input { min-width: 0; }
+.ban-admin-list { display: grid; gap: 9px; padding: 16px; }
+.ban-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid rgba(148,163,184,.2); border-radius: 14px; background: rgba(148,163,184,.045); }
+.ban-status { display: inline-flex; margin: 7px 0 0 8px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 750; vertical-align: middle; }
+.ban-status.is-temporary { background: rgba(245,158,11,.12); color: #b45309; }
+.ban-status.is-expired { background: rgba(148,163,184,.16); color: #64748b; }
+.ban-status.is-permanent { background: rgba(239,68,68,.11); color: #dc2626; }
+.ban-unban { flex: 0 0 auto; }
+@media (max-width: 700px) { .ban-admin-form { grid-template-columns: 1fr 1fr; } .ban-admin-form #ban-id-input, .ban-admin-form #ban-reason-input { grid-column: 1/-1; } }
+@media (max-width: 520px) { .timeout-overlay { align-items: start; padding: 12px; } .timeout-card { padding: 20px; border-radius: 22px; } .timeout-details { grid-template-columns: 1fr; } .timeout-game { padding: 14px; } .timeout-game-board { height: 130px; } .ban-admin-form { grid-template-columns: 1fr; } .ban-admin-form > * { grid-column: 1 !important; } .ban-admin-row { align-items: flex-start; } .ban-status { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .timeout-overlay *, .timeout-overlay *::before, .timeout-overlay *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

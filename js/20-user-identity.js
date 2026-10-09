@@ -52,11 +52,11 @@
         localStorage.setItem('hero_member_name', name);
         try {
             await auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true });
-            setStatus('Check your inbox and open the sign-in link on this browser.');
+            setStatus(`A secure sign-in link was sent to ${email}. Open it to verify your address and return to Hero.`);
         } catch (e) {
             console.error('Email link sign-in:', e);
             const help = e.code === 'auth/unauthorized-continue-uri'
-                ? ` Add ${location.hostname} in Firebase Console → Authentication → Settings → Authorized domains.`
+                ? ` Add ${location.hostname} in Firebase Console > Authentication > Settings > Authorized domains.`
                 : ' Check that Email link sign-in is enabled in Firebase.';
             setStatus(`Could not send the link (${e.code || 'error'}).${help}`, true);
         }
@@ -64,11 +64,12 @@
 
     async function finishEmailLink() {
         if (!auth || !auth.isSignInWithEmailLink(location.href)) return;
-        let email = localStorage.getItem(pendingEmailKey);
-        if (!email) email = prompt('Enter the email address that received this sign-in link:');
-        if (!email) return;
-        email = email.trim().toLowerCase();
+        window.__heroEmailLinkPending = true;
         try {
+            let email = localStorage.getItem(pendingEmailKey);
+            if (!email) email = prompt('Enter the email address that received this sign-in link:');
+            if (!email) return;
+            email = email.trim().toLowerCase();
             const credential = firebase.auth.EmailAuthProvider.credentialWithLink(email, location.href);
             let result;
             if (auth.currentUser && auth.currentUser.isAnonymous) {
@@ -82,21 +83,45 @@
             localStorage.removeItem(pendingEmailKey);
             history.replaceState({}, document.title, location.pathname + location.hash);
             renderAccount();
-            await saveProfile(result.user, localStorage.getItem('hero_member_name') || localStorage.getItem(pendingNameKey) || '');
+            const profileSaved = await saveProfile(result.user, localStorage.getItem('hero_member_name') || localStorage.getItem(pendingNameKey) || '');
             localStorage.removeItem(pendingNameKey);
-            setStatus('Email verified and browser linked to your account.');
+            showVerificationComplete(profileSaved);
         } catch (e) {
             console.error('Complete email link:', e);
             setStatus(`Could not complete sign-in (${e.code || 'error'}). Open the link in the same browser and try again.`, true);
+        } finally {
+            window.__heroEmailLinkPending = false;
+            if (!auth.currentUser) auth.signInAnonymously().catch(e => console.error('Anonymous sign-in after email-link failure:', e));
         }
     }
 
+    function showVerificationComplete(profileSaved) {
+        document.getElementById('hero-verification-complete')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'hero-verification-complete';
+        overlay.className = 'hero-verify-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'hero-verify-title');
+        overlay.innerHTML = `<section class="hero-verify-card"><div class="hero-verify-glow"></div><div class="hero-verify-mark"><i data-lucide="${profileSaved ? 'badge-check' : 'mail-check'}"></i></div><p class="hero-verify-eyebrow">HERO ACCOUNT</p><h2 id="hero-verify-title">${profileSaved ? 'Email verified' : 'Email confirmed'}</h2><p class="hero-verify-copy">${profileSaved ? 'Your email is confirmed and this browser is linked to your account.' : 'Your email is confirmed, but the browser profile could not be saved. You can retry saving your name from Account after the Firebase rules are updated.'}</p><div class="hero-verify-actions"><button type="button" class="cm-btn go" id="hero-verify-home"><i data-lucide="landmark"></i> Return to Hero</button><button type="button" class="cm-btn ghost" id="hero-verify-close">Close this tab</button></div><p id="hero-verify-close-note" class="hero-verify-note">You can close this tab now, or return to Hero.</p></section>`;
+        document.body.appendChild(overlay);
+        if (window.lucide) lucide.createIcons();
+        overlay.querySelector('#hero-verify-home').onclick = () => { overlay.remove(); switchView('home-view'); };
+        overlay.querySelector('#hero-verify-close').onclick = () => {
+            window.close();
+            setTimeout(() => {
+                if (!window.closed) overlay.querySelector('#hero-verify-close-note').textContent = 'Your browser would not close this tab automatically. You can close it, or choose Return to Hero.';
+            }, 150);
+        };
+        overlay.querySelector('#hero-verify-home').focus();
+    }
+
     async function saveProfile(user, name) {
-        if (!db || !user || user.isAnonymous || !user.emailVerified || !user.email) return;
-        if (!name || name.length < 2 || name.length > 40) return setStatus('Add a name to finish setting up your account.', true);
+        if (!db || !user || user.isAnonymous || !user.emailVerified || !user.email) return false;
+        if (!name || name.length < 2 || name.length > 40) { setStatus('Add a name to finish setting up your account.', true); return false; }
         const id = deviceId();
         const key = `${id}|${user.uid}|${user.email}|${name}`;
-        if (key === profileSavedKey) return;
+        if (key === profileSavedKey) return true;
         if (profileWriteTask && key === profileWriteKey) return profileWriteTask;
         profileWriteKey = key;
         profileWriteTask = (async () => { try {
@@ -107,9 +132,14 @@
             profileSavedKey = key;
             window.dispatchEvent(new Event('hero-profiles-updated'));
             setStatus('Your verified account is linked to this browser.');
+            return true;
         } catch (e) {
             console.error('Save verified profile:', e);
-            setStatus(`Profile could not be saved (${e.code || 'error'}). Publish the updated Firestore rules.`, true);
+            const reason = e.code === 'permission-denied'
+                ? `Firestore denied this profile write. Publish the current firestore.rules to Firebase project ${firebase.app().options.projectId}, then try Save name again.`
+                : `Profile could not be saved (${e.code || 'error'}).`;
+            setStatus(reason, true);
+            return false;
         } finally { profileWriteTask = null; } })();
         return profileWriteTask;
     }
@@ -145,7 +175,13 @@
         profileSub = dataCol().collection('deviceProfiles').orderBy('updatedAt', 'desc').limit(200).onSnapshot(s => {
             knownProfiles = s.docs.map(d => Object.assign({ deviceId: d.id }, d.data()));
             renderKnownProfiles();
-        }, e => { console.error('Verified profiles:', e); const box = document.getElementById('hero-known-profiles'); if (box) box.textContent = `Could not load verified profiles (${e.code || 'error'}).`; });
+        }, e => {
+            console.error('Verified profiles:', e);
+            const box = document.getElementById('hero-known-profiles');
+            if (box) box.textContent = e.code === 'permission-denied'
+                ? `Admin-only profile access was denied. Publish the current firestore.rules to Firebase project ${firebase.app().options.projectId}. If those rules are already current, unlock Admin again in this tab.`
+                : `Could not load verified profiles (${e.code || 'error'}).`;
+        });
     }
     function stopProfiles() {
         if (profileSub) profileSub();
