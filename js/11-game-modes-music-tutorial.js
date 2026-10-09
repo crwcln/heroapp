@@ -80,40 +80,92 @@
         ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (!mus.armed) { mus.armed = true; musicSync(); } }, { once: true }));
         document.addEventListener('visibilitychange', () => { if (!mus.ctx) return; document.hidden ? mus.ctx.suspend() : (prefs.music !== 'off' && mus.ctx.resume()); });
 
-        // ================= TUTORIAL =================
-// Each step can send the visitor to a real page (`view`) before it highlights something there, so the tour
-        // is a guided walk through the actual site rather than a popup parked on the home screen.
+        // ================= GUIDED TOUR =================
+        // The tour keeps its original topics, but moves through the real views so each feature is
+        // introduced where it lives. The spotlight follows the selected control as the page changes.
         const TUT = [
-            { view: 'home-view', sel: null, h: 'Welcome to Hero', p: 'Named for Herodotus, the "father of history". Let\'s walk through what you can do here.' },
-            { view: 'home-view', sel: '#year-toggle', h: 'Pick your year', p: 'Switch between the 1 Year and 2 Year quizzes. Each has its own places and leaderboard.' },
-            { view: 'home-view', sel: '#mode-pick', h: 'Choose how to play', p: 'Name the Place: tap a marker and name it. Find the Land: you get a name and find the marker. Revisit the Forgotten replays what you miss.' },
-            { view: 'leaderboard-view', sel: '#lb-tab-default', h: 'Hall of Heroes', p: 'Top scores for both tours live here, ranked gold, silver and bronze.', nav: '[onclick*="leaderboard-view"]' },
-            { view: 'custom-loc-view', sel: '#user-place-name', h: 'Private Charts', p: 'Add your own places to study, searched by name or imported as JSON.', nav: '[onclick*="custom-loc-view"]' },
-            { view: 'announcements-view', sel: '#ann-list', h: 'Stay in the loop', p: 'Announcements and the Chronicle (update log) both live in the top bar.', nav: '[onclick*="announcements-view"]' },
-            { view: 'home-view', sel: '#sherpa-fab', h: 'Meet Clio', p: 'Clio, the muse of history, answers questions and gives memory tricks -- and knows what place you\'re looking at.' },
-            { view: 'settings-view', sel: '.st-grid', h: 'Make it yours', p: 'Colorways, backgrounds, fonts and ambient music all live in Customs.', nav: '[onclick*="settings-view"]' },
+            { view: 'home-view', sel: '#global-quiz-title', h: 'Welcome to Hero', p: 'Named for Herodotus, the “father of history.” Take a quick guided walk through the places to explore.', tag: 'YOUR FIELD GUIDE' },
+            { view: 'home-view', sel: '#year-toggle', h: 'Choose your tour', p: 'Switch between the 1 Year and 2 Year collections. Your progress and leaderboards are kept separate.', tag: 'START HERE' },
+            { view: 'home-view', sel: '#mode-pick', h: 'Choose how to play', p: 'Name the Place asks you to identify a marker. Find the Land gives you a name to locate. Revisit the Forgotten practices places you missed.', tag: 'THREE WAYS TO LEARN' },
+            { view: 'leaderboard-view', sel: '#leaderboard-list', h: 'Hall of Heroes', p: 'Compare top scores for both tours and see how your time and accuracy stack up.', tag: 'THE HONOR ROLL' },
+            { view: 'custom-loc-view', sel: '#user-place-name', h: 'Private Charts', p: 'Build a personal study map by searching for places or importing a list of coordinates.', tag: 'MAKE A MAP YOURS' },
+            { view: 'announcements-view', sel: '#announcements-view h2', h: 'Stay in the loop', p: 'Find global announcements here. The Chronicle keeps a record of what has changed.', tag: 'NEWS & UPDATES' },
+            { view: 'ai-view', sel: '#ai-shell .sh-head', h: 'Meet Clio', p: 'Ask the muse of history for explanations, study help, and memory tricks while you explore.', tag: 'YOUR STUDY COMPANION' },
+            { view: 'settings-view', sel: '.st-grid', h: 'Make it yours', p: 'Choose colorways, backgrounds, fonts, and ambient music in Settings and Customs.', tag: 'PERSONALIZE HERO' },
         ];
-        let tutI = 0;
-        function tutStart() { tutI = 0; switchView('home-view'); setTimeout(tutShow, 400); }
-        function tutShow() {
-            document.querySelectorAll('.tut-hl').forEach(e => e.classList.remove('tut-hl'));
-            const step = TUT[tutI], last = tutI === TUT.length - 1;
-            const goThere = () => {
-                if (step.view && fbCurView !== step.view) switchView(step.view);
-                let c = document.getElementById('tut'); if (!c) { c = document.createElement('div'); c.id = 'tut'; c.className = 'glass-panel'; document.body.appendChild(c); }
-                c.innerHTML = `<h3 class="text-lg font-extrabold"></h3><p class="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1"></p><div class="tut-dots">${TUT.map((_, i) => `<i class="${i === tutI ? 'on' : ''}"></i>`).join('')}</div>
-                    <div class="flex gap-2 mt-4 justify-end"><button class="cm-btn ghost" id="tut-skip">${last ? '' : 'Skip'}</button>${tutI ? '<button class="cm-btn ghost" id="tut-back">Back</button>' : ''}<button class="cm-btn go" id="tut-next">${last ? 'Done' : 'Next'}</button></div>`;
-                c.querySelector('h3').textContent = step.h; c.querySelector('p').textContent = step.p;
-                if (last) c.querySelector('#tut-skip').remove();
-                const target = step.sel && document.querySelector(step.sel); if (target) { target.classList.add('tut-hl'); target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-                const nav = step.nav && document.querySelector('#top-nav ' + step.nav); if (nav) nav.classList.add('tut-hl');
-                const skip = c.querySelector('#tut-skip'); if (skip) skip.onclick = tutEnd;
-                const back = c.querySelector('#tut-back'); if (back) back.onclick = () => { tutI--; tutShow(); };
-                c.querySelector('#tut-next').onclick = () => { if (last) tutEnd(); else { tutI++; tutShow(); } };
-            };
-            setTimeout(goThere, step.view && fbCurView !== step.view ? 350 : 0);
+        let tutI = 0, tutSequence = 0, tutPositionHandler = null, tutKeyHandler = null;
+        function tutStart() { tutI = 0; tutShow(); }
+        function tutEnsureUI() {
+            let shield = document.getElementById('tut-shield');
+            if (!shield) { shield = document.createElement('div'); shield.id = 'tut-shield'; shield.setAttribute('aria-hidden', 'true'); document.body.appendChild(shield); }
+            let spotlight = document.getElementById('tut-spotlight');
+            if (!spotlight) { spotlight = document.createElement('div'); spotlight.id = 'tut-spotlight'; spotlight.setAttribute('aria-hidden', 'true'); document.body.appendChild(spotlight); }
+            let card = document.getElementById('tut');
+            if (!card) { card = document.createElement('section'); card.id = 'tut'; card.className = 'glass-panel'; document.body.appendChild(card); }
+            return { shield, spotlight, card };
         }
-        function tutEnd() { localStorage.setItem('hero_tut', '1'); document.querySelectorAll('.tut-hl').forEach(e => e.classList.remove('tut-hl')); const c = document.getElementById('tut'); if (c) c.remove(); if (fbCurView !== 'home-view') switchView('home-view'); }
+        function tutShow() {
+            const sequence = ++tutSequence, step = TUT[tutI], last = tutI === TUT.length - 1;
+            const { shield, spotlight, card } = tutEnsureUI();
+            const reveal = () => {
+                if (sequence !== tutSequence) return;
+                card.innerHTML = `<div class="tut-topline"><span class="tut-mark" aria-hidden="true">H</span><span class="tut-tag"></span><span class="tut-count"></span></div>
+                    <div class="tut-progress" aria-hidden="true"><i></i></div>
+                    <h2 class="tut-title"></h2><p class="tut-copy"></p>
+                    <div class="tut-actions"><button type="button" class="cm-btn ghost" id="tut-skip">End tour</button><span class="tut-action-spacer"></span><button type="button" class="cm-btn ghost" id="tut-back">Back</button><button type="button" class="cm-btn go" id="tut-next">${last ? 'Finish tour' : 'Continue'}</button></div>`;
+                card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-labelledby', 'tut-title'); card.setAttribute('aria-describedby', 'tut-copy');
+                card.querySelector('.tut-tag').textContent = step.tag;
+                card.querySelector('.tut-count').textContent = `STEP ${String(tutI + 1).padStart(2, '0')} / ${String(TUT.length).padStart(2, '0')}`;
+                card.querySelector('.tut-progress i').style.width = `${(tutI + 1) / TUT.length * 100}%`;
+                card.querySelector('.tut-title').id = 'tut-title'; card.querySelector('.tut-title').textContent = step.h;
+                card.querySelector('.tut-copy').id = 'tut-copy'; card.querySelector('.tut-copy').textContent = step.p;
+                const back = card.querySelector('#tut-back'); back.hidden = tutI === 0; back.onclick = () => { tutI--; tutShow(); };
+                card.querySelector('#tut-skip').onclick = tutEnd;
+                card.querySelector('#tut-next').onclick = () => { if (last) tutEnd(); else { tutI++; tutShow(); } };
+
+                const target = step.sel && document.querySelector(step.sel);
+                if (target) target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                const placeSpotlight = () => {
+                    if (!target || !target.isConnected) { spotlight.hidden = true; shield.classList.remove('has-spotlight'); return; }
+                    const rect = target.getBoundingClientRect(), pad = 9;
+                    const width = Math.min(rect.width + pad * 2, innerWidth - 24), height = Math.min(rect.height + pad * 2, innerHeight - 24);
+                    const left = Math.max(12, Math.min(rect.left - pad, innerWidth - width - 12));
+                    const top = Math.max(12, Math.min(rect.top - pad, innerHeight - height - 12));
+                    spotlight.hidden = false; spotlight.style.left = `${left}px`; spotlight.style.top = `${top}px`;
+                    spotlight.style.width = `${width}px`; spotlight.style.height = `${height}px`;
+                    shield.style.setProperty('--spot-x', `${left + width / 2}px`);
+                    shield.style.setProperty('--spot-y', `${top + height / 2}px`);
+                    shield.style.setProperty('--spot-rx', `${width / 2}px`);
+                    shield.style.setProperty('--spot-ry', `${height / 2}px`);
+                    shield.classList.add('has-spotlight');
+                };
+                if (tutPositionHandler) { window.removeEventListener('resize', tutPositionHandler); window.removeEventListener('scroll', tutPositionHandler, true); }
+                tutPositionHandler = () => requestAnimationFrame(placeSpotlight);
+                window.addEventListener('resize', tutPositionHandler); window.addEventListener('scroll', tutPositionHandler, true);
+                requestAnimationFrame(placeSpotlight); setTimeout(placeSpotlight, 450);
+
+                if (tutKeyHandler) document.removeEventListener('keydown', tutKeyHandler, true);
+                tutKeyHandler = e => {
+                    if (e.key === 'Escape') { e.preventDefault(); tutEnd(); return; }
+                    if (e.key !== 'Tab') return;
+                    const buttons = [...card.querySelectorAll('button:not([hidden])')];
+                    const lastButton = buttons[buttons.length - 1];
+                    if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); lastButton.focus(); }
+                    else if (!e.shiftKey && document.activeElement === lastButton) { e.preventDefault(); buttons[0].focus(); }
+                };
+                document.addEventListener('keydown', tutKeyHandler, true);
+                card.querySelector('#tut-next').focus({ preventScroll: true });
+            };
+            if (step.view && fbCurView !== step.view) { switchView(step.view); setTimeout(reveal, 260); }
+            else reveal();
+        }
+        function tutEnd() {
+            ++tutSequence; localStorage.setItem('hero_tut', '1');
+            if (tutPositionHandler) { window.removeEventListener('resize', tutPositionHandler); window.removeEventListener('scroll', tutPositionHandler, true); tutPositionHandler = null; }
+            if (tutKeyHandler) { document.removeEventListener('keydown', tutKeyHandler, true); tutKeyHandler = null; }
+            ['tut', 'tut-shield', 'tut-spotlight'].forEach(id => { const node = document.getElementById(id); if (node) node.remove(); });
+            if (fbCurView !== 'home-view') switchView('home-view');
+        }
         window.tutMaybe = () => { if (!document.getElementById('intro') && !localStorage.getItem('hero_tut') && consent && document.getElementById('dev-screen').classList.contains('hidden') && document.getElementById('changelog-popup').classList.contains('hidden')) tutShow(); };
         setTimeout(tutMaybe, 5200);
 

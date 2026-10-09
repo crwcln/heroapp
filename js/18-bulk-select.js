@@ -3,7 +3,7 @@
 function bulkWire(listId, getArr, setArr, saveFn) {
     const sel = new Set(); let lastIdx = null;
     const bar = document.createElement('div');
-    bar.className = 'flex items-center gap-2 mb-3 flex-wrap'; bar.style.display = 'none';
+    bar.className = 'bulk-select-toolbar flex items-center gap-2 mb-3 flex-wrap'; bar.style.display = 'none';
     bar.innerHTML = `<span class="text-xs font-bold text-slate-500"><span class="bulk-n">0</span> selected</span>
         <button class="cm-btn ghost" style="padding:6px 12px;font-size:12px">Select all</button>
         <button class="cm-btn ghost" style="padding:6px 12px;font-size:12px">Clear</button>
@@ -11,7 +11,8 @@ function bulkWire(listId, getArr, setArr, saveFn) {
         <span class="flex-1"></span>
         <button class="cm-btn ghost" style="padding:6px 12px;font-size:12px;color:#e11d48;border-color:#fda4af">Delete all</button>`;
     const list = document.getElementById(listId); list.parentElement.insertBefore(bar, list);
-    const [selAllBtn, clearBtn, delSelBtn, , delAllBtn] = bar.children;
+    const [selAllBtn, clearBtn, delSelBtn, spacer, delAllBtn] = bar.children;
+    spacer.classList.add('bulk-select-spacer');
     function refresh() {
         const rows = [...list.children];
         rows.forEach((r, i) => r.classList.toggle('bulk-on', sel.has(i)));

@@ -4,7 +4,7 @@
 const SITE = {
   id: 'hero-2026',
   name: 'Hero',
-  version: '1.1.2',
+  version: '1.1.3',
   tagline: 'STUDYING, REDEFINED.',
 
   // Increase intro to replay the opening film for everyone. Optional: set a custom MP4 path.

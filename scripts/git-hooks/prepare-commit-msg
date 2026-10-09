@@ -16,7 +16,7 @@ config_file="$repo_root/js/00-site-config.js"
 
 version=$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\\([^']*\\)'.*/\\1/p" "$config_file" | head -n 1)
 [ -n "$version" ] || exit 0
-prefix="V$version"
+prefix="$version"
 temp_file="${message_file}.version-hook.$$"
 
 awk -v prefix="$prefix" '

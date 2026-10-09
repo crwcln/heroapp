@@ -515,8 +515,10 @@
                 { url: TILE_STANDARD, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' },
                 { url: TILE_HOT, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> | Tiles <a href="https://www.openstreetmap.fr/">OpenStreetMap France</a> / <a href="https://www.hotosm.org/">HOT</a>' }
             ];
-            tileLayer.setUrl(styles[mapStyleIndex].url);
-            tileLayer.setAttribution(styles[mapStyleIndex].attribution);
+            // Tile layers have no setAttribution() method. Recreate the layer so Leaflet's
+            // attribution control removes the old provider and registers the new one.
+            if (tileLayer) map.removeLayer(tileLayer);
+            tileLayer = L.tileLayer(styles[mapStyleIndex].url, { attribution: styles[mapStyleIndex].attribution }).addTo(map);
         }
 
         function initMap() {
