@@ -82,19 +82,23 @@
         </div>
         <div id="nav-actions" class="flex items-center gap-2 sm:gap-6">
           <div class="nav-primary-links">
-            <button onclick="switchView('leaderboard-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
-                <i data-lucide="award" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Hall of Heroes</span>
+            <button aria-label="Hall of Heroes" title="Hall of Heroes" onclick="switchView('leaderboard-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="award" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Hall of Heroes</span>
             </button>
-            <button onclick="switchView('ai-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
-                <i data-lucide="bot" class="w-4 h-4 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Clio</span>
+            <button aria-label="Clio" title="Clio" onclick="switchView('ai-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
+                <i data-lucide="bot" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Clio</span>
+            </button>
+            <button aria-label="Private Charts" title="Private Charts" onclick="switchView('custom-loc-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="compass" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Private Charts</span>
+            </button>
+            <button aria-label="Announcements" title="Announcements" onclick="switchView('announcements-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
+                <i data-lucide="megaphone" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Announcements</span>
             </button>
           </div>
           <details id="nav-more" class="nav-more">
             <summary aria-label="More navigation" title="More"><i data-lucide="ellipsis" aria-hidden="true"></i><span class="hidden sm:inline">More</span></summary>
             <div class="nav-more-menu" role="menu">
-              <button role="menuitem" onclick="switchView('custom-loc-view');document.getElementById('nav-more').open=false"><i data-lucide="compass"></i><span>Private Charts</span></button>
-              <button role="menuitem" id="settings-btn" onclick="switchView('settings-view');document.getElementById('nav-more').open=false"><i data-lucide="sliders-horizontal"></i><span>Customs</span></button>
-              <button role="menuitem" onclick="switchView('announcements-view');document.getElementById('nav-more').open=false"><i data-lucide="megaphone"></i><span>Announcements</span></button>
+              <button role="menuitem" id="settings-btn" onclick="switchView('settings-view');document.getElementById('nav-more').open=false"><i data-lucide="sliders-horizontal"></i><span>Settings and Customs</span></button>
               <button role="menuitem" onclick="switchView('about-view');document.getElementById('nav-more').open=false"><i data-lucide="info"></i><span>About</span></button>
               <button role="menuitem" onclick="switchView('feedback-view');document.getElementById('nav-more').open=false"><i data-lucide="circle-help"></i><span>Send a Word</span></button>
               <button role="menuitem" onclick="switchView('editor-view');document.getElementById('nav-more').open=false"><i data-lucide="key-round"></i><span>Stewards</span></button>
@@ -499,7 +503,7 @@
                             </div>
                             <div class="min-w-0">
                                 <h3 class="font-bold text-slate-900 dark:text-white">Deployment</h3>
-                                <p class="text-xs text-slate-500 mt-1 font-medium">Create a new Git commit and publish it to the live site.</p>
+                                <p class="text-xs text-slate-500 mt-1 font-medium">Create a new commit and ask EdgeOne to deploy it.</p>
                             </div>
                         </div>
                         <div class="mt-5 flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
@@ -507,7 +511,9 @@
                             <span id="deploy-last" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Never</span>
                         </div>
                         <label for="deploy-message" class="block text-xs font-bold text-slate-600 dark:text-slate-300 mt-4 mb-1">Commit message</label>
-                        <input id="deploy-message" type="text" maxlength="120" value="Redeploy site" placeholder="Why are you redeploying?" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 dark:text-white text-sm" autocomplete="off">
+                        <input id="deploy-message" type="text" maxlength="120" value="" placeholder="Current site version" title="Defaults to SITE.version in js/00-site-config.js" class="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 dark:text-white text-sm" autocomplete="off">
+                        <p class="text-[11px] text-slate-500 mt-1">Defaults to the version in js/00-site-config.js. You can add a custom message.</p>
+                        <p id="deploy-status" class="text-xs mt-3 min-h-5 text-slate-500" role="status" aria-live="polite">The status will appear here after you start a redeploy.</p>
                         <button onclick="triggerRedeploy()" id="deploy-btn" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition shadow flex justify-center items-center gap-2">
                             <i data-lucide="rocket" class="w-4 h-4" id="deploy-icon"></i>
                             <span id="deploy-spin" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>

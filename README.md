@@ -1,32 +1,32 @@
 # Hero
 
-**Duplicating this repo?** change `SITE.id` in `js/00-site-config.js` so each copy has its own data.
+Hero is a map-based history quiz built as a static site with Firebase and EdgeOne serverless functions.
 
+## Start here
 
-Static site (EdgeOne Pages) + Firebase + EdgeOne Edge Functions.
+- Read [`CONFIG.md`](CONFIG.md) for the configuration map, deployment variables, and project layout.
+- Edit [`js/00-site-config.js`](js/00-site-config.js) for the site name, version, data namespace, tagline, intro, and feature flags.
+- Edit [`js/02-firebase-config.js`](js/02-firebase-config.js) for the public Firebase web app configuration.
+- Paste [`firestore.rules`](firestore.rules) into the matching Firebase project's Firestore Rules page and publish it.
 
-    index.html          markup
-    css/styles.css      all styles (themes, animations, components)
-    js/NN-*.js          scripts, loaded in order (00s = setup, later = features)
-    edge-functions/api  auth, deploy, firebase-token, chat
-    firestore.rules     paste into Firebase console -> Firestore -> Rules
+## Project structure
 
-## EdgeOne environment variables (each value max 500 bytes)
-ADMIN_PASSWORD, DEV_PASSWORD, DEPLOY_WEBHOOK_URL, GITHUB_TOKEN, GITHUB_REPOSITORY,
-optional DEPLOY_BRANCH (defaults to `main`), FIREBASE_CLIENT_EMAIL,
-FIREBASE_PRIVATE_KEY_1..N (private key split in <=450-char chunks), GEMINI_API_KEY, optional GEMINI_MODEL.
+| Path | Contents |
+| --- | --- |
+| `index.html` | Site markup and script loading order |
+| `js/` | Browser code, split by feature |
+| `css/` | Site styles and generated Tailwind CSS |
+| `edge-functions/api/` | EdgeOne server endpoints; private keys are read from environment variables |
+| `scripts/` | Versioning and maintenance scripts |
+| `firestore.rules` | Firestore access rules |
 
-The Steward deployment action creates an empty Git commit on `DEPLOY_BRANCH` with the message entered in the admin panel, then calls `DEPLOY_WEBHOOK_URL`. Set `GITHUB_REPOSITORY` to `owner/repo` and `GITHUB_TOKEN` to a GitHub token that can read and write repository contents. Keep the token in EdgeOne environment variables; never place it in frontend code. The branch must allow the token to push commits.
+## Deploy and secrets
 
-Config checks (no secrets shown): open /api/firebase-token and /api/chat in a browser.
+Deploy through EdgeOne Pages. Put admin passwords, Firebase service-account private keys, GitHub tokens, webhook URLs, and the Gemini key in EdgeOne environment variables. Do not commit them or include them in browser JavaScript. The Firebase web config is public by design; Firestore rules and Firebase project settings enforce access.
 
-## Firebase project checklist (after switching projects)
-Web config in `js/02-firebase-config.js` and the service account behind `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY_n` must be from the **same** Firebase project. Enable Anonymous sign-in and Email/Password > Email link sign-in, create Firestore, publish `firestore.rules`, and add your site domain under Authentication > Settings > Authorized domains. Open `/api/firebase-token` to see which project the service account belongs to.
+See [`CONFIG.md`](CONFIG.md) for the full environment variable list, including the GitHub token required by the Steward redeploy feature.
 
-Visitors can optionally verify an email link and add a name. This links that verified identity to the browser ID for steward moderation. Automatic browser error reports collect uncaught JavaScript exceptions and unhandled promise rejections only after analytics consent; they do not identify visual or logical bugs automatically.
+## Version and CSS
 
-## Intro film
-First visit: no loader, the page stays dark, then the intro plays. Put your MP4 in `media/` and set `introVideo` in `js/00-site-config.js`. Bump `intro` to show it again to everyone.
-
-## Announcements
-Post from Stewards -> Site -> Announcements. The newest one pops up once per browser, then lives on the Announcements page and the sidebar bell.
+- `npm run release:patch`, `npm run release:minor`, or `npm run release:major` updates the site and package version.
+- `npm run build:css` rebuilds `css/tailwind.css` from `tailwind.input.css` and `tailwind.config.js`.

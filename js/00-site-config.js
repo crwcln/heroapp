@@ -1,12 +1,27 @@
-// ===== SITE CONFIG =====
-// Duplicating this repo? Change `id` (and `name`). Every Firestore path (quiz data, leaderboards,
-// announcements, feedback, analytics, visit counter) is namespaced under this id, so two sites sharing
-// one Firebase project never see each other's data.
+// ===== EDIT SITE SETTINGS HERE =====
+// When you duplicate this repo, give it a new unique id and update the name.
+// The id namespaces this site's Firestore data when projects share one Firebase database.
 const SITE = {
-  id: 'hero-2026',        // change when duplicating this repo; namespaces ALL Firestore data
-  name: 'Hero', version: '1.1.1', intro: 1, introVideo: '',
+  id: 'hero-2026',
+  name: 'Hero',
+  version: '1.1.2',
   tagline: 'STUDYING, REDEFINED.',
-  // Flip a feature off here instead of deleting code (js/17-features.js applies these).
-  features: { clio: true, music: true, tutorial: true, cookies: true, secrets: true, flappyBird: true, randomLocations: true },
-}; // <-- EDIT ABOVE THIS LINE. Everything below reads from SITE and should not need changes.   // introVideo: e.g. 'media/hero-intro.mp4' (put the file in /media) replaces the built-in film   // bump `intro` to show the opening film to everyone again
+
+  // Increase intro to replay the opening film for everyone. Optional: set a custom MP4 path.
+  intro: 1,
+  introVideo: '', // Example: 'media/hero-intro.mp4'
+
+  // Turn features off here rather than removing their source files.
+  features: {
+    clio: true,
+    music: true,
+    tutorial: true,
+    cookies: true,
+    secrets: true,
+    flappyBird: true,
+    randomLocations: true,
+  },
+};
+
+// Site id is used by the Firestore paths throughout the app.
 window.__app_id = SITE.id;

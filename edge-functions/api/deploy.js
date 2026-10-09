@@ -42,7 +42,8 @@ export async function onRequestPost(context) {
   const githubToken = context.env.GITHUB_TOKEN;
   const repository = context.env.GITHUB_REPOSITORY || 'crwcln/heroapp';
   const branch = context.env.DEPLOY_BRANCH || 'main';
-  if (!secret || !hook || !githubToken) return json({ ok: false, error: 'not_configured' }, 500);
+  const missing = [!secret && 'ADMIN_PASSWORD', !hook && 'DEPLOY_WEBHOOK_URL', !githubToken && 'GITHUB_TOKEN'].filter(Boolean);
+  if (missing.length) return json({ ok: false, error: 'not_configured', missing }, 500);
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) || !/^[A-Za-z0-9_.-]+$/.test(branch)) {
     return json({ ok: false, error: 'invalid_deploy_config' }, 500);
   }

@@ -300,12 +300,23 @@
             const t = Number(localStorage.getItem('mq_lastDeploy'));
             document.getElementById('deploy-last').innerText = t ? new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
         }
+        function setDefaultDeployMessage() {
+            const input = document.getElementById('deploy-message');
+            if (input && !input.value.trim() && typeof SITE !== 'undefined' && SITE.version) input.value = `v${SITE.version}`;
+        }
         function setDeployBtn(busy, label) {
             const btn = document.getElementById('deploy-btn');
             btn.disabled = busy;
             document.getElementById('deploy-spin').classList.toggle('hidden', busy !== 'spin');
             document.getElementById('deploy-icon').classList.toggle('hidden', busy === 'spin');
             document.getElementById('deploy-btn-label').innerText = label;
+        }
+        function setDeployStatus(message, error = false) {
+            const status = document.getElementById('deploy-status');
+            if (!status) return;
+            status.textContent = message;
+            status.classList.toggle('text-rose-600', error);
+            status.classList.toggle('text-emerald-600', !error);
         }
         function startDeployCooldown(sec) {
             let left = sec;
@@ -319,12 +330,19 @@
         }
         async function triggerRedeploy() {
             if (deployBusy) return;
-            if (!adminToken) return showToast('Log in to the admin panel again first (your session token is missing or expired).', 'error');
+            if (!adminToken) {
+                const error = new Error('Admin session is missing or expired. Sign in to the Steward panel again.');
+                console.error('Redeploy failed:', error); setDeployStatus(error.message, true); showToast(error.message, 'error'); return;
+            }
             const message = document.getElementById('deploy-message')?.value.trim() || '';
-            if (!message || message.length > 120 || /[\r\n]/.test(message)) return showToast('Enter a commit message (up to 120 characters).', 'error');
+            if (!message || message.length > 120 || /[\r\n]/.test(message)) {
+                const error = new Error('Enter a commit message (up to 120 characters).');
+                setDeployStatus(error.message, true); showToast(error.message, 'error'); return;
+            }
             if (!(await customConfirm({ title: 'Create commit and redeploy?', message: `A new commit will be created on the deployment branch. Commit message: ${message}`, confirmText: 'Create and redeploy' }))) return;
             deployBusy = true;
             setDeployBtn('spin', 'Creating commit...');
+            setDeployStatus('Creating the GitHub commit and requesting an EdgeOne build...');
             let cooldown = false;
             try {
                 const r = await fetch('/api/deploy', {
@@ -335,29 +353,38 @@
                 const d = await r.json().catch(() => ({}));
                 if (r.status === 401) {
                     lockAdmin();
-                    showToast('Admin session expired. Please log in again.', 'error');
-                } else if (r.ok) {
-                    localStorage.setItem('mq_lastDeploy', String(Date.now()));
-                    renderDeployLast();
-                    showToast(`Commit created (${d.commitSha?.slice(0, 7) || 'new'}). Redeployment triggered.`, 'success');
-                    cooldown = true;
-                } else {
+                    throw new Error('Admin session expired. Please sign in again.');
+                }
+                if (!r.ok) {
+                    let messageText;
                     if (d.commitCreated) {
                         localStorage.setItem('mq_lastDeploy', String(Date.now())); renderDeployLast();
-                        showToast(`Commit ${d.commitSha?.slice(0, 7) || 'created'}, but the build could not be triggered. Check DEPLOY_WEBHOOK_URL in EdgeOne.`, 'error');
+                        messageText = `Commit ${d.commitSha?.slice(0, 7) || 'created'}, but EdgeOne did not accept the build request. Check DEPLOY_WEBHOOK_URL.`;
                     } else {
-                        showToast({
-                            not_configured: 'Add GITHUB_TOKEN in EdgeOne environment variables, then redeploy this site.',
+                        messageText = {
+                            not_configured: `Missing EdgeOne environment variable${d.missing?.length === 1 ? '' : 's'}: ${(d.missing || ['ADMIN_PASSWORD', 'DEPLOY_WEBHOOK_URL', 'GITHUB_TOKEN']).join(', ')}.`,
                             invalid_deploy_config: 'Check GITHUB_REPOSITORY and DEPLOY_BRANCH in EdgeOne environment variables.',
                             invalid_message: 'Enter a commit message up to 120 characters.',
                             github_failed: d.status === 403 ? 'GitHub denied the commit. Check that GITHUB_TOKEN can write repository contents and that the branch allows updates.' : `Could not create the GitHub commit (HTTP ${d.status || r.status}). Check GITHUB_TOKEN, GITHUB_REPOSITORY, and DEPLOY_BRANCH.`,
                             hook_failed: `The commit was created, but EdgeOne rejected the build trigger (HTTP ${d.status}). Check DEPLOY_WEBHOOK_URL.`,
                             hook_unreachable: 'The commit was created, but the EdgeOne build trigger could not be reached.'
-                        }[d.error] || (r.status === 404 ? 'Add edge-functions/api/deploy.js and redeploy.' : `Deploy failed (${r.status}).`), 'error');
+                        }[d.error] || (r.status === 404 ? 'Add edge-functions/api/deploy.js and redeploy.' : `Redeploy request failed (HTTP ${r.status}).`);
                     }
+                    throw new Error(messageText);
                 }
+                localStorage.setItem('mq_lastDeploy', String(Date.now()));
+                renderDeployLast();
+                const commitLabel = d.commitSha?.slice(0, 7) || 'new commit';
+                setDeployStatus(`Commit ${commitLabel} created. EdgeOne accepted the build request; check Build & Deploy for the final build result.`);
+                showToast(`Commit created (${commitLabel}); build request accepted.`, 'success');
+                cooldown = true;
             } catch (err) {
-                console.error('deploy error', err); showToast('Could not reach /api/deploy. Make sure edge-functions/api/deploy.js is deployed, then redeploy the site.', 'error');
+                const error = err instanceof TypeError
+                    ? new Error('Could not reach /api/deploy. Check the site connection and confirm the EdgeOne function is deployed.')
+                    : err instanceof Error ? err : new Error('Redeploy failed. Check the EdgeOne deployment settings.');
+                console.error('Redeploy failed:', error);
+                setDeployStatus(error.message, true);
+                showToast(error.message, 'error');
             } finally {
                 deployBusy = false;
                 if (cooldown) startDeployCooldown(30); else setDeployBtn(false, 'Redeploy Site');
@@ -367,6 +394,7 @@
         clReset();
         renderChangelog();
         renderDevCard();
+        setDefaultDeployMessage();
         renderDeployLast();
 
         // ================= MOBILE =================

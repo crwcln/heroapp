@@ -129,7 +129,7 @@
                 localStorage.setItem('hero_member_name', name);
                 localStorage.setItem(pendingNameKey, name); localStorage.setItem(pendingEmailKey, email);
                 await credential.user.sendEmailVerification({ url: location.origin + location.pathname });
-                setGateStatus('Check your inbox for a verification link. After you verify, return here and select “I verified my email.”');
+                setGateStatus('Check your inbox for a verification link. Verify this account once; future sign-ins will not ask you to verify again.');
                 renderAccount();
             } else {
                 await auth.signInWithEmailAndPassword(email, password);
@@ -176,7 +176,23 @@
                 if (auth.currentUser) { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); await window.__heroApplyAuthUser(auth.currentUser); }
                 description.textContent = auth.currentUser?.email ? `${auth.currentUser.email} is verified. You can return to Hero now.` : 'Your email is verified. Return to Hero and sign in to continue.';
                 status.textContent = 'Email verified successfully.';
-            } catch (error) { description.textContent = 'This verification link is invalid or has expired. Sign in and request a fresh verification email.'; status.textContent = ''; }
+            } catch (error) {
+                let alreadyVerified = false;
+                if (auth.currentUser) {
+                    try {
+                        await auth.currentUser.reload();
+                        alreadyVerified = auth.currentUser.emailVerified === true;
+                        if (alreadyVerified) {
+                            await auth.currentUser.getIdToken(true);
+                            await window.__heroApplyAuthUser(auth.currentUser);
+                        }
+                    } catch (_) { /* Keep the link's normal expired/invalid message. */ }
+                }
+                description.textContent = alreadyVerified
+                    ? 'This account is already verified. You do not need to verify it again.'
+                    : 'This link is invalid, expired, or already used. If you already verified this account, sign in; you only need to verify once.';
+                status.textContent = alreadyVerified ? 'Email already verified.' : '';
+            }
         } else {
         let email = '';
         try {
@@ -205,8 +221,19 @@
         page.querySelector('#hero-reset-home').onclick = () => { page.classList.remove('is-open'); history.replaceState({}, document.title, location.pathname); if (gateForm) { authMode = 'login'; renderGateForm(); setGateStatus('Sign in with your password, or request another reset link.'); } };
     }
     async function resendVerification() {
-        if (!auth.currentUser) return;
-        try { await auth.currentUser.sendEmailVerification({ url: location.origin + location.pathname }); setGateStatus('Verification email sent. Check your inbox and spam folder.'); }
+        const user = auth && auth.currentUser;
+        if (!user || !user.email) return setGateStatus('Sign in first to check your verification status.', true);
+        try {
+            await user.reload();
+            if (user.emailVerified) {
+                await user.getIdToken(true);
+                await window.__heroApplyAuthUser(user);
+                setGateStatus('This account is already verified. You only need to verify your email once.');
+                return;
+            }
+            await user.sendEmailVerification({ url: location.origin + location.pathname });
+            setGateStatus('Verification email sent. Once verified, this account will not need another verification email.');
+        }
         catch (e) { setGateStatus(`Could not send verification email (${e.code || 'error'}).`, true); }
     }
     async function refreshVerification() {
@@ -284,7 +311,7 @@
 
     function showVerificationControls(user) {
         if (!gateForm || !user || !user.email || user.emailVerified) return;
-        gateForm.innerHTML = `<p class="hero-auth-pending">Signed in as <strong>${esc(user.email)}</strong>. Verify your email to unlock Hero features.</p><button id="gate-resend" class="hero-auth-submit">Resend verification email</button><button id="gate-refresh" class="hero-auth-secondary">I verified my email</button><button id="gate-signout" class="hero-auth-link">Sign in with another account</button>`;
+        gateForm.innerHTML = `<p class="hero-auth-pending">Signed in as <strong>${esc(user.email)}</strong>. Verify this account once to unlock Hero. The verified status stays with your account.</p><button id="gate-resend" class="hero-auth-submit">Resend verification email</button><button id="gate-refresh" class="hero-auth-secondary">I verified my email</button><button id="gate-signout" class="hero-auth-link">Sign in with another account</button>`;
         gateForm.querySelector('#gate-resend').onclick = resendVerification;
         gateForm.querySelector('#gate-refresh').onclick = refreshVerification;
         gateForm.querySelector('#gate-signout').onclick = signOut;
@@ -354,18 +381,55 @@
     function renderKnownProfiles() {
         const box = document.getElementById('hero-known-profiles'); if (!box) return;
         window.__heroDeviceProfiles = Object.fromEntries(knownProfiles.map(p => [p.deviceId, p]));
-        box.innerHTML = knownProfiles.length ? '' : '<p class="text-sm text-slate-500">No verified profiles yet.</p>';
-        knownProfiles.forEach(p => {
+        box.replaceChildren();
+        if (!knownProfiles.length) {
+            const empty = document.createElement('p'); empty.className = 'text-sm text-slate-500'; empty.textContent = 'No verified profiles yet.'; box.appendChild(empty);
+            window.dispatchEvent(new Event('hero-profiles-updated'));
+            return;
+        }
+
+        // One verified email can appear on several browsers. Show one account row, with each browser
+        // ID nested underneath so stewards can still ban an individual browser when needed.
+        const groups = new Map();
+        knownProfiles.forEach(profile => {
+            const email = String(profile.email || '').trim().toLowerCase();
+            const key = email || `uid:${profile.userId || profile.deviceId}`;
+            let group = groups.get(key);
+            if (!group) {
+                group = { name: profile.name || 'No name', email: profile.email || '', browsers: [], accounts: new Map() };
+                groups.set(key, group);
+            }
+            group.browsers.push(profile);
+            if (profile.userId) group.accounts.set(profile.userId, profile);
+        });
+
+        groups.forEach(group => {
             const row = document.createElement('div'); row.className = 'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3';
             const info = document.createElement('div'); info.className = 'min-w-0';
-            const title = document.createElement('div'); title.className = 'font-bold text-sm'; title.textContent = p.name || 'No name';
-            const email = document.createElement('div'); email.className = 'text-xs text-slate-500'; email.textContent = p.email || '';
-            const id = document.createElement('div'); id.className = 'font-mono text-[10px] text-slate-500'; id.textContent = p.deviceId;
-            info.append(title, email, id);
-            const actions = document.createElement('div'); actions.className = 'flex gap-2';
-            const browser = document.createElement('button'); browser.className = 'cm-btn ghost'; browser.textContent = 'Ban browser'; browser.onclick = () => banDevice(p.deviceId, 'Browser banned by steward');
-            const account = document.createElement('button'); account.className = 'cm-btn go'; account.textContent = 'Ban account'; account.onclick = () => banDevice('u_' + p.userId, 'Account banned by steward');
-            actions.append(browser, account); row.append(info, actions); box.appendChild(row);
+            const title = document.createElement('div'); title.className = 'font-bold text-sm'; title.textContent = group.name;
+            const email = document.createElement('div'); email.className = 'text-xs text-slate-500'; email.textContent = group.email || 'No email recorded';
+            const summary = document.createElement('div'); summary.className = 'text-xs text-slate-500 mt-1';
+            summary.textContent = `${group.browsers.length} browser${group.browsers.length === 1 ? '' : 's'} linked`;
+            info.append(title, email, summary);
+
+            const actions = document.createElement('div'); actions.className = 'flex flex-wrap items-center gap-2';
+            const browserDetails = document.createElement('details'); browserDetails.className = 'text-xs';
+            const browserSummary = document.createElement('summary'); browserSummary.className = 'cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 font-semibold'; browserSummary.textContent = 'Browser IDs';
+            const browserList = document.createElement('div'); browserList.className = 'mt-2 grid gap-2';
+            group.browsers.forEach(profile => {
+                const browserRow = document.createElement('div'); browserRow.className = 'flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-900 px-3 py-2';
+                const id = document.createElement('code'); id.className = 'font-mono text-[10px] text-slate-500 break-all'; id.textContent = profile.deviceId;
+                const banBrowser = document.createElement('button'); banBrowser.className = 'cm-btn ghost'; banBrowser.textContent = 'Ban browser'; banBrowser.onclick = () => banDevice(profile.deviceId, 'Browser banned by steward');
+                browserRow.append(id, banBrowser); browserList.appendChild(browserRow);
+            });
+            browserDetails.append(browserSummary, browserList);
+            actions.appendChild(browserDetails);
+            group.accounts.forEach((profile, uid) => {
+                const account = document.createElement('button'); account.className = 'cm-btn go'; account.textContent = group.accounts.size > 1 ? `Ban account ${uid.slice(0, 6)}` : 'Ban account';
+                account.onclick = () => banDevice('u_' + uid, 'Account banned by steward');
+                actions.appendChild(account);
+            });
+            row.append(info, actions); box.appendChild(row);
         });
         window.dispatchEvent(new Event('hero-profiles-updated'));
     }
@@ -401,7 +465,7 @@
 
         const card = document.createElement('section'); card.dataset.atab = 'site'; card.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mt-6';
         if (document.getElementById('admin-panel').dataset.active !== 'site') card.classList.add('atab-off');
-        card.innerHTML = '<h3 class="font-bold text-slate-900 dark:text-white">Verified browsers</h3><p class="text-xs text-slate-500 mt-1 mb-3">Verified accounts and browsers linked to them. Ban a browser or the whole account.</p><div id="hero-known-profiles" class="space-y-2"></div>';
+        card.innerHTML = '<h3 class="font-bold text-slate-900 dark:text-white">Verified accounts and browsers</h3><p class="text-xs text-slate-500 mt-1 mb-3">Browsers using the same verified email are grouped together. Expand Browser IDs to ban one browser, or ban the account to block all of them.</p><div id="hero-known-profiles" class="space-y-2"></div>';
         document.getElementById('admin-panel').appendChild(card);
         if (window.lucide) lucide.createIcons(); renderAccount();
         if (!auth) setGateStatus('Firebase sign-in is unavailable. Check the site Firebase configuration.');
@@ -415,6 +479,18 @@
     window.addEventListener('hero-auth-state', async e => {
         const { user, authorized, isAdmin } = e.detail || {};
         if (!user || profilePhotoUid && profilePhotoUid !== user.uid) { profilePhoto = ''; profilePhotoUid = ''; }
+        // Email verification is account-wide. Refresh stale auth state so a verified user returning
+        // from the email tab is not shown the verification gate again.
+        if (!authorized && user && !user.isAnonymous && user.email && !user.emailVerified) {
+            try {
+                await user.reload();
+                if (user.emailVerified) {
+                    await user.getIdToken(true);
+                    await window.__heroApplyAuthUser(user);
+                    return;
+                }
+            } catch (error) { console.warn('Could not refresh email verification state:', error); }
+        }
         renderAccount();
         if (authorized) {
             authGate?.classList.add('hidden');
@@ -436,6 +512,17 @@
                 renderGateForm(); setGateStatus(user ? 'This account is not eligible to access the site.' : 'Sign in or create a verified account to continue.');
             }
         }
+    });
+    document.addEventListener('visibilitychange', async () => {
+        const user = auth && auth.currentUser;
+        if (document.visibilityState !== 'visible' || !user || user.isAnonymous || user.emailVerified) return;
+        try {
+            await user.reload();
+            if (user.emailVerified) {
+                await user.getIdToken(true);
+                await window.__heroApplyAuthUser(user);
+            }
+        } catch (error) { console.warn('Could not refresh email verification state:', error); }
     });
     window.addEventListener('hero-admin-authenticated', startProfiles);
     window.addEventListener('hero-admin-locked', stopProfiles);
