@@ -85,7 +85,7 @@
         // introduced where it lives. The spotlight follows the selected control as the page changes.
         const TUT = [
             { view: 'home-view', sel: '#global-quiz-title', h: 'Welcome to Hero', p: 'Named for Herodotus, the “father of history.” Take a quick guided walk through the places to explore.', tag: 'YOUR FIELD GUIDE' },
-            { view: 'home-view', sel: '#year-toggle', h: 'Choose your tour', p: 'Switch between the 1 Year and 2 Year collections. Your progress and leaderboards are kept separate.', tag: 'START HERE' },
+            { view: 'home-view', sel: '#year-toggle', h: 'Choose your tour', p: 'Switch between the 1 Year and 2 Year collections. Try either button now—the highlighted controls stay interactive. Your progress and leaderboards are kept separate.', tag: 'START HERE' },
             { view: 'home-view', sel: '#mode-pick', h: 'Choose how to play', p: 'Name the Place asks you to identify a marker. Find the Land gives you a name to locate. Revisit the Forgotten practices places you missed.', tag: 'THREE WAYS TO LEARN' },
             { view: 'leaderboard-view', sel: '#leaderboard-list', h: 'Hall of Heroes', p: 'Compare top scores for both tours and see how your time and accuracy stack up.', tag: 'THE HONOR ROLL' },
             { view: 'custom-loc-view', sel: '#user-place-name', h: 'Private Charts', p: 'Build a personal study map by searching for places or importing a list of coordinates.', tag: 'MAKE A MAP YOURS' },
@@ -97,7 +97,11 @@
         function tutStart() { tutI = 0; tutShow(); }
         function tutEnsureUI() {
             let shield = document.getElementById('tut-shield');
-            if (!shield) { shield = document.createElement('div'); shield.id = 'tut-shield'; shield.setAttribute('aria-hidden', 'true'); document.body.appendChild(shield); }
+            if (!shield) {
+                shield = document.createElement('div'); shield.id = 'tut-shield'; shield.setAttribute('aria-hidden', 'true');
+                shield.innerHTML = '<i data-side="top"></i><i data-side="left"></i><i data-side="right"></i><i data-side="bottom"></i>';
+                document.body.appendChild(shield);
+            }
             let spotlight = document.getElementById('tut-spotlight');
             if (!spotlight) { spotlight = document.createElement('div'); spotlight.id = 'tut-spotlight'; spotlight.setAttribute('aria-hidden', 'true'); document.body.appendChild(spotlight); }
             let card = document.getElementById('tut');
@@ -113,7 +117,7 @@
                     <div class="tut-progress" aria-hidden="true"><i></i></div>
                     <h2 class="tut-title"></h2><p class="tut-copy"></p>
                     <div class="tut-actions"><button type="button" class="cm-btn ghost" id="tut-skip">End tour</button><span class="tut-action-spacer"></span><button type="button" class="cm-btn ghost" id="tut-back">Back</button><button type="button" class="cm-btn go" id="tut-next">${last ? 'Finish tour' : 'Continue'}</button></div>`;
-                card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-labelledby', 'tut-title'); card.setAttribute('aria-describedby', 'tut-copy');
+                card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'false'); card.setAttribute('aria-labelledby', 'tut-title'); card.setAttribute('aria-describedby', 'tut-copy');
                 card.querySelector('.tut-tag').textContent = step.tag;
                 card.querySelector('.tut-count').textContent = `STEP ${String(tutI + 1).padStart(2, '0')} / ${String(TUT.length).padStart(2, '0')}`;
                 card.querySelector('.tut-progress i').style.width = `${(tutI + 1) / TUT.length * 100}%`;
@@ -125,19 +129,38 @@
 
                 const target = step.sel && document.querySelector(step.sel);
                 if (target) target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                const panels = Object.fromEntries([...shield.querySelectorAll('[data-side]')].map(panel => [panel.dataset.side, panel]));
+                const setPanel = (side, left, top, width, height) => {
+                    const panel = panels[side];
+                    panel.hidden = width <= 0 || height <= 0;
+                    panel.style.left = `${left}px`; panel.style.top = `${top}px`;
+                    panel.style.width = `${Math.max(0, width)}px`; panel.style.height = `${Math.max(0, height)}px`;
+                };
                 const placeSpotlight = () => {
-                    if (!target || !target.isConnected) { spotlight.hidden = true; shield.classList.remove('has-spotlight'); return; }
+                    if (!target || !target.isConnected) {
+                        spotlight.hidden = true;
+                        setPanel('top', 0, 0, innerWidth, innerHeight);
+                        setPanel('left', 0, 0, 0, 0); setPanel('right', 0, 0, 0, 0); setPanel('bottom', 0, 0, 0, 0);
+                        return;
+                    }
                     const rect = target.getBoundingClientRect(), pad = 9;
+                    if (!rect.width || !rect.height) {
+                        spotlight.hidden = true;
+                        setPanel('top', 0, 0, innerWidth, innerHeight);
+                        setPanel('left', 0, 0, 0, 0); setPanel('right', 0, 0, 0, 0); setPanel('bottom', 0, 0, 0, 0);
+                        return;
+                    }
                     const width = Math.min(rect.width + pad * 2, innerWidth - 24), height = Math.min(rect.height + pad * 2, innerHeight - 24);
                     const left = Math.max(12, Math.min(rect.left - pad, innerWidth - width - 12));
                     const top = Math.max(12, Math.min(rect.top - pad, innerHeight - height - 12));
                     spotlight.hidden = false; spotlight.style.left = `${left}px`; spotlight.style.top = `${top}px`;
                     spotlight.style.width = `${width}px`; spotlight.style.height = `${height}px`;
-                    shield.style.setProperty('--spot-x', `${left + width / 2}px`);
-                    shield.style.setProperty('--spot-y', `${top + height / 2}px`);
-                    shield.style.setProperty('--spot-rx', `${width / 2}px`);
-                    shield.style.setProperty('--spot-ry', `${height / 2}px`);
-                    shield.classList.add('has-spotlight');
+                    // Four real panels create a square-cornered opening. Only the highlighted
+                    // control is exposed to pointer and keyboard interaction during the tour.
+                    setPanel('top', 0, 0, innerWidth, top);
+                    setPanel('left', 0, top, left, height);
+                    setPanel('right', left + width, top, innerWidth - left - width, height);
+                    setPanel('bottom', 0, top + height, innerWidth, innerHeight - top - height);
                 };
                 if (tutPositionHandler) { window.removeEventListener('resize', tutPositionHandler); window.removeEventListener('scroll', tutPositionHandler, true); }
                 tutPositionHandler = () => requestAnimationFrame(placeSpotlight);
@@ -148,10 +171,13 @@
                 tutKeyHandler = e => {
                     if (e.key === 'Escape') { e.preventDefault(); tutEnd(); return; }
                     if (e.key !== 'Tab') return;
-                    const buttons = [...card.querySelectorAll('button:not([hidden])')];
-                    const lastButton = buttons[buttons.length - 1];
-                    if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); lastButton.focus(); }
-                    else if (!e.shiftKey && document.activeElement === lastButton) { e.preventDefault(); buttons[0].focus(); }
+                    const selectors = 'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
+                    const targetControls = target && target.isConnected ? [...(target.matches(selectors) ? [target] : []), ...target.querySelectorAll(selectors)] : [];
+                    const tourControls = [...card.querySelectorAll('button:not([hidden])')];
+                    const controls = [...targetControls, ...tourControls];
+                    const first = controls[0], lastControl = controls[controls.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastControl.focus(); }
+                    else if (!e.shiftKey && document.activeElement === lastControl) { e.preventDefault(); first.focus(); }
                 };
                 document.addEventListener('keydown', tutKeyHandler, true);
                 card.querySelector('#tut-next').focus({ preventScroll: true });
