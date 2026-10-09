@@ -168,6 +168,13 @@
             </div>
         </div>
     </div>
+    <div id="profile-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
+        <div class="max-w-3xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
+            <button onclick="switchView('home-view')" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-4">Back to Hero</button>
+            <div class="flex items-center justify-between gap-3"><h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Your Hero profile</h2><button class="cm-btn ghost" onclick="window.__heroOpenAccountDialog && window.__heroOpenAccountDialog()">Account settings</button></div>
+            <div id="member-profile-content" class="mt-6"><p class="text-slate-500">Loading your profile...</p></div>
+        </div>
+    </div>
     <div id="changelog-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
         <div class="max-w-3xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
             <button onclick="switchView('home-view')" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-4 flex items-center gap-1">← Back to Hero</button>
@@ -652,7 +659,7 @@
         </div>
     </div>
     <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" alt=""></div>
-    <div id="cookie-banner" class="glass-panel"><p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Small cookies remember your preferences and last visit. Accept enables analytics and automatic browser error reports. Analytics includes your current site section, device type, browser, operating system, and viewport while you are active. If you choose verified sign-in, stewards can associate activity with your name and account. Essential only disables analytics and error reports.</p>
+    <div id="cookie-banner" class="glass-panel"><p class="text-sm font-semibold text-slate-700 dark:text-slate-200">A verified Hero account is required. Accept enables optional analytics and automatic error reports; activity is linked to your account ID, and stewards can associate it with your verified profile. Essential only disables analytics and error reports.</p>
         <div class="flex gap-2 mt-3"><button class="cm-btn go" onclick="setConsent('all')">Accept</button><button class="cm-btn ghost" onclick="setConsent('essential')">Essential only</button></div></div>
     <button id="sherpa-fab" aria-label="Ask Clio" onclick="sherpaToggle()"><i data-lucide="bot"></i><span class="fab-tip">Ask Clio</span></button>
     <div id="sherpa-panel" class="glass-panel"></div>

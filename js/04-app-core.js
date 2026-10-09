@@ -99,11 +99,34 @@
 
         // ================= FIREBASE SETUP =================
         let db = null, auth = null;
+        window.__heroCanAccessApp = false;
         let globalLocations = [];
         let globalQuizTitle = "The Grand Tour";
         let currentGlobalMessage = "";
         const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'map-quiz-pro-default';
         let userId = null;
+        let activeDataUid = '';
+
+        async function applyFirebaseUser(user) {
+            let allowed = false, isAdmin = false;
+            if (user) {
+                try { isAdmin = (await user.getIdTokenResult()).claims.admin === true; }
+                catch (e) { console.warn('Could not read account claims:', e); }
+                allowed = isAdmin || (!user.isAnonymous && user.emailVerified === true);
+            }
+            userId = allowed ? user.uid : null;
+            if (userId && activeDataUid !== userId) {
+                activeDataUid = userId;
+                loadGlobalSettings(); loadLeaderboard();
+                loadChangelog(); loadSiteMode(); loadVisits(); countVisit(); startAnalytics();
+            } else if (!userId) {
+                activeDataUid = '';
+                if (typeof stopAnalytics === 'function') stopAnalytics();
+            }
+            window.__heroCanAccessApp = allowed;
+            window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user, authorized: allowed, isAdmin } }));
+        }
+        window.__heroApplyAuthUser = applyFirebaseUser;
 
         async function initFirebase() {
             if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
@@ -114,30 +137,8 @@
                     db = firebase.firestore();
 
                     window.dispatchEvent(new Event('hero-firebase-ready'));
-                    // Wait for Firebase to restore persisted auth before choosing anonymous auth.
-                    // Reading auth.currentUser immediately after initializeApp() can return null
-                    // while a valid admin session is still being restored (common in duplicated tabs).
-                    let startingAnonymous = false;
                     auth.onAuthStateChanged(async user => {
-                        if (!user) {
-                            // Email-link completion must claim the auth state before anonymous
-                            // sign-in starts, or the anonymous request can race the credential.
-                            if (window.__heroEmailLinkPending) return;
-                            if (!startingAnonymous) {
-                                startingAnonymous = true;
-                                try { await auth.signInAnonymously(); }
-                                catch (e) { startingAnonymous = false; console.error('Anonymous sign-in failed:', e); }
-                            }
-                            return;
-                        }
-                        startingAnonymous = false;
-                        const _firstAuth = !userId; userId = user.uid;
-                        if (_firstAuth) {
-                            loadGlobalSettings();
-                            loadLeaderboard();
-                            loadChangelog(); loadSiteMode(); loadVisits(); countVisit(); startAnalytics();
-                        }
-                        window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user } }));
+                        await applyFirebaseUser(user);
                     });
                 } catch (e) {
                     console.error("Firebase init failed:", e);
@@ -188,6 +189,10 @@
         let activeQuizData = [], quizStats = {}, points = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
 
         function switchView(viewId) {
+            if (window.__heroCanAccessApp === false && !['auth-view'].includes(viewId)) {
+                if (window.__heroShowAuthGate) window.__heroShowAuthGate();
+                return;
+            }
             const views = document.querySelectorAll('.view-section');
             const particles = document.getElementById('particles-bg');
             if (viewId === 'quiz-view') particles.style.display = 'none'; else particles.style.display = 'block';
@@ -248,7 +253,8 @@
                     const item = document.createElement('div');
                     item.className = `flex justify-between items-center p-4 rounded-2xl border ${idx === 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
                     const mins = String(Math.floor(entry.time / 60)).padStart(2, '0'), secs = String(entry.time % 60).padStart(2, '0');
-                    item.innerHTML = `<div class="flex items-center gap-3"><span class="font-bold w-6 text-slate-400">#${idx+1}</span><div class="font-bold text-lg">${entry.name}</div></div><div class="text-right"><div class="font-black text-indigo-600 text-xl font-mono">${entry.score.toLocaleString()} <span class="text-xs">pts</span></div><div class="text-xs text-slate-500">${mins}:${secs}</div></div>`;
+                    item.innerHTML = `<div class="flex items-center gap-3"><span class="font-bold w-6 text-slate-400">#${idx+1}</span><div class="leaderboard-player-name font-bold text-lg"></div></div><div class="text-right"><div class="font-black text-indigo-600 text-xl font-mono">${Number(entry.score).toLocaleString()} <span class="text-xs">pts</span></div><div class="text-xs text-slate-500">${mins}:${secs}</div></div>`;
+                    item.querySelector('.leaderboard-player-name').textContent = entry.name || 'Hero player';
                     list.appendChild(item);
                 });
             });
@@ -658,14 +664,17 @@
 
         function submitScore() {
             if(!db || !userId) return showToast("Offline mode.", "error");
-            const name = document.getElementById('player-name').value.trim() || 'Anonymous';
+            const name = (document.getElementById('player-name').value.trim() || localStorage.getItem('hero_member_name') || auth.currentUser?.displayName || 'Hero').slice(0, 15);
             localStorage.setItem('mq_playerName', name);
             db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb).add({
-                userId, name, score: finalScore, time: secondsElapsed, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                userId, name, score: finalScore, time: secondsElapsed, tour: QUIZZES[yearMode].label,
+                perfect: activeQuizData.length > 0 && solvedCount === activeQuizData.length && Object.values(quizStats).every(q => q.solved && q.mistakes === 0),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 showToast("Score saved!", "success");
+                window.dispatchEvent(new Event('hero-score-saved'));
                 setTimeout(() => switchView('leaderboard-view'), 1000);
-            });
+            }).catch(e => showToast(`Could not save score (${e.code || 'error'}). Sign in with a verified account and retry.`, 'error'));
         }
 
         function fireConfetti() {

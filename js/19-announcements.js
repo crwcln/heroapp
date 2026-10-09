@@ -4,12 +4,13 @@ const annCol = () => db.collection('artifacts').doc(appId).collection('public').
 let annList = [], annUnsub = null;
 function annFmtDate(ts) { const d = ts && ts.toDate ? ts.toDate() : new Date(); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
 function startAnnouncements() {
-    if (annUnsub) return;
+    if (annUnsub || !window.__heroCanAccessApp) return;
     annUnsub = annCol().orderBy('createdAt', 'desc').limit(30).onSnapshot(s => {
         annList = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderAnnList(); renderAnnAdmin(); maybeShowAnnPopup();
-    }, e => console.error('announcements', e));
+    }, e => { console.error('announcements', e); if (e.code === 'permission-denied') { annUnsub(); annUnsub = null; } });
 }
+function stopAnnouncements() { if (annUnsub) annUnsub(); annUnsub = null; }
 function renderAnnList() {
     const box = document.getElementById('ann-list'); if (!box) return;
     box.innerHTML = annList.length ? '' : '<p class="text-center text-slate-500 italic py-10">No announcements yet.</p>';
@@ -60,4 +61,4 @@ window.dismissGlobalMsg = function () {
     if (annList[0]) { localStorage.setItem('hero_lastSeenAnn', annList[0].id); document.getElementById('global-msg-minimized').classList.remove('hidden'); }
 };
 const _oau2 = onAdminUnlocked; onAdminUnlocked = function () { _oau2(); startAnnouncements(); };
-startAnnouncements();
+window.addEventListener('hero-auth-state', e => { if (e.detail && e.detail.authorized) startAnnouncements(); else stopAnnouncements(); });
