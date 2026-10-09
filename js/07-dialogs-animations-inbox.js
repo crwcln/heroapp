@@ -88,6 +88,20 @@
                 showToast(secureMsg(e), 'error'); document.getElementById('inbox-sub').innerText = 'Secure sign-in failed';
             }
         }
+        // Firebase auth persistence is shared by tabs. If another tab locks itself and
+        // switches the shared user to anonymous, restore this tab's still-valid admin session.
+        let adminRepairInFlight = false;
+        window.addEventListener('hero-auth-state', async e => {
+            if (!adminToken || !e.detail || !e.detail.user || adminRepairInFlight) return;
+            try {
+                const token = await e.detail.user.getIdTokenResult();
+                if (token.claims.admin === true) return;
+                adminRepairInFlight = true;
+                await adminSecureSignIn();
+            } catch (err) {
+                console.warn('Could not restore this tab’s admin session:', err);
+            } finally { adminRepairInFlight = false; }
+        });
         async function lockAdmin(msg) {
             const wasAdmin = !!adminToken;   // only re-anonymize (and only show an 'info' toast) if we were actually signed in as admin
             adminToken = null;

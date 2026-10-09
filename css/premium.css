@@ -19,6 +19,10 @@ h1, h2, h3, #global-quiz-title, .cm-card h3 { font-family: 'Playfair Display', G
 .qtip-b { position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%) translateY(-4px); width: 250px; padding: 12px 14px; border-radius: 12px; background: rgba(16,15,13,.96); color: #f5efe4; font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; }
 .qtip:hover .qtip-b, .qtip:focus .qtip-b { opacity: 1; transform: translateX(-50%); }
 path.hl { fill-opacity: .38; stroke-width: 2; stroke-linejoin: round; pointer-events: none; animation: hlIn .6s ease-out both, hlBreath 3s ease-in-out .6s infinite; }
+path.hl-halo, path.hl-glow, path.hl-outline { fill: none; pointer-events: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+path.hl-halo { stroke: #020617; stroke-width: 11px; opacity: .92; }
+path.hl-glow { stroke: #5eead4; stroke-width: 7px; opacity: .82; filter: drop-shadow(0 0 7px rgba(45,212,191,.9)); }
+path.hl-outline { stroke: #f8fafc; stroke-width: 3.5px; opacity: .95; }
 path.hl-land { fill: #34d399; stroke: #10b981; } path.hl-continent { fill: #a78bfa; stroke: #7c3aed; } path.hl-water { fill: #38bdf8; stroke: var(--brand-700); }
 path.hl-region { fill: #f59e0b; stroke: #b45309; } path.hl-empire { fill: #a855f7; stroke: #7e22ce; } path.hl-route { fill: #fb923c; stroke: #c2410c; }
 path.hl-river { fill: none; stroke: var(--sec); stroke-width: 4; stroke-dasharray: 14 8; animation: hlFlow 1.2s linear infinite; }

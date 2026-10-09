@@ -4,6 +4,7 @@
 // The site does not collect IP addresses. Verified email profiles are opt-in and admin-only; network-level abuse can
 // be handled with EdgeOne rate limiting / WAF rules without this site storing an address.
 const deviceId = () => { let id = localStorage.getItem('hero_device'); if (!id) { id = 'd_' + crypto.randomUUID().slice(0, 12); localStorage.setItem('hero_device', id); } return id; };
+window.__heroDeviceId = deviceId();
 const bansCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bans');
 let banList = [], banUnsub = null;
 function showBanScreen(reason) {

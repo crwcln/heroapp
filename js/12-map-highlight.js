@@ -4,7 +4,7 @@ const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r
 // loaded on demand from jsDelivr; places without a matching shape get an animated pulse ring instead.
 const HL_BASE = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/';
 const HL_FILES = { land: 'ne_110m_admin_0_countries.geojson', water: 'ne_110m_geography_marine_polys.geojson', river: 'ne_110m_rivers_lake_centerlines.geojson', region: 'ne_110m_geography_regions_polys.geojson' };
-let hlIndex = {}, hlLoading = null, hlLayer = null, hlTok = 0;
+let hlIndex = {}, hlLoading = null, hlLayers = [], hlTok = 0;
 const hlNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|river|sea|ocean|gulf|bay|strait|empire|kingdom|mountains|mountain|desert|peninsula|lake|plateau|islands|island)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const hlAdd = (k, type, f) => { const n = hlNorm(k); if (n) (hlIndex[n] = hlIndex[n] || []).push({ type, f }); };
 function hlLoad() {
@@ -23,7 +23,7 @@ function hlLoad() {
 }
 const hlKind = loc => { const t = (loc.name + ' ' + (loc.category || '')).toLowerCase();
     return /river|sea|ocean|gulf|bay|strait|lake|canal|channel|current/.test(t) ? 'water' : /empire|kingdom|dynasty|caliphate|republic/.test(t) ? 'empire' : /route|road|trade|silk/.test(t) ? 'route' : 'land'; };
-function hlClear() { hlTok++; if (hlLayer) { try { map.removeLayer(hlLayer); } catch (e) { /* map already gone */ } hlLayer = null; } }
+function hlClear() { hlTok++; if (hlLayers.length) { try { hlLayers.forEach(layer => map.removeLayer(layer)); } catch (e) { /* map already gone */ } hlLayers = []; } }
 function hlShow(loc) {
     window.__focusLoc = { name: loc.name, category: loc.category || '' };   // Clio reads this so "tell me more about it" knows what "it" is
     hlClear(); const my = hlTok;
@@ -34,9 +34,16 @@ function hlShow(loc) {
         const pri = hlKind(loc) === 'water' ? ['river', 'water', 'region', 'land', 'continent'] : ['land', 'continent', 'region', 'water', 'river'];
         ms.sort((a, b) => pri.indexOf(a.type) - pri.indexOf(b.type));
         const top = ms.length ? ms[0].type : null, sel = ms.filter(m => m.type === top);
-        hlLayer = sel.length
-            ? L.geoJSON({ type: 'FeatureCollection', features: sel.map(m => m.f) }, { style: () => ({ className: 'hl hl-' + top }), interactive: false }).addTo(map)
-            : L.circleMarker([loc.lat, loc.lng], { radius: 22, className: 'hl hl-pulse hl-' + hlKind(loc), interactive: false }).addTo(map);
+        if (sel.length) {
+            const collection = { type: 'FeatureCollection', features: sel.map(m => m.f) };
+            // Stacked vector strokes keep borders readable over satellite and dark tiles.
+            ['hl-halo', 'hl-glow', 'hl-outline', 'hl hl-' + top].forEach(className => {
+                const layer = L.geoJSON(collection, { style: () => ({ className }), interactive: false }).addTo(map);
+                hlLayers.push(layer);
+            });
+        } else {
+            hlLayers.push(L.circleMarker([loc.lat, loc.lng], { radius: 22, className: 'hl hl-pulse hl-' + hlKind(loc), interactive: false }).addTo(map));
+        }
     });
 }
 function hlBind(marker, loc) {

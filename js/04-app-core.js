@@ -113,17 +113,26 @@
                     auth = firebase.auth();
                     db = firebase.firestore();
 
-                    if (!auth.currentUser || auth.currentUser.uid === 'admin') await auth.signInAnonymously();
                     window.dispatchEvent(new Event('hero-firebase-ready'));
-
-                    auth.onAuthStateChanged(user => {
-                        if (user) {
-                            const _firstAuth = !userId; userId = user.uid;
-                            if (_firstAuth) {
-                                loadGlobalSettings();
-                                loadLeaderboard();
-                                loadChangelog(); loadSiteMode(); loadVisits(); countVisit(); startAnalytics();
+                    // Wait for Firebase to restore persisted auth before choosing anonymous auth.
+                    // Reading auth.currentUser immediately after initializeApp() can return null
+                    // while a valid admin session is still being restored (common in duplicated tabs).
+                    let startingAnonymous = false;
+                    auth.onAuthStateChanged(async user => {
+                        if (!user) {
+                            if (!startingAnonymous) {
+                                startingAnonymous = true;
+                                try { await auth.signInAnonymously(); }
+                                catch (e) { startingAnonymous = false; console.error('Anonymous sign-in failed:', e); }
                             }
+                            return;
+                        }
+                        startingAnonymous = false;
+                        const _firstAuth = !userId; userId = user.uid;
+                        if (_firstAuth) {
+                            loadGlobalSettings();
+                            loadLeaderboard();
+                            loadChangelog(); loadSiteMode(); loadVisits(); countVisit(); startAnalytics();
                         }
                         window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user } }));
                     });
@@ -488,6 +497,9 @@
             tileLayer.setUrl(mapIsSatellite 
                 ? TILE_DARK 
                 : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+            tileLayer.setAttribution(mapIsSatellite
+                ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>');
         }
 
         function initMap() {
@@ -495,7 +507,7 @@
             map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 8, zoomControl: false }).setView([25, 20], 2.5);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-            tileLayer = L.tileLayer(TILE_DARK, { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+            tileLayer = L.tileLayer(TILE_DARK, { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' }).addTo(map);
 
             const unsolvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin unsolved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
             const solvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });

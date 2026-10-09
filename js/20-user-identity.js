@@ -33,7 +33,7 @@
             accountForm.querySelector('#hero-member-signout').onclick = signOut;
             const accountButton = document.getElementById('hero-account-open'); if (accountButton) accountButton.textContent = name || 'Account';
         } else {
-            accountForm.innerHTML = '<p class="text-sm text-slate-600 dark:text-slate-300">Verify your email with a sign-in link. This connects your name and email to this browser for moderation; stewards can use that connection to ban a browser or verified account.</p><label class="block text-xs font-bold uppercase tracking-wide mt-4 mb-1">Name</label><input id="hero-member-name" maxlength="40" required class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="name"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1">Email</label><input id="hero-member-email" type="email" maxlength="254" required class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="email"><button id="hero-member-send" class="cm-btn go w-full mt-4">Email me a sign-in link</button>';
+            accountForm.innerHTML = '<p class="text-sm text-slate-600 dark:text-slate-300">Verify your email with a sign-in link. This connects your name and email to this browser for moderationt.</p><label class="block text-xs font-bold uppercase tracking-wide mt-4 mb-1">Name</label><input id="hero-member-name" maxlength="40" required class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="name"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1">Email</label><input id="hero-member-email" type="email" maxlength="254" required class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="email"><button id="hero-member-send" class="cm-btn go w-full mt-4">Email me a sign-in link</button>';
             accountForm.querySelector('#hero-member-name').value = localStorage.getItem(pendingNameKey) || '';
             accountForm.querySelector('#hero-member-email').value = localStorage.getItem(pendingEmailKey) || '';
             accountForm.querySelector('#hero-member-send').onclick = sendLink;
@@ -55,7 +55,10 @@
             setStatus('Check your inbox and open the sign-in link on this browser.');
         } catch (e) {
             console.error('Email link sign-in:', e);
-            setStatus(`Could not send the link (${e.code || 'error'}). Check that Email link sign-in is enabled in Firebase.`, true);
+            const help = e.code === 'auth/unauthorized-continue-uri'
+                ? ` Add ${location.hostname} in Firebase Console → Authentication → Settings → Authorized domains.`
+                : ' Check that Email link sign-in is enabled in Firebase.';
+            setStatus(`Could not send the link (${e.code || 'error'}).${help}`, true);
         }
     }
 

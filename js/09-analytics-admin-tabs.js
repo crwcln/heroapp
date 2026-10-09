@@ -2,7 +2,10 @@
         const anBase = () => db.collection('artifacts').doc(appId).collection('public').doc('data');
         const anOK = () => consent === 'all';
         const anDay = () => new Date().toISOString().slice(0, 10);
-        let anBeatTimer = null, anVisibility = null;
+        let anBeatTimer = null, anVisibility = null, anSessionCounted = false;
+        // Runtime-only ID keeps duplicated tabs from overwriting each other's live presence.
+        const anTabId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^A-Za-z0-9]/g, '').slice(0, 20).padEnd(16, '0');
+        let anPresenceRef = null;
         function devInfo() {
             const ua = navigator.userAgent, touch = navigator.maxTouchPoints > 1;
             const tablet = /iPad|Tablet/i.test(ua) || (/Macintosh/.test(ua) && touch) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
@@ -20,16 +23,18 @@
         function beat() {
             if (!db || !userId || !anOK() || document.hidden) return;
             const i = devInfo();
-            anBase().collection('presence').doc(userId).set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp(), device: i.device, os: i.os, browser: i.browser, view: fbCurView, mode: yearMode, theme: prefs.theme, vw: innerWidth, vh: innerHeight }).catch(() => {});
+            anPresenceRef = anBase().collection('presence').doc(userId + '__' + anTabId);
+            anPresenceRef.set({ userId, deviceId: window.__heroDeviceId || '', lastSeen: firebase.firestore.FieldValue.serverTimestamp(), device: i.device, os: i.os, browser: i.browser, view: fbCurView, mode: yearMode, theme: prefs.theme, vw: innerWidth, vh: innerHeight }).catch(() => {});
         }
         function startAnalytics() {
             if (!anOK() || anBeatTimer) return;
-            if (!sessionStorage.getItem('mq_an')) { sessionStorage.setItem('mq_an', '1'); const i = devInfo(); track(['sessions', 'd_' + i.device, 'o_' + i.os, 'b_' + i.browser]); }
+            if (!anSessionCounted) { anSessionCounted = true; const i = devInfo(); track(['sessions', 'd_' + i.device, 'o_' + i.os, 'b_' + i.browser]); }
             beat(); anBeatTimer = setInterval(beat, 60000);
             anVisibility = () => { if (!document.hidden) beat(); };
             document.addEventListener('visibilitychange', anVisibility);
         }
-        function stopAnalytics() { clearInterval(anBeatTimer); anBeatTimer = null; if (anVisibility) document.removeEventListener('visibilitychange', anVisibility); anVisibility = null; }
+        function stopAnalytics() { clearInterval(anBeatTimer); anBeatTimer = null; if (anVisibility) document.removeEventListener('visibilitychange', anVisibility); anVisibility = null; if (anPresenceRef) { anPresenceRef.delete().catch(() => {}); anPresenceRef = null; } }
+        window.addEventListener('pagehide', () => { if (anPresenceRef) anPresenceRef.delete().catch(() => {}); });
         window.addEventListener('hero-consent-change', e => { if (e.detail && e.detail.consent === 'all') startAnalytics(); else stopAnalytics(); });
         const _sq = startQuiz;
         startQuiz = function (m) { _sq(m); if (activeQuizData && activeQuizData.length) track(['started', 'm_' + yearMode]); };
@@ -66,7 +71,12 @@
         let anPresence = [], anDays = [], anUnsubs = [], anTimer = null, anErr = '';
         async function anFail(e) {
             console.error(e); let why = '';
-            try { const t = await auth.currentUser.getIdTokenResult(true); why = t.claims.admin ? ' Admin sign-in is fine, so publish firestore.rules (the presence and analytics blocks).' : ' You are not signed in as admin: secure sign-in failed, so fix /api/firebase-token first.'; } catch (_) { /* ignore */ }
+            try {
+                const t = auth && auth.currentUser ? await auth.currentUser.getIdTokenResult(true) : null;
+                why = t && t.claims.admin
+                    ? ' This browser has an admin token; check that the deployed Firestore rules include presence and analytics access for admins, and that this site uses the matching Firebase project.'
+                    : ' This tab does not currently have an admin token. Unlock Admin in this tab again; a different tab’s login is not a reliable admin session here.';
+            } catch (_) { why = ' Could not inspect the current Firebase sign-in. Unlock Admin in this tab again.'; }
             anErr = (e.code === 'permission-denied' ? 'Permission denied.' : 'Analytics failed: ' + (e.code || e.message)) + why; anRender();
         }
         const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -77,6 +87,7 @@
             anTimer = setInterval(anRender, 10000);
         }
         function stopAnalyticsAdmin() { anUnsubs.forEach(u => u()); anUnsubs = []; clearInterval(anTimer); anPresence = []; anDays = []; }
+        window.addEventListener('hero-profiles-updated', () => anRender());
         const anBars = (entries) => { const max = Math.max(1, ...entries.map(e => e[1])); return entries.length ? entries.map(([k, v]) => `<div class="an-bar"><span>${esc(k)}</span><div><i style="width:${Math.round(v / max * 100)}%"></i></div><b>${v}</b></div>`).join('') : '<p class="fb-hint">No data yet</p>'; };
         const anSum = (p) => { const o = {}; anDays.forEach(d => Object.keys(d).forEach(k => { if (k.startsWith(p) && typeof d[k] === 'number') o[k.slice(p.length)] = (o[k.slice(p.length)] || 0) + d[k]; })); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
         const anCount = (arr, key) => { const o = {}; arr.forEach(p => { o[p[key]] = (o[p[key]] || 0) + 1; }); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
@@ -86,7 +97,7 @@
             const msg = anErr || (!anUnsubs.length ? 'Waiting for the admin secure sign-in. If it failed, a toast explains why.' : '');
             if (msg) { document.getElementById('an-kpis').innerHTML = '<div class=\"an-box\" style=\"grid-column:1/-1;border-color:#f43f5e\"><h4>Analytics unavailable</h4><p class=\"text-sm\">' + esc(msg) + '</p></div>'; return; }
             const now = Date.now();
-            const live = anPresence.filter(p => p.lastSeen && p.lastSeen.toMillis && now - p.lastSeen.toMillis() < 150000);
+            const live = anPresence.filter(p => p.lastSeen && p.lastSeen.toMillis && now - p.lastSeen.toMillis() < 75000);
             const today = anDays.find(d => d.day === anDay()) || {};
             const tot = k => anDays.reduce((a, d) => a + (d[k] || 0), 0), started = tot('started'), done = tot('completed');
             const kpi = (label, val, dot) => `<div class="an-kpi"><small>${dot ? '<i class="an-dot"></i>' : ''}${label}</small><strong>${val}</strong></div>`;
@@ -94,6 +105,7 @@
             const days = [...anDays].reverse(), max = Math.max(1, ...days.map(d => d.sessions || 0)), w = 34;
             document.getElementById('an-chart').innerHTML = days.length ? `<svg viewBox="0 0 ${days.length * w} 92" width="100%" style="max-height:170px"><defs><linearGradient id="anGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand-500)"/><stop offset="1" stop-color="var(--sec)"/></linearGradient></defs>${days.map((d, i) => { const h = Math.max(2, Math.round((d.sessions || 0) / max * 62)); return `<rect x="${i * w + 6}" y="${72 - h}" width="${w - 12}" height="${h}" rx="5"><title>${esc(d.day)}: ${d.sessions || 0}</title></rect><text x="${i * w + w / 2}" y="86" text-anchor="middle">${esc(d.day.slice(5))}</text>`; }).join('')}</svg>` : '<p class="fb-hint">No data yet</p>';
             document.getElementById('an-split').innerHTML = [['Devices (14d)', anSum('d_')], ['Operating systems (14d)', anSum('o_')], ['Browsers (14d)', anSum('b_')], ['Pages live now', anCount(live, 'view')], ['Year mode (quizzes, 14d)', anSum('m_')]].map(([t, e]) => `<div class="an-box"><h4>${t}</h4>${anBars(e)}</div>`).join('');
-            document.getElementById('an-live').innerHTML = live.length ? `<table class="an-table"><tr><th>Device</th><th>OS</th><th>Browser</th><th>Page</th><th>Mode</th><th>Screen</th><th>Seen</th></tr>${live.slice(0, 30).map(p => `<tr><td>${esc(p.device)}</td><td>${esc(p.os)}</td><td>${esc(p.browser)}</td><td>${esc(String(p.view).replace('-view', ''))}</td><td>${p.mode === 'twoyear' ? '2 Year' : '1 Year'}</td><td>${esc(p.vw)}\u00d7${esc(p.vh)}</td><td>${Math.max(0, Math.round((now - p.lastSeen.toMillis()) / 1000))}s ago</td></tr>`).join('')}</table>` : '<p class="fb-hint">Nobody online right now.</p>';
+            const profiles = window.__heroDeviceProfiles || {};
+            document.getElementById('an-live').innerHTML = live.length ? `<table class="an-table"><tr><th>Visitor</th><th>Device</th><th>OS</th><th>Browser</th><th>Current page</th><th>Mode</th><th>Viewport</th><th>Seen</th></tr>${live.slice(0, 30).map(p => { const profile = profiles[p.deviceId]; return `<tr><td>${profile ? esc(profile.name) : 'Guest'}</td><td>${esc(p.device)}</td><td>${esc(p.os)}</td><td>${esc(p.browser)}</td><td>${esc(String(p.view).replace('-view', ''))}</td><td>${p.mode === 'twoyear' ? '2 Year' : '1 Year'}</td><td>${esc(p.vw)}\u00d7${esc(p.vh)}</td><td>${Math.max(0, Math.round((now - p.lastSeen.toMillis()) / 1000))}s ago</td></tr>`; }).join('')}</table>` : '<p class="fb-hint">Nobody online right now.</p>';
         }
         initAdminTabs();

@@ -35,11 +35,18 @@ service cloud.firestore {
       }
 
       // Anonymous usage analytics: visitors write only their own presence + daily counters; only admin reads
-      match /presence/{uid} {
-        allow create, update: if signedIn() && request.auth.uid == uid
-          && request.resource.data.keys().hasOnly(['lastSeen', 'device', 'os', 'browser', 'view', 'mode', 'theme', 'vw', 'vh']);
+      match /presence/{presenceId} {
+        allow create: if signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && presenceId.matches('.*__[A-Za-z0-9]{20}')
+          && request.resource.data.keys().hasOnly(['userId', 'deviceId', 'lastSeen', 'device', 'os', 'browser', 'view', 'mode', 'theme', 'vw', 'vh']);
+        allow update: if signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && presenceId.matches('.*__[A-Za-z0-9]{20}')
+          && request.resource.data.keys().hasOnly(['userId', 'deviceId', 'lastSeen', 'device', 'os', 'browser', 'view', 'mode', 'theme', 'vw', 'vh']);
         allow read: if isAdmin();
-        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+        allow delete: if isAdmin() || (signedIn() && (presenceId == request.auth.uid || resource.data.userId == request.auth.uid));
       }
 
       // A verified user may link a name/email to the random id stored by this browser.

@@ -33,7 +33,7 @@
                 if (vid && f.size > FB.maxVideo) { showToast(`${f.name} is over 8 MB. Trim the clip, or paste a link to it in Details.`, 'error'); continue; }
                 if (img && f.size > FB.maxImage) { showToast(`${f.name} is over 20 MB.`, 'error'); continue; }
                 const file = img ? await fbCompress(f) : f;
-                if (!file) { showToast(`${f.name} couldn't be shrunk enough to send. Try a screenshot instead.`, 'error'); continue; }
+                if (!file) { showToast(`${f.name} couldn't be shrunk enough to send. Try a smaller image file.`, 'error'); continue; }
                 if (fbFiles.reduce((a, x) => a + x.file.size, 0) + file.size > FB.maxTotal) { showToast('Attachments are limited to 10 MB in total.', 'error'); continue; }
                 fbFiles.push({ id: 'f' + Math.random().toString(36).slice(2, 9), file, kind: img ? 'image' : 'video', preview: URL.createObjectURL(file), status: 'ready', progress: 0, fid: null, chunks: 0 });
             }
