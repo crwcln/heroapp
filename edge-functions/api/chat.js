@@ -27,7 +27,7 @@ export async function onRequestPost(context) {
   const ctx = typeof body.ctx === 'string' ? body.ctx.slice(0, 120) : '';
   const models = [...new Set([context.env.GEMINI_MODEL, ...DEFAULT_MODELS].filter(Boolean))];
   const payload = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM + (ctx ? `\nThe user is currently studying: ${ctx}.` : '') }] },
+    systemInstruction: { parts: [{ text: SYSTEM + (ctx ? `\n` : '') }] },
     contents,
     generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
   });

@@ -22,3 +22,6 @@ Web config in `js/02-firebase-config.js` and the service account behind `FIREBAS
 
 ## Intro film
 First visit: no loader, the page stays dark, then the intro plays. Put your MP4 in `media/` and set `introVideo` in `js/00-site-config.js`. Bump `intro` to show it again to everyone.
+
+## Announcements
+Post from Stewards -> Site -> Announcements. The newest one pops up once per browser, then lives on the Announcements page and the sidebar bell.

@@ -1,6 +1,5 @@
 :root { --i50:250 246 242;--i100:242 232 223;--i200:229 210 191;--i300:212 180 148;--i400:190 142 95;--i500:168 105 42;--i600:143 89 36;--i700:118 74 29;--i800:92 58 23;--i900:67 42 17;--i950:42 26 10;--p50:248 243 243;--p100:238 224 225;--p200:220 193 196;--p300:198 151 156;--p400:169 99 106;--p500:140 47 57;--p600:119 40 48;--p700:98 33 40;--p800:77 26 31;--p900:56 19 23;--p950:35 12 14;--brand-300:#d4b494;--brand-500:#a8692a;--brand-600:#8f5924;--brand-700:#764a1d;--sec:#8c2f39;--bg-a:rgba(168,105,42,.16);--bg-b:rgba(140,47,57,.10);--bg-base:#f5efe4;--line:#e4dac8;--field:#fffdf8;--ink-500:#7a7165; }
 html.dark { --bg-a: rgba(168,105,42,.14); --bg-b: rgba(140,47,57,.12); --bg-base: #0d0e12; --line: rgba(214,196,170,.16); --field: rgba(24,21,18,.72); --ink-500: #a1978a; }
-html[data-theme=cairn] { --sec: #8c2f39; }
 #fx-a { background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='640' viewBox='0 0 640 640' fill='none' stroke='%23a8692a' stroke-opacity='.13' stroke-width='1.2'><path d='M0 80C110 20 210 150 320 80S530 20 640 80'/><path d='M0 150C120 90 200 230 320 150S520 90 640 150'/><path d='M0 220C100 170 220 290 320 220S540 160 640 220'/><path d='M0 290C130 230 190 350 320 290S510 230 640 290'/><path d='M0 360C110 310 230 420 320 360S530 300 640 360'/><path d='M0 430C120 370 200 490 320 430S520 370 640 430'/><path d='M0 500C100 450 220 560 320 500S540 440 640 500'/><path d='M0 570C130 510 190 630 320 570S510 510 640 570'/></svg>"); }
 
 html, body { font-family: 'Hanken Grotesk', system-ui, sans-serif; }
@@ -49,3 +48,16 @@ html[data-bg=grid] #fx-a { background-image: radial-gradient(rgba(122,113,101,.3
 html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.in-frame #fx-b { display: none; }
 .glass-panel, #top-nav { -webkit-backdrop-filter: blur(10px) !important; backdrop-filter: blur(10px) !important; }
 #home-view .grid > button > svg, #home-view .glass-panel > div:first-child::after, #sherpa-fab, #sherpa-fab::before, #global-quiz-title { animation: none !important; }
+        /* badge logo */
+        .brand-mark .badge, .ld-logo .badge, .in-logo .badge { fill: var(--brand-600); stroke: var(--sec); stroke-width: 1.6; }
+        html.dark .brand-mark .badge, html.dark .ld-logo .badge, html.dark .in-logo .badge { fill: var(--brand-700); }
+        .brand-mark .glyph, .ld-logo .glyph, .in-logo .glyph { fill: var(--sec); }
+
+.is-mobile #version-badge { display: none; }
+
+#top-nav > div:first-child > svg.brand-mark { background: none; padding: 0; box-shadow: none; width: 40px; height: 40px; color: inherit !important; }
+#top-nav > div:first-child > svg.brand-mark .badge { filter: drop-shadow(0 4px 10px rgba(var(--sec-rgb), .25)); }
+#custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: rgba(var(--brand-rgb),.08); }
+
+
+.tut-hl { outline: 3px solid var(--brand-500); outline-offset: 4px; border-radius: 14px; animation: fabRing 1.6s ease-out infinite; z-index: 9250; position: relative; }

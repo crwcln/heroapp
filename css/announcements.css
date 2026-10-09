@@ -1,0 +1,10 @@
+.ann-card { border: 1px solid var(--line); border-radius: 16px; background: var(--field); overflow: hidden; animation: rowIn .4s ease both; }
+.ann-head { padding: 16px 18px 12px; background: linear-gradient(135deg, rgba(var(--brand-rgb),.1), rgba(var(--sec-rgb),.08)); }
+.ann-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.ann-tag { padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: rgba(var(--brand-rgb),.16); color: var(--brand-600); }
+html.dark .ann-tag { color: var(--brand-300); }
+.ann-title { font-weight: 800; font-size: 16px; } .ann-date { font-size: 11px; font-weight: 700; color: var(--ink-500); margin-top: 2px; }
+.ann-body { padding: 14px 18px; font-size: 14px; color: var(--ink-500); font-weight: 500; white-space: pre-wrap; }
+.an-admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(98,114,139,.08); font-size: 12px; font-weight: 700; }
+.an-admin-row button { color: #e11d48; }
+#custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: rgba(var(--brand-rgb),.08); }
