@@ -31,3 +31,12 @@ See [`CONFIG.md`](CONFIG.md) for the full environment variable list, including t
 - `npm run release:patch`, `npm run release:minor`, or `npm run release:major` updates the site and package version.
 - Run `npm run setup:git-hooks` once per clone. VS Code commits then get a `v<version>:` prefix from `SITE.version` in `js/00-site-config.js`; any message you type is kept after the prefix.
 - `npm run build:css` rebuilds `css/tailwind.css` from `tailwind.input.css` and `tailwind.config.js`.
+
+## Clio (AI chat) requires a signed-in verified account
+`/api/chat` now verifies the caller's Firebase ID token server-side before it will spend Gemini quota, so it
+can't be called anonymously from outside the site. In addition to `GEMINI_API_KEY`, set:
+
+    FIREBASE_API_KEY = the same "apiKey" value already in js/02-firebase-config.js
+
+It isn't a secret (Firebase web API keys are public by design), but the edge function needs its own copy
+since environment variables aren't readable from the browser bundle.

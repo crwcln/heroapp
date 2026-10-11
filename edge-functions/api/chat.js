@@ -1,11 +1,40 @@
 // edge-functions/api/chat.js  ->  POST /api/chat   (Clio, the Gemini-powered study guide)
-// Env vars (EdgeOne Pages project settings): GEMINI_API_KEY   (optional: GEMINI_MODEL, default gemini-2.5-flash)
+// Env vars (EdgeOne Pages project settings):
+//   GEMINI_API_KEY      required, your Gemini key
+//   GEMINI_MODEL        optional, default: fastest Flash model available
+//   FIREBASE_API_KEY    required, the SAME public "apiKey" value already in js/02-firebase-config.js
+//                        (it is not a secret -- it is used here to verify the caller's Firebase ID token
+//                        server-side, so this endpoint, and your Gemini quota, stays limited to
+//                        signed-in, verified Hero accounts, matching the rest of the site.)
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 // gemini-2.5-flash has been returning 404 since Sep 2026; the *-latest alias follows Google's current Flash model.
 const DEFAULT_MODELS = ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite-preview', 'gemini-flash-latest', 'gemini-3.5-flash']; // fastest first
+
+async function verifiedCaller(request, env) {
+  const apiKey = env.FIREBASE_API_KEY;
+  if (!apiKey) return { error: 'server_not_configured' };
+  const header = request.headers.get('Authorization') || '';
+  const match = header.match(/^Bearer (.+)$/);
+  if (!match) return { error: 'signed_out' };
+  try {
+    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: match[1] }),
+    });
+    if (!r.ok) return { error: 'signed_out' };
+    const data = await r.json().catch(() => ({}));
+    const user = data.users && data.users[0];
+    if (!user) return { error: 'signed_out' };
+    if (user.localId === 'admin' || user.emailVerified === true) return { user };
+    return { error: 'not_verified' };
+  } catch {
+    return { error: 'signed_out' };
+  }
+}
 
 const SYSTEM = `You are Clio, the study guide inside Hero (named for Herodotus). You are named for the Greek muse of history, a geography map-quiz site.
 Help people learn places: locations, regions, rivers, seas, oceans, continents, empires and trade routes.
@@ -15,6 +44,9 @@ If asked about something unrelated to geography, history, or studying, politely 
 export async function onRequestPost(context) {
   const key = context.env.GEMINI_API_KEY;
   if (!key) return json({ ok: false, error: 'not_configured' }, 500);
+
+  const caller = await verifiedCaller(context.request, context.env);
+  if (caller.error) return json({ ok: false, error: caller.error }, caller.error === 'server_not_configured' ? 500 : 401);
 
   let body;
   try { body = await context.request.json(); } catch { return json({ ok: false, error: 'bad_request' }, 400); }
