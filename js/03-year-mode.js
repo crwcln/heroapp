@@ -33,22 +33,6 @@
             document.getElementById('lb-rank-label').innerText = q.rankLabel;
             document.getElementById('admin-setup-title').innerText = q.setupTitle;
 
-            const modal = document.getElementById('global-msg-modal');
-            const mini = document.getElementById('global-msg-minimized');
-            if (s.msg.trim() !== '') {
-                if (localStorage.getItem(q.seen) !== s.msg) {
-                    document.getElementById('global-msg-text').innerText = s.msg;
-                    modal.classList.remove('hidden');
-                    mini.classList.add('hidden');
-                } else {
-                    document.getElementById('global-msg-min-text').innerText = s.msg;
-                    mini.classList.remove('hidden');
-                    modal.classList.add('hidden');
-                }
-            } else {
-                modal.classList.add('hidden');
-                mini.classList.add('hidden');
-            }
             renderAdminList();
         }
 

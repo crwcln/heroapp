@@ -28,7 +28,8 @@ async function flBoard() {
 }
 async function flPost() {
     const s = flState; if (!s || s.posted || !s.score) return showToast(s && s.posted ? 'Already posted.' : 'Score at least 1 to post.', 'info');
-    const name = (document.querySelector('#flappy input').value.trim() || 'Anonymous').slice(0, 15);
+    const nameInput = document.querySelector('#flappy input');
+    const name = (nameInput?.value.trim() || 'Anonymous').slice(0, 15);
     try { await flCol().add({ name, score: s.score, userId, ts: firebase.firestore.FieldValue.serverTimestamp() }); s.posted = true; showToast('Score posted!', 'success'); flBoard(); } catch (e) { showToast(`Could not post (${e.code || 'error'}).`, 'error'); }
 }
 function flDie() { const s = flState; s.dead = true; const el = document.getElementById('flappy'); el.classList.add('over'); el.querySelector('.fl-score').textContent = `Score: ${s.score}`; flBoard(); }

@@ -72,6 +72,12 @@
         async function sherpaSend(text) {
             text = (text || '').trim();
             if (secretAsk(text)) return;
+            if (/^who are the big men\??$/i.test(text)) {
+                if (sh.busy) return;
+                sh.msgs.push({ r: 'user', t: text });
+                sh.msgs.push({ r: 'model', t: '“Big Men” is a nickname for the Great Man theory of history: the idea that exceptional leaders shape major events. Historians also look at ordinary people, institutions, geography, and long-term forces. Which leader or period should we explore?' });
+                shRender(); return;
+            }
             const images = sh.pendingImages.splice(0);
             if ((!text && !images.length) || sh.busy || Date.now() - sh.last < 1000) { sh.pendingImages.unshift(...images); return; }
             sh.last = Date.now(); sh.msgs.push({ r: 'user', t: text.slice(0, 1000) || 'Please describe this image in a geography or history learning context.', images }); sh.busy = true; shRender();

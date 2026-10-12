@@ -63,10 +63,12 @@
             </div>
         </div>
     </div>
-    <div id="global-msg-minimized" class="hidden fixed bottom-6 left-6 glass-panel p-4 rounded-2xl shadow-xl z-40 max-w-sm flex gap-4 items-start animate-bounce-subtle cursor-pointer hover:scale-105 transition-transform" onclick="switchView('announcements-view')">
-        <div class="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,var(--brand-600),var(--sec))"><i data-lucide="megaphone" class="text-white w-4 h-4"></i></div>
-        <div class="flex-1 min-w-0"><h4 id="global-msg-min-title" class="font-extrabold text-sm mb-0.5 text-slate-900 dark:text-white truncate"></h4><p id="global-msg-min-text" class="text-xs text-slate-600 dark:text-slate-400 font-medium line-clamp-2"></p></div>
-        <button class="text-slate-400 hover:text-slate-600 shrink-0" onclick="event.stopPropagation();document.getElementById('global-msg-minimized').classList.add('hidden')"><i data-lucide="x" class="w-4 h-4"></i></button>
+    <div id="global-msg-minimized" class="hidden fixed bottom-6 left-6 z-40">
+        <button type="button" class="ann-shortcut glass-panel" onclick="switchView('announcements-view')" aria-label="Open announcements">
+            <span class="ann-shortcut-icon"><i data-lucide="megaphone"></i><b id="announcements-count" class="hidden">0</b></span>
+            <span>Announcements</span><i data-lucide="arrow-up-right" class="ann-shortcut-arrow"></i>
+        </button>
+        <button type="button" class="ann-shortcut-close" aria-label="Hide announcements shortcut" onclick="document.getElementById('global-msg-minimized').classList.add('hidden')"><i data-lucide="x"></i></button>
     </div>
     <nav id="top-nav" class="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md text-slate-800 dark:text-white px-6 py-4 flex justify-between items-center z-20 relative h-[72px] shrink-0 border-b border-slate-200 dark:border-slate-800">
         <div class="flex items-center gap-3 group cursor-pointer" onclick="switchView('home-view')">

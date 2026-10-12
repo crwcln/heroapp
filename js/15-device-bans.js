@@ -137,6 +137,7 @@ async function unbanDevice(id) {
 }
 function banDeviceManual() {
     const input = document.getElementById('ban-id-input'), reason = document.getElementById('ban-reason-input');
+    if (!input || !reason) return showToast('The ban form is not available right now.', 'error');
     const id = input.value.trim();
     if (!id) return showToast('Enter a browser ID or an account ID beginning with u_.', 'error');
     banDevice(id, reason.value.trim()).then(ok => { if (ok) { input.value = ''; reason.value = ''; } });

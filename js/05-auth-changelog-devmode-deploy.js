@@ -196,6 +196,7 @@
 
         function copyClPrompt() {
             const input = document.getElementById('cl-ai-prompt');
+            if (!input) return showToast('The prompt field is not available right now.', 'error');
             input.select();
             input.setSelectionRange(0, 99999);
             try {
@@ -286,13 +287,17 @@
         };
 
         // ================= BOOT COVER =================
-        function hideCover() {
+        function hideCover(force = false) {
+            if (!force && window.__heroAuthResolved === false) return;
             const c = document.getElementById('site-cover');
             if (c && !c.classList.contains('fade')) { setTimeout(() => { c.classList.add('fade'); setTimeout(() => c.classList.add('hidden'), 420); }, Math.max(0, 3400 - performance.now())); }
         }
-        // A browser already unlocked for dev has nothing to wait for; otherwise fail open after 6s if Firestore is unreachable.
+        window.addEventListener('hero-auth-state', e => {
+            if (e.detail && !e.detail.authorized) hideCover();
+        });
+        // Auth settles before the cover is removed; the timeout below handles a stalled Firebase connection.
         if (devUnlocked()) hideCover();
-        setTimeout(hideCover, 6000);
+        setTimeout(() => hideCover(true), 11000);
 
         // ================= REDEPLOY =================
         let deployBusy = false, deployCooldownTimer = null;

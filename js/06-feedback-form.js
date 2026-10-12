@@ -8,16 +8,18 @@
         window.addEventListener('unhandledrejection', e => { window.__mqErrors = window.__mqErrors.concat('Unhandled: ' + String((e.reason && e.reason.message) || e.reason).slice(0, 180)).slice(-10); });
 
         const fbEl = (id) => document.getElementById(id);
-        const fbVal = (id) => fbEl(id).value.trim();
+        const fbVal = (id) => { const el = fbEl(id); return el && typeof el.value === 'string' ? el.value.trim() : ''; };
         const fbSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
         function fbUpdateType() {
-            const bug = fbEl('fb-type').value === 'bug';
-            ['fb-sev-wrap', 'fb-freq-wrap', 'fb-steps-wrap'].forEach(id => fbEl(id).classList.toggle('hidden', !bug));
+            const type = fbEl('fb-type'); if (!type) return;
+            const bug = type.value === 'bug';
+            ['fb-sev-wrap', 'fb-freq-wrap', 'fb-steps-wrap'].forEach(id => fbEl(id)?.classList.toggle('hidden', !bug));
         }
-        function fbCount() { fbEl('fb-desc-count').innerText = `${fbEl('fb-desc').value.length} / 2000`; }
+        function fbCount() { const desc = fbEl('fb-desc'), count = fbEl('fb-desc-count'); if (desc && count) count.innerText = `${desc.value.length} / 2000`; }
         function fbFieldError(id, msg) {
             const input = fbEl(id), err = fbEl(id + '-err');
+            if (!input || !err) return;
             input.classList.toggle('invalid', !!msg);
             err.classList.toggle('hidden', !msg);
             err.innerText = msg || '';
@@ -165,7 +167,9 @@
         }
         async function fbSubmit() {
             if (fbBusy) return;
-            const type = fbEl('fb-type').value, title = fbVal('fb-title'), desc = fbVal('fb-desc'), contact = fbVal('fb-contact');
+            const typeEl = fbEl('fb-type');
+            if (!typeEl || !fbEl('fb-title') || !fbEl('fb-desc')) return showToast('The feedback form is still loading. Please try again.', 'error');
+            const type = typeEl.value, title = fbVal('fb-title'), desc = fbVal('fb-desc'), contact = fbVal('fb-contact');
             if (fbSecret(type, title, desc)) return;
             let first = null;
             const bad = (id, msg) => { fbFieldError(id, msg); if (!first) first = id; };

@@ -49,7 +49,7 @@
                 .forEach(([id, t]) => { document.getElementById(id).closest('[class*="rounded-2xl"]').dataset.atab = t; });
             const an = document.createElement('div');
             an.dataset.atab = 'analytics'; an.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
-            an.innerHTML = '<div id="an-kpis" class="an-grid"></div><div class="an-box"><h4>Sessions, last 14 days</h4><div id="an-chart" class="an-chart"></div></div><div id="an-split" class="an-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div><div class="an-box"><h4>Live sessions</h4><div id="an-live" class="an-scroll"></div></div>';
+            an.innerHTML = '<div id="an-kpis" class="an-grid"></div><div class="an-box"><div class="an-box-head"><h4>Sessions, last 14 days</h4><button id="an-refresh" type="button" class="an-refresh" onclick="refreshAnalyticsAdmin()"><i data-lucide="refresh-cw"></i><span>Refresh</span></button></div><div id="an-chart" class="an-chart"></div></div><div id="an-split" class="an-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div><div class="an-box"><h4>Live sessions</h4><div id="an-live" class="an-scroll"></div></div>';
             panel.appendChild(an);
             const global = document.createElement('section');
             global.dataset.atab = 'global'; global.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
@@ -91,14 +91,35 @@
             anUnsubs.push(anBase().collection('analytics').orderBy('day', 'desc').limit(14).onSnapshot(s => { anDays = s.docs.map(d => d.data()); anRender(); }, anFail));
             anTimer = setInterval(anRender, 10000);
         }
+        let anRefreshTimer = null;
+        window.refreshAnalyticsAdmin = function () {
+            const button = document.getElementById('an-refresh');
+            if (!button || button.disabled) return;
+            button.disabled = true; button.classList.add('is-refreshing');
+            const label = button.querySelector('span'); if (label) label.textContent = 'Refreshing';
+            startAnalyticsAdmin();
+            clearTimeout(anRefreshTimer);
+            anRefreshTimer = setTimeout(() => {
+                button.disabled = false; button.classList.remove('is-refreshing');
+                if (label) label.textContent = 'Refresh';
+            }, 1200);
+        };
         function stopAnalyticsAdmin() { anUnsubs.forEach(u => u()); anUnsubs = []; clearInterval(anTimer); anPresence = []; anDays = []; }
         window.addEventListener('hero-profiles-updated', () => anRender());
-        const anBars = (entries) => { const max = Math.max(1, ...entries.map(e => e[1])); return entries.length ? entries.map(([k, v]) => `<div class="an-bar"><span>${esc(k)}</span><div><i style="width:${Math.round(v / max * 100)}%"></i></div><b>${v}</b></div>`).join('') : '<p class="fb-hint">No data yet</p>'; };
+        const anLabel = k => ({ ios:'iOS', osx:'macOS', mac:'macOS', chromeos:'Chrome OS', twoyear:'2 Year', default:'1 Year' }[k] || String(k).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+        const anBars = entries => {
+            const rows = entries.filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0);
+            const max = Math.max(1, ...rows.map(([, value]) => Number(value)));
+            return rows.length ? rows.map(([key, value], i) => {
+                const n = Number(value), width = Math.max(n > 0 ? 2 : 0, Math.round(n / max * 100));
+                return `<div class="an-bar" style="--bar-delay:${Math.min(i, 8) * 45}ms" title="${esc(anLabel(key))}: ${n.toLocaleString()}"><span>${esc(anLabel(key))}</span><div class="an-bar-track" role="meter" aria-label="${esc(anLabel(key))}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${n}"><i style="--bar-width:${width}%"></i></div><b>${n.toLocaleString()}</b></div>`;
+            }).join('') : '<p class="fb-hint">No data yet</p>';
+        };
         const anSum = (p) => { const o = {}; anDays.forEach(d => Object.keys(d).forEach(k => { if (k.startsWith(p) && typeof d[k] === 'number') o[k.slice(p.length)] = (o[k.slice(p.length)] || 0) + d[k]; })); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
         const anCount = (arr, key) => { const o = {}; arr.forEach(p => { o[p[key]] = (o[p[key]] || 0) + 1; }); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
         function anRender() {
             const panel = document.getElementById('admin-panel');
-            if (panel.dataset.active !== 'analytics' || panel.classList.contains('hidden')) return;
+            if (!panel || panel.dataset.active !== 'analytics' || panel.classList.contains('hidden')) return;
             const msg = anErr || (!anUnsubs.length ? 'Waiting for the admin secure sign-in. If it failed, a toast explains why.' : '');
             if (msg) { document.getElementById('an-kpis').innerHTML = '<div class=\"an-box\" style=\"grid-column:1/-1;border-color:#f43f5e\"><h4>Analytics unavailable</h4><p class=\"text-sm\">' + esc(msg) + '</p></div>'; return; }
             const now = Date.now();

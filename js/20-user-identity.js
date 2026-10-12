@@ -454,9 +454,10 @@
         dialog.querySelector('#hero-account-close').onclick = () => { dialog.classList.add('hidden'); dialog.classList.remove('flex'); };
         dialog.addEventListener('click', e => { if (e.target === dialog) { dialog.classList.add('hidden'); dialog.classList.remove('flex'); } });
 
-        authGate = document.createElement('div'); authGate.id = 'hero-auth-gate'; authGate.className = 'hero-auth-gate';
+        authGate = document.createElement('div'); authGate.id = 'hero-auth-gate'; authGate.className = 'hero-auth-gate hidden';
         authGate.innerHTML = '<section class="hero-auth-card"><div class="hero-auth-mark">H</div><p class="hero-auth-eyebrow">HERO ACCOUNT</p><h1>Make your mark.</h1><p class="hero-auth-description">Sign in to play, save scores, build your profile, and earn achievements. Verify your email to unlock the site.</p><div id="hero-auth-form"></div><p id="hero-auth-status" class="hero-auth-status" role="status">Connecting to secure sign-in...</p><div class="hero-auth-steward"><button id="hero-steward-toggle" type="button">Steward sign-in</button><div id="hero-steward-fields" class="hidden"><input id="hero-steward-password" type="password" placeholder="Steward password" autocomplete="current-password"><button id="hero-steward-submit" type="button">Continue</button></div></div></section>';
         document.body.appendChild(authGate); gateForm = authGate.querySelector('#hero-auth-form'); gateStatus = authGate.querySelector('#hero-auth-status'); renderGateForm();
+        if (window.__heroAuthResolved && !window.__heroCanAccessApp) authGate.classList.remove('hidden');
         authGate.querySelector('#hero-steward-toggle').onclick = () => authGate.querySelector('#hero-steward-fields').classList.toggle('hidden');
         const steward = authGate.querySelector('#hero-steward-password');
         const doStewardLogin = () => { const input = document.getElementById('admin-password'); if (!input) return setGateStatus('Open the Steward page and try again.', true); input.value = steward.value; setGateStatus('Checking steward credentials...'); unlockAdmin().then(() => setTimeout(() => { if (!window.__heroCanAccessApp) setGateStatus('Steward sign-in did not complete. Check the password and secure sign-in setup.', true); }, 1800)); };
@@ -468,7 +469,7 @@
         card.innerHTML = '<h3 class="font-bold text-slate-900 dark:text-white">Verified accounts and browsers</h3><p class="text-xs text-slate-500 mt-1 mb-3">Browsers using the same verified email are grouped together. Expand Browser IDs to ban one browser, or ban the account to block all of them.</p><div id="hero-known-profiles" class="space-y-2"></div>';
         document.getElementById('admin-panel').appendChild(card);
         if (window.lucide) lucide.createIcons(); renderAccount();
-        if (!auth) setGateStatus('Firebase sign-in is unavailable. Check the site Firebase configuration.');
+        if (!auth) { setGateStatus('Firebase sign-in is unavailable. Check the site Firebase configuration.'); authGate.classList.remove('hidden'); }
         else if (auth.currentUser) window.__heroApplyAuthUser(auth.currentUser);
         else setGateStatus('Sign in or create a verified account to continue.');
     }

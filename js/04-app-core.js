@@ -100,6 +100,7 @@
         // ================= FIREBASE SETUP =================
         let db = null, auth = null;
         window.__heroCanAccessApp = false;
+        window.__heroAuthResolved = false;
         let globalLocations = [];
         let globalQuizTitle = "The Grand Tour";
         let currentGlobalMessage = "";
@@ -124,6 +125,7 @@
                 if (typeof stopAnalytics === 'function') stopAnalytics();
             }
             window.__heroCanAccessApp = allowed;
+            window.__heroAuthResolved = true;
             window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user, authorized: allowed, isAdmin } }));
         }
         window.__heroApplyAuthUser = applyFirebaseUser;
@@ -152,13 +154,25 @@
             } else enableLocalMode();
         }
         
-        function enableLocalMode() { globalLocations = []; renderAdminList(); hideCover(); }
+        function enableLocalMode() {
+            globalLocations = []; renderAdminList();
+            window.__heroAuthResolved = true;
+            window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user: null, authorized: false, isAdmin: false } }));
+            hideCover();
+        }
         
         document.addEventListener('DOMContentLoaded', () => {
             const moreNav = document.getElementById('nav-more');
             document.addEventListener('click', event => { if (moreNav && moreNav.open && !moreNav.contains(event.target)) moreNav.open = false; });
             document.addEventListener('keydown', event => { if (event.key === 'Escape' && moreNav) moreNav.open = false; });
             initFirebase();
+            // If Firebase never returns an auth state, reveal the sign-in gate rather than the app.
+            setTimeout(() => {
+                if (window.__heroAuthResolved) return;
+                window.__heroAuthResolved = true;
+                window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user: null, authorized: false, isAdmin: false } }));
+                hideCover(true);
+            }, 10000);
             initVanillaParticles();
             document.getElementById('player-name').value = localStorage.getItem('mq_playerName') || '';
             renderUserCustomList();
@@ -238,8 +252,6 @@
             document.getElementById('global-msg-modal').classList.add('hidden');
             if (currentGlobalMessage) {
                 localStorage.setItem(QUIZZES[yearMode].seen, currentGlobalMessage);
-                document.getElementById('global-msg-min-text').innerText = currentGlobalMessage;
-                document.getElementById('global-msg-minimized').classList.remove('hidden');
             }
         }
 
@@ -301,6 +313,7 @@
 
         function copyAIPrompt() {
             const input = document.getElementById('ai-prompt-text');
+            if (!input) return showToast('The prompt field is not available right now.', 'error');
             input.select();
             input.setSelectionRange(0, 99999);
             try {
@@ -367,6 +380,7 @@
         async function unlockAdmin() {
             if (adminChecking) return;
             const input = document.getElementById('admin-password');
+            if (!input) return showToast('The admin password field is not available. Reopen the steward panel and try again.', 'error');
             const val = input.value;
             if (!val) return showToast("Enter the password.", "error");
             adminChecking = true;

@@ -118,6 +118,7 @@
         const fbCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('feedback');
         let inboxUnsub = null, inboxDocs = [];
         const inboxOpen = new Set();
+        const inboxNodeById = new Map(), inboxExitTimers = new Map();
         const IB_TYPE = { bug: 'Bug', location: 'Location', feature: 'Feature', general: 'General', other: 'Other' };
         const IB_NEXT = { new: [['Mark reviewed', 'reviewed'], ['Mark resolved', 'resolved']], reviewed: [['Mark resolved', 'resolved'], ['Reopen', 'new']], resolved: [['Reopen', 'new']] };
 
@@ -133,6 +134,7 @@
         }
         function stopInbox() {
             if (inboxUnsub) { inboxUnsub(); inboxUnsub = null; }
+            inboxExitTimers.forEach(clearTimeout); inboxExitTimers.clear(); inboxNodeById.clear();
             inboxDocs = [];
             renderInbox();
             document.getElementById('inbox-sub').innerText = 'Waiting for secure sign-in...';
@@ -147,33 +149,86 @@
         function ibEl(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
         function ibSection(title, node) { const s = ibEl('div', 'ib-sec'); s.append(ibEl('h4', '', title), node); return s; }
 
+        const ibStopWords = new Set('a an the and or but if then this that these those is are was were be been being to of in on at for from with about into after before when where what why how i we they you my our their it its as can could would should please site page map quiz'.split(' '));
+        function ibTokens(text) { return new Set(String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]{3,}/g)?.filter(w => !ibStopWords.has(w)) || []); }
+        function ibJaccard(a, b) { if (!a.size || !b.size) return 0; let same = 0; a.forEach(w => { if (b.has(w)) same++; }); return same / (a.size + b.size - same); }
+        function ibAreSimilar(a, b) {
+            if (a.type !== b.type || (a.area && b.area && a.area !== b.area)) return false;
+            const at = ibTokens(a.title), bt = ibTokens(b.title), ad = ibTokens(a.description), bd = ibTokens(b.description);
+            const titleScore = ibJaccard(at, bt), allScore = ibJaccard(new Set([...at, ...ad]), new Set([...bt, ...bd]));
+            const exactTitle = String(a.title || '').trim().toLowerCase() === String(b.title || '').trim().toLowerCase() && String(a.title || '').trim().length >= 8;
+            return exactTitle || (titleScore >= .36 && allScore >= .2) || (titleScore >= .25 && allScore >= .38);
+        }
+        function ibGroupSimilar(items) {
+            const roots = items.map((_, i) => i), find = x => roots[x] === x ? x : (roots[x] = find(roots[x]));
+            for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) if (ibAreSimilar(items[i], items[j])) roots[find(j)] = find(i);
+            const groups = new Map(); items.forEach((item, i) => { const root = find(i); if (!groups.has(root)) groups.set(root, []); groups.get(root).push(item); });
+            return [...groups.values()].sort((a, b) => {
+                const ad = a[0].createdAt?.toMillis?.() || 0, bd = b[0].createdAt?.toMillis?.() || 0; return bd - ad;
+            });
+        }
+
         function renderInbox() {
             const list = document.getElementById('inbox-list');
-            list.innerHTML = '';
-            if (!inboxUnsub) { list.appendChild(ibEl('p', 'text-center text-slate-500 italic py-8', 'The inbox opens after you log in to the admin panel.')); return; }
-            const st = document.getElementById('inbox-status').value, ty = document.getElementById('inbox-type').value;
+            if (!list) return;
+            if (!inboxUnsub) { list.replaceChildren(ibEl('p', 'text-center text-slate-500 italic py-8', 'The inbox opens after you log in to the admin panel.')); return; }
+            const st = document.getElementById('inbox-status')?.value || 'all', ty = document.getElementById('inbox-type')?.value || 'all';
             const items = inboxDocs.filter(d => (st === 'all' || d.status === st) && (ty === 'all' || d.type === ty));
             const fresh = inboxDocs.filter(d => d.status === 'new').length;
-            document.getElementById('inbox-sub').innerText = `${inboxDocs.length} total \u00b7 ${fresh} new`;
+            const sub = document.getElementById('inbox-sub'); if (sub) sub.innerText = `${inboxDocs.length} total \u00b7 ${fresh} new`;
             { const b = document.getElementById('atb-feedback'); if (b) { b.textContent = fresh; b.classList.toggle('hidden', !fresh); } }
-            if (!items.length) { list.appendChild(ibEl('p', 'text-center text-slate-500 italic py-8', inboxDocs.length ? 'No feedback matches these filters.' : 'No feedback yet.')); return; }
-            items.forEach(d => list.appendChild(ibCard(d)));
+            const layout = [];
+            if (!items.length) layout.push(ibEl('p', 'text-center text-slate-500 italic py-8', inboxDocs.length ? 'No feedback matches these filters.' : 'No feedback yet.'));
+            else ibGroupSimilar(items).forEach(group => {
+                const nodes = group.map(d => {
+                    let card = inboxNodeById.get(d._id);
+                    if (!card) { card = ibCard(d); inboxNodeById.set(d._id, card); card.classList.add('ib-arrive'); setTimeout(() => card.classList.remove('ib-arrive'), 400); }
+                    const timer = inboxExitTimers.get(d._id); if (timer) { clearTimeout(timer); inboxExitTimers.delete(d._id); }
+                    card.classList.remove('ib-leaving'); ibUpdateCard(card, d); return card;
+                });
+                if (group.length > 1) {
+                    const wrap = ibEl('section', 'ib-similar-group'), head = ibEl('div', 'ib-similar-title');
+                    head.append(ibEl('span', '', 'Similar reports'), ibEl('b', '', String(group.length)));
+                    const cards = ibEl('div', 'grid gap-2'); cards.append(...nodes); wrap.append(head, cards); layout.push(wrap);
+                } else layout.push(nodes[0]);
+            });
+            const exits = [];
+            inboxNodeById.forEach((card, id) => {
+                if (items.some(d => d._id === id)) return;
+                exits.push(card); card.classList.add('ib-leaving');
+                if (!inboxExitTimers.has(id)) inboxExitTimers.set(id, setTimeout(() => {
+                    card.remove(); inboxNodeById.delete(id); inboxExitTimers.delete(id);
+                }, 260));
+            });
+            list.replaceChildren(...layout, ...exits);
         }
 
         function ibCard(d) {
-            const card = ibEl('div', 'ib-card' + (inboxOpen.has(d._id) ? ' open' : ''));
+            const card = ibEl('div', 'ib-card' + (inboxOpen.has(d._id) ? ' open' : '')); card.dataset.feedbackId = d._id; card._feedbackStatus = d.status || 'new'; card._feedback = d;
             const head = ibEl('div', 'ib-head');
-            head.append(ibEl('span', 'ib ib-' + (d.status || 'new'), d.status || 'new'), ibEl('span', 'ib-title', d.title || '(no title)'), ibEl('span', 'ib ib-' + d.type, IB_TYPE[d.type] || d.type));
+            const statusBadge = ibEl('span', 'ib ib-' + (d.status || 'new'), d.status || 'new'); statusBadge.dataset.role = 'status';
+            const title = ibEl('span', 'ib-title', d.title || '(no title)'); title.dataset.role = 'title';
+            head.append(statusBadge, title, ibEl('span', 'ib ib-' + d.type, IB_TYPE[d.type] || d.type));
             if (d.severity) head.appendChild(ibEl('span', 'ib ib-' + d.severity, d.severity));
             const when = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
             head.appendChild(ibEl('span', 'ib-time', when ? timeAgo(when) : ''));
             const body = ibEl('div', 'ib-body');
             let built = false;
-            const build = () => { if (built) return; built = true; ibFillBody(body, d, when); };
+            const build = () => { if (built) return; built = true; ibFillBody(body, card._feedback, when); };
             head.onclick = () => { build(); const open = card.classList.toggle('open'); if (open) inboxOpen.add(d._id); else inboxOpen.delete(d._id); };
             if (inboxOpen.has(d._id)) build();
             card.append(head, body);
             return card;
+        }
+        function ibUpdateCard(card, d) {
+            card._feedback = d;
+            card.querySelector('[data-role="title"]').textContent = d.title || '(no title)';
+            const badge = card.querySelector('[data-role="status"]'), status = d.status || 'new';
+            if (card._feedbackStatus !== status) {
+                badge.className = 'ib ib-' + status; badge.textContent = status; card._feedbackStatus = status;
+            }
+            const body = card.querySelector('.ib-body'), oldActions = body?.querySelector('.ib-actions');
+            if (oldActions) oldActions.replaceWith(ibActions(d));
         }
 
         const ibBlobCache = new Map();
@@ -224,21 +279,29 @@
                 det.appendChild(ibEl('pre', '', JSON.stringify(d.diagnostics, null, 2)));
                 body.appendChild(ibSection('Diagnostics', det));
             }
+            body.appendChild(ibActions(d));
+        }
+        function ibActions(d) {
             const actions = ibEl('div', 'ib-actions');
             (IB_NEXT[d.status || 'new'] || []).forEach(([label, status]) => {
                 const b = ibEl('button', '', label); b.type = 'button';
-                b.onclick = () => fbCol().doc(d._id).update({ status }).catch(e => { console.error(e); showToast(`Could not update (${e.code || 'error'}).`, 'error'); });
+                b.onclick = async () => {
+                    b.disabled = true; b.textContent = 'Saving…';
+                    try { await fbCol().doc(d._id).update({ status }); }
+                    catch (e) { console.error(e); b.disabled = false; b.textContent = label; showToast(`Could not update (${e.code || 'error'}).`, 'error'); }
+                };
                 actions.appendChild(b);
             });
             const del = ibEl('button', 'del', 'Delete'); del.type = 'button';
             del.onclick = async () => {
                 if (!(await customConfirm({ title: 'Delete this feedback?', message: 'The report and its attachments will be permanently removed.', confirmText: 'Delete', danger: true }))) return;
+                del.disabled = true; del.textContent = 'Deleting…';
                 const batch = db.batch();
                 (d.attachments || []).forEach(a => { for (let i = 0; i < (a.chunks || 0); i++) batch.delete(fbCol().doc(d._id).collection('files').doc(`${a.id}_${String(i).padStart(3, '0')}`)); });
                 try { await batch.commit(); } catch (e) { console.error(e); }
-                fbCol().doc(d._id).delete().then(() => showToast('Feedback deleted.', 'success')).catch(e => { console.error(e); showToast(`Could not delete (${e.code || 'error'}).`, 'error'); });
+                fbCol().doc(d._id).delete().then(() => showToast('Feedback deleted.', 'success')).catch(e => { console.error(e); del.disabled = false; del.textContent = 'Delete'; showToast(`Could not delete (${e.code || 'error'}).`, 'error'); });
             };
             actions.appendChild(del);
-            body.appendChild(actions);
+            return actions;
         }
         renderInbox();
