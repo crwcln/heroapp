@@ -71,6 +71,12 @@
         function sherpaToggle() { document.body.classList.toggle('sh-open'); if (document.body.classList.contains('sh-open')) setTimeout(() => document.getElementById('shi-p').focus(), 350); }
         async function sherpaSend(text) {
             text = (text || '').trim();
+            if (/^manoj cursor[.!?]*$/i.test(text) && window.activateManojCursor) {
+                if (sh.busy) return;
+                sh.msgs.push({ r: 'user', t: text }); window.activateManojCursor();
+                sh.msgs.push({ r: 'model', t: 'The Manoj cursor is toggled for this browser. It will follow your pointer while the transparent portrait asset is installed.' });
+                shRender(); return;
+            }
             if (secretAsk(text)) return;
             if (/^who are the big men\??$/i.test(text)) {
                 if (sh.busy) return;

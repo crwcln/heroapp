@@ -276,6 +276,21 @@
         }
         // hide the counter over the quiz map
         const _origSwitchView = switchView;
+        function moveMobileTabIndicator(id) {
+            const bar = document.getElementById('mobile-tabbar'), indicator = document.getElementById('mobile-tab-indicator');
+            if (!bar || !indicator) return;
+            const tab = [...bar.querySelectorAll('button[data-tab]')].find(button => button.dataset.tab === id);
+            bar.querySelectorAll('button[data-tab]').forEach(button => button.classList.toggle('active', button === tab));
+            if (!tab) { indicator.classList.remove('ready'); return; }
+            const br = bar.getBoundingClientRect(), tr = tab.getBoundingClientRect();
+            indicator.style.width = `${tr.width}px`;
+            indicator.style.transform = `translate3d(${tr.left - br.left}px,0,0)`;
+            indicator.classList.add('ready');
+        }
+        window.addEventListener('resize', () => {
+            const current = document.querySelector('.view-section:not(.hidden)');
+            if (current) moveMobileTabIndicator(current.id);
+        });
         switchView = function (id) {
             _origSwitchView(id);
             document.getElementById('visit-counter').classList.toggle('hidden', id === 'quiz-view');
@@ -283,7 +298,7 @@
             if (id === 'feedback-view') fbPrevView = fbCurView;
             fbCurView = id;
             document.querySelectorAll('#nav-actions button[onclick^="switchView"]').forEach(b => b.classList.toggle('nav-active', b.getAttribute('onclick').includes("'" + id + "'")));
-            document.querySelectorAll('#mobile-tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+            moveMobileTabIndicator(id);
         };
 
         // ================= BOOT COVER =================
@@ -416,3 +431,4 @@
             }, 400);
         }
         document.querySelector('#mobile-tabbar button[data-tab="home-view"]').classList.add('active');
+        requestAnimationFrame(() => moveMobileTabIndicator('home-view'));

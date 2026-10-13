@@ -142,10 +142,10 @@
                         window.dispatchEvent(new Event('hero-firebase-ready'));
                         auth.onAuthStateChanged(async user => { await applyFirebaseUser(user); });
                     };
-                    // Members sign in for a browser session; a fresh session starts at the signup gate.
-                    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(beginAuth).catch(error => {
-                        console.warn('Session-only sign-in persistence unavailable:', error);
-                        auth.setPersistence(firebase.auth.Auth.Persistence.NONE).then(beginAuth).catch(beginAuth);
+                    // Keep members signed in across browser restarts; fall back only if local persistence is unavailable.
+                    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(beginAuth).catch(error => {
+                        console.warn('Persistent sign-in unavailable; using this-tab persistence:', error);
+                        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(beginAuth).catch(beginAuth);
                     });
                 } catch (e) {
                     console.error("Firebase init failed:", e);

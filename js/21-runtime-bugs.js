@@ -2,9 +2,14 @@
 (function () {
     const bugsCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('runtimeBugs');
     const seen = new Set();
+    const clearChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('hero-runtime-bug-codes') : null;
     let consentReady = false;
     const queue = [];
     const maxPerSession = 6;
+    function resetCapture() { seen.clear(); queue.length = 0; sessionStorage.removeItem('hero_runtime_bug_count'); }
+    if (clearChannel) clearChannel.onmessage = event => { if (event.data === 'clear-codes') resetCapture(); };
+    window.addEventListener('storage', event => { if (event.key === 'hero_runtime_bug_clear') resetCapture(); });
+    window.addEventListener('hero-clear-runtime-bug-codes', resetCapture);
 
     function clean(value, max) { return String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, max); }
     function sourcePath(value) {
@@ -59,12 +64,29 @@
         const box = document.createElement('section'); box.id = 'runtime-bugs-panel'; box.dataset.atab = 'bugs';
         box.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mt-6';
         if (panel.dataset.active !== 'bugs') box.classList.add('atab-off');
-        box.innerHTML = '<h3 class="font-bold text-lg">Automatic browser errors</h3><p class="text-xs text-slate-500 mt-1 mb-4">Collects uncaught JavaScript errors and unhandled promise rejections when a visitor accepts analytics. It cannot detect visual or logic problems by itself.</p><div id="runtime-bugs-list" class="space-y-3"></div>';
+        box.innerHTML = '<div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="font-bold text-lg">Automatic browser errors</h3><p class="text-xs text-slate-500 mt-1 mb-4">Reports uncaught JavaScript errors and rejected promises after analytics consent. Clear the current reports to mark them reviewed, reset this browser’s duplicate filter, and watch for the same error to return.</p></div><button id="runtime-bugs-clear" class="cm-btn ghost" type="button" onclick="clearRuntimeBugCodes()"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Clear codes &amp; retest</button></div><div id="runtime-bugs-cleared" class="hidden mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300" role="status"></div><div id="runtime-bugs-list" class="space-y-3"></div>';
+        if (window.lucide) lucide.createIcons();
         panel.appendChild(box);
     }
     function setBugStatus(id, status) {
         return bugsCol().doc(id).update({ status, resolvedAt: status === 'resolved' ? firebase.firestore.FieldValue.serverTimestamp() : null }).catch(e => showToast(`Could not update bug (${e.code || 'error'}).`, 'error'));
     }
+    window.clearRuntimeBugCodes = async function () {
+        if (!bugDocs.length) return showToast('There are no reported codes to clear.', 'info');
+        if (!(await customConfirm({ title: 'Clear current error codes?', message: `This will mark the ${bugDocs.length} loaded report${bugDocs.length === 1 ? '' : 's'} as resolved and reset duplicate detection in this browser. If an error happens again, a new report can appear.`, confirmText: 'Clear and retest', danger: true }))) return;
+        const button = document.getElementById('runtime-bugs-clear'); if (button) { button.disabled = true; button.classList.add('is-refreshing'); }
+        try {
+            const batch = db.batch();
+            bugDocs.forEach(bug => batch.update(bugsCol().doc(bug._id), { status: 'resolved', resolvedAt: firebase.firestore.FieldValue.serverTimestamp() }));
+            await batch.commit();
+            resetCapture(); if (clearChannel) clearChannel.postMessage('clear-codes');
+            localStorage.setItem('hero_runtime_bug_clear', String(Date.now()));
+            const note = document.getElementById('runtime-bugs-cleared');
+            if (note) { note.textContent = 'Codes cleared. This browser will report the same error again if it returns.'; note.classList.remove('hidden'); }
+            showToast('Codes cleared. Watching for repeat errors.', 'success');
+        } catch (e) { console.error('Could not clear runtime error codes:', e); showToast(`Could not clear reports (${e.code || 'error'}).`, 'error'); }
+        finally { if (button) { button.disabled = false; button.classList.remove('is-refreshing'); } }
+    };
     function render() {
         const box = document.getElementById('runtime-bugs-list');
         if (!box) return;
@@ -75,7 +97,7 @@
         box.innerHTML = bugDocs.length ? '' : '<p class="text-sm text-slate-500">No automatic errors reported yet.</p>';
         bugDocs.forEach(b => {
             const p = profiles[b.deviceId] || {};
-            const card = document.createElement('article'); card.className = 'rounded-xl border border-slate-200 dark:border-slate-700 p-4';
+            const card = document.createElement('article'); card.className = 'runtime-bug-card rounded-xl border border-slate-200 dark:border-slate-700 p-4';
             const identity = p.email ? `${p.name || 'Verified user'} | ${p.email}` : 'Anonymous browser';
             const heading = document.createElement('div'); heading.className = 'flex flex-wrap items-start justify-between gap-3';
             const details = document.createElement('div'); details.className = 'min-w-0 flex-1';

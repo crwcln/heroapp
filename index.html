@@ -324,7 +324,7 @@
         <div class="max-w-3xl w-full glass-panel p-8 sm:p-10 rounded-3xl animate-slide-up">
             <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Customs</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Make Hero yours. Saved on this device when cookies are accepted.</p>
-            <div class="st-sec"><h3>Colorway</h3><div class="st-grid"><button class="st-card" data-theme="cairn" onclick="setPref('theme','cairn')" style="--a:#1e3a6e;--b:#d4af37"><i></i><span>Navy &amp; Gold</span></button><button class="st-card" data-theme="dusk" onclick="setPref('theme','dusk')" style="--a:#7c3aed;--b:#ec4899"><i></i><span>Dusk</span></button><button class="st-card" data-theme="ember" onclick="setPref('theme','ember')" style="--a:#ea580c;--b:#f59e0b"><i></i><span>Ember</span></button><button class="st-card" data-theme="moss" onclick="setPref('theme','moss')" style="--a:#16a34a;--b:#84cc16"><i></i><span>Moss</span></button><button class="st-card" data-theme="coral" onclick="setPref('theme','coral')" style="--a:#e11d48;--b:#fb923c"><i></i><span>Coral</span></button><button class="st-card" data-theme="graphite" onclick="setPref('theme','graphite')" style="--a:#64748b;--b:#38bdf8"><i></i><span>Graphite</span></button></div></div>
+            <div class="st-sec"><h3>Colorway</h3><div class="st-grid"><button class="st-card" data-theme="cairn" onclick="setPref('theme','cairn')" style="--a:#193b72;--b:#d4af37"><i></i><span>Navy &amp; Gold</span></button><button class="st-card" data-theme="dusk" onclick="setPref('theme','dusk')" style="--a:#6546c7;--b:#d18bc8"><i></i><span>Violet Night</span></button><button class="st-card" data-theme="ember" onclick="setPref('theme','ember')" style="--a:#c65328;--b:#e7ad55"><i></i><span>Terracotta</span></button><button class="st-card" data-theme="moss" onclick="setPref('theme','moss')" style="--a:#117b70;--b:#a1bf61"><i></i><span>Evergreen</span></button><button class="st-card" data-theme="coral" onclick="setPref('theme','coral')" style="--a:#bd4266;--b:#e5a074"><i></i><span>Rose Clay</span></button><button class="st-card" data-theme="graphite" onclick="setPref('theme','graphite')" style="--a:#435c78;--b:#73c1ce"><i></i><span>Slate &amp; Ice</span></button></div></div>
             <div class="st-sec"><h3>Background</h3><div class="st-grid"><button class="st-chip" data-bg="contour" onclick="setPref('bg','contour')">Contours</button><button class="st-chip" data-bg="aurora" onclick="setPref('bg','aurora')">Aurora</button><button class="st-chip" data-bg="grid" onclick="setPref('bg','grid')">Dot grid</button><button class="st-chip" data-bg="plain" onclick="setPref('bg','plain')">Plain</button></div></div>
             <div class="st-sec"><h3>Font</h3><div class="st-grid"><button class="st-chip" data-font="modern" onclick="setPref('font','modern')">Modern</button><button class="st-chip" data-font="serif" onclick="setPref('font','serif')">Serif</button><button class="st-chip" data-font="mono" onclick="setPref('font','mono')">Mono</button><button class="st-chip" data-font="round" onclick="setPref('font','round')">Rounded</button></div></div>
             <div class="st-sec"><h3>Behavior</h3>
@@ -644,6 +644,7 @@
         <i data-lucide="eye" class="w-3 h-3"></i> <span id="visit-count">&mdash;</span> visits
     </div>
     <nav id="mobile-tabbar" aria-label="Main navigation">
+        <span id="mobile-tab-indicator" aria-hidden="true"></span>
         <button data-tab="home-view" onclick="switchView('home-view')"><i data-lucide="landmark"></i><span>Agora</span></button>
         <button data-tab="leaderboard-view" onclick="switchView('leaderboard-view')"><i data-lucide="award"></i><span>Heroes</span></button>
         <button data-tab="custom-loc-view" onclick="switchView('custom-loc-view')"><i data-lucide="compass"></i><span>Private Charts</span></button>
@@ -687,5 +688,6 @@
     <script src="js/18-bulk-select.js"></script>
     <script src="js/19-announcements.js"></script>
     <script src="js/20-user-identity.js"></script>
+    <script src="js/22-manoj-cursor.js"></script>
 </body>
 </html>
