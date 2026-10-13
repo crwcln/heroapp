@@ -95,14 +95,18 @@
         const badge = document.getElementById('atb-bugs');
         if (badge) { badge.textContent = fresh ? String(fresh) : ''; badge.classList.toggle('hidden', !fresh); }
         box.innerHTML = bugDocs.length ? '' : '<p class="text-sm text-slate-500">No automatic errors reported yet.</p>';
+        const byFingerprint = {};
+        bugDocs.forEach(b => { (byFingerprint[b.fingerprint] = byFingerprint[b.fingerprint] || []).push(b); });
         bugDocs.forEach(b => {
+            const siblings = byFingerprint[b.fingerprint] || [];
+            const recurred = b.status !== 'resolved' && siblings.some(s => s !== b && s.status === 'resolved' && (!s.createdAt || !b.createdAt || s.createdAt.toMillis() < b.createdAt.toMillis()));
             const p = profiles[b.deviceId] || {};
-            const card = document.createElement('article'); card.className = 'runtime-bug-card rounded-xl border border-slate-200 dark:border-slate-700 p-4';
+            const card = document.createElement('article'); card.className = 'runtime-bug-card rounded-xl border border-slate-200 dark:border-slate-700 p-4' + (recurred ? ' recurred' : '');
             const identity = p.email ? `${p.name || 'Verified user'} | ${p.email}` : 'Anonymous browser';
             const heading = document.createElement('div'); heading.className = 'flex flex-wrap items-start justify-between gap-3';
             const details = document.createElement('div'); details.className = 'min-w-0 flex-1';
             const meta = document.createElement('p'); meta.className = 'text-xs text-slate-500'; meta.textContent = `${identity} | ${b.page || '/'} | ${b.appVersion || ''} | ${b.status || 'new'}`;
-            const msg = document.createElement('p'); msg.className = 'font-mono text-sm mt-2 break-words'; msg.textContent = `${b.type}: ${b.message}`;
+            const msg = document.createElement('p'); msg.className = 'font-mono text-sm mt-2 break-words'; if (recurred) { const tag = document.createElement('span'); tag.className = 'rb-recur-badge'; tag.style.marginRight = '8px'; tag.textContent = `Recurred \u00d7${siblings.length}`; msg.appendChild(tag); } msg.appendChild(document.createTextNode(`${b.type}: ${b.message}`));
             const id = document.createElement('p'); id.className = 'font-mono text-[10px] text-slate-500 mt-1'; id.textContent = `${b.deviceId || 'no browser id'}${b.source ? ' | ' + b.source : ''}${b.line ? ':' + b.line : ''}`;
             details.append(meta, msg, id);
             const actions = document.createElement('div'); actions.className = 'flex flex-wrap gap-2';

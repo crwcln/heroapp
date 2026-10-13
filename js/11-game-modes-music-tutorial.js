@@ -196,18 +196,31 @@
         setTimeout(tutMaybe, 5200);
 
         // ================= CUSTOM DROPDOWNS (desktop only; phones keep native pickers) =================
+        // csWireSelect is reusable: call it on any <select class="fb-input"> created later (e.g. an admin
+        // tool built after page load) so it gets the same animated dropdown as the ones already on the page.
         function csSyncAll() { document.querySelectorAll('.cs-wrap').forEach(w => w._sync && w._sync()); }
-        if (!matchMedia('(pointer: coarse)').matches && !document.documentElement.classList.contains('is-mobile')) {
-            document.querySelectorAll('select.fb-input').forEach(sel => {
-                const wrap = sel.closest('.fb-select-wrap'); if (!wrap) return;
-                wrap.classList.add('cs-wrap'); sel.classList.add('cs-native');
-                const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fb-input cs-btn'; btn.style.cssText = sel.style.cssText;
-                const menu = document.createElement('div'); menu.className = 'cs-menu';
-                const sync = () => { btn.textContent = sel.options[sel.selectedIndex].textContent; menu.querySelectorAll('.cs-opt').forEach((o, i) => o.classList.toggle('on', i === sel.selectedIndex)); };
-                [...sel.options].forEach((op, i) => { const o = document.createElement('div'); o.className = 'cs-opt'; o.textContent = op.textContent; o.onclick = () => { sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); sync(); wrap.classList.remove('open'); }; menu.appendChild(o); });
-                btn.onclick = e => { e.stopPropagation(); document.querySelectorAll('.cs-wrap.open').forEach(w => w !== wrap && w.classList.remove('open')); sync(); wrap.classList.toggle('open'); };
-                wrap.append(btn, menu); wrap._sync = sync; sync();
-            });
+        const CS_ENABLED = !matchMedia('(pointer: coarse)').matches && !document.documentElement.classList.contains('is-mobile');
+        function csWireSelect(sel) {
+            if (!CS_ENABLED || !sel || sel.classList.contains('cs-native')) return;
+            let wrap = sel.closest('.fb-select-wrap');
+            if (!wrap) {
+                wrap = document.createElement('div'); wrap.className = 'fb-select-wrap';
+                sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel);
+                const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                chevron.setAttribute('data-lucide', 'chevron-down'); wrap.appendChild(chevron);
+                if (window.lucide) lucide.createIcons();
+            }
+            wrap.classList.add('cs-wrap'); sel.classList.add('cs-native');
+            const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fb-input cs-btn'; btn.style.cssText = sel.style.cssText;
+            const menu = document.createElement('div'); menu.className = 'cs-menu';
+            const sync = () => { btn.textContent = sel.options[sel.selectedIndex].textContent; menu.querySelectorAll('.cs-opt').forEach((o, i) => o.classList.toggle('on', i === sel.selectedIndex)); };
+            [...sel.options].forEach((op, i) => { const o = document.createElement('div'); o.className = 'cs-opt'; o.style.animationDelay = (i * 18) + 'ms'; o.textContent = op.textContent; o.onclick = () => { sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); sync(); wrap.classList.remove('open'); }; menu.appendChild(o); });
+            btn.onclick = e => { e.stopPropagation(); document.querySelectorAll('.cs-wrap.open').forEach(w => w !== wrap && w.classList.remove('open')); sync(); wrap.classList.toggle('open'); };
+            wrap.append(btn, menu); wrap._sync = sync; sync();
+        }
+        window.csWireSelect = csWireSelect;
+        if (CS_ENABLED) {
+            document.querySelectorAll('select.fb-input').forEach(csWireSelect);
             document.addEventListener('click', () => document.querySelectorAll('.cs-wrap.open').forEach(w => w.classList.remove('open')));
             document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.cs-wrap.open').forEach(w => w.classList.remove('open')); });
         }
