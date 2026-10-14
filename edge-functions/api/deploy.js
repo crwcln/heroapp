@@ -40,9 +40,9 @@ export async function onRequestPost(context) {
   const secret = context.env.ADMIN_PASSWORD;
   const hook = context.env.DEPLOY_WEBHOOK_URL;
   const githubToken = context.env.GITHUB_TOKEN;
-  const repository = context.env.GITHUB_REPOSITORY || 'crwcln/heroapp';
+  const repository = context.env.GITHUB_REPOSITORY || '';   // no fallback -- defaulting to someone else's repo would silently commit to the wrong place
   const branch = context.env.DEPLOY_BRANCH || 'main';
-  const missing = [!secret && 'ADMIN_PASSWORD', !hook && 'DEPLOY_WEBHOOK_URL', !githubToken && 'GITHUB_TOKEN'].filter(Boolean);
+  const missing = [!secret && 'ADMIN_PASSWORD', !hook && 'DEPLOY_WEBHOOK_URL', !githubToken && 'GITHUB_TOKEN', !repository && 'GITHUB_REPOSITORY'].filter(Boolean);
   if (missing.length) return json({ ok: false, error: 'not_configured', missing }, 500);
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) || !/^[A-Za-z0-9_.-]+$/.test(branch)) {
     return json({ ok: false, error: 'invalid_deploy_config' }, 500);

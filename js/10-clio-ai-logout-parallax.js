@@ -1,5 +1,5 @@
 // ================= SHERPA (Gemini via /api/chat) =================
-        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0 };
+        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0, streamText: null };
         const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
         const shFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^\s*[-*] /gm, '\u2022 ').replace(/\n/g, '<br>');
         function shUI(k, full) {
@@ -37,13 +37,21 @@
                     lucide.createIcons();
                 }
                 sh.msgs.forEach(m => { const d = document.createElement('div'); d.className = 'sh-msg ' + (m.r === 'user' ? 'me' : 'bot') + (m.err ? ' err' : ''); d.innerHTML = shFmt(m.t); (m.images || []).forEach(img => { const el = document.createElement('img'); el.src = img.url; el.alt = 'Image attached to message'; el.className = 'sh-message-image'; d.appendChild(el); }); box.appendChild(d); });
-                if (sh.busy) { const d = document.createElement('div'); d.className = 'sh-msg bot'; d.innerHTML = '<span class="sh-dots"><i></i><i></i><i></i></span>'; box.appendChild(d); }
+                if (sh.busy) { const d = document.createElement('div'); d.className = 'sh-msg bot'; d.id = 'sh-live-' + k; d.innerHTML = sh.streamText ? shFmt(sh.streamText) : '<span class="sh-dots"><i></i><i></i><i></i></span>'; box.appendChild(d); }
                 box.scrollTop = box.scrollHeight;
                 document.getElementById('shs-' + k).disabled = sh.busy;
                 const previews = document.getElementById('shprev-' + k); previews.innerHTML = '';
                 sh.pendingImages.forEach((img, i) => { const wrap = document.createElement('span'); wrap.className = 'sh-preview-item'; const im = document.createElement('img'); im.src = img.url; im.alt = 'Image ready to send'; const rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '×'; rm.setAttribute('aria-label', 'Remove image'); rm.onclick = () => { sh.pendingImages.splice(i, 1); shRender(); }; wrap.append(im, rm); previews.appendChild(wrap); });
             });
             sessionStorage.setItem('sh_msgs', JSON.stringify(sh.msgs.slice(-30).map(m => ({ r: m.r, t: m.t, err: !!m.err }))));
+        }
+        function shAppendStreamDelta(text) {
+            sh.streamText = (sh.streamText || '') + text;
+            ['p', 'v'].forEach(k => {
+                const el = document.getElementById('sh-live-' + k); if (!el) return;
+                el.innerHTML = shFmt(sh.streamText);
+                const box = el.closest('.sh-msgs'); if (box) box.scrollTop = box.scrollHeight;
+            });
         }
         async function shQueueFiles(files) {
             const picked = [...(files || [])].filter(f => f.type.startsWith('image/'));
@@ -91,11 +99,35 @@
                 let idToken = '';
                 try { idToken = auth && auth.currentUser ? await auth.currentUser.getIdToken() : ''; } catch (e) { /* sendable without it; server will reply 'signed_out' */ }
                 const r = await fetch('/api/chat', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, idToken ? { Authorization: 'Bearer ' + idToken } : {}),
-                    body: JSON.stringify({ messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: (window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}` }) });
-                const d = await r.json().catch(() => ({}));
-                if (!r.ok) { const err = new Error(d.error || r.status); err.d = d; throw err; }
-                sh.msgs.push({ r: 'model', t: d.reply });
+                    body: JSON.stringify({ messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: (window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}`, stream: true }) });
+                const isStream = r.ok && (r.headers.get('content-type') || '').includes('text/event-stream');
+                if (!isStream) {
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok) { const err = new Error(d.error || r.status); err.d = d; throw err; }
+                    sh.msgs.push({ r: 'model', t: d.reply });
+                } else {
+                    // Show Clio's answer as it's generated, the same way Gemini's own UI does, instead of waiting for the full reply.
+                    sh.streamText = ''; shRender();
+                    const reader = r.body.getReader(), decoder = new TextDecoder();
+                    let buf = '', streamErr = null;
+                    outer: while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += decoder.decode(value, { stream: true });
+                        const events = buf.split('\n\n'); buf = events.pop() || '';
+                        for (const evt of events) {
+                            const line = evt.split('\n').find(l => l.startsWith('data: ')); if (!line) continue;
+                            let payload; try { payload = JSON.parse(line.slice(6)); } catch (e2) { continue; }
+                            if (payload.error) { streamErr = payload.error; break outer; }
+                            if (payload.t) shAppendStreamDelta(payload.t);
+                            if (payload.done) break outer;
+                        }
+                    }
+                    if (streamErr) { sh.streamText = null; const err = new Error(streamErr); throw err; }
+                    sh.msgs.push({ r: 'model', t: sh.streamText || '' }); sh.streamText = null;
+                }
             } catch (e) {
+                sh.streamText = null;
                 const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", server_not_configured: 'Clio needs FIREBASE_API_KEY set in EdgeOne env vars (the same public value already in js/02-firebase-config.js), then redeploy.', signed_out: 'Sign in with a verified Hero account to talk with Clio.', not_verified: 'Verify your email to talk with Clio.', rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
                 sh.msgs.push({ r: 'model', t: m || "Clio couldn't answer just now. Please try again.", err: true });
             }

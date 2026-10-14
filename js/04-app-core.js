@@ -416,8 +416,17 @@
             finally { btnLoader.classList.add('hidden'); }
         }
 
+        let deployedLocationsSnapshot = null;
+        function markLocationsClean() { deployedLocationsSnapshot = JSON.stringify(globalLocations); updateUnsavedBadge(); }
+        function updateUnsavedBadge() {
+            const badge = document.getElementById('admin-unsaved-badge'); if (!badge) return;
+            const dirty = deployedLocationsSnapshot !== null && deployedLocationsSnapshot !== JSON.stringify(globalLocations);
+            badge.classList.toggle('hidden', !dirty);
+        }
+        window.markLocationsClean = markLocationsClean;
         function renderAdminList() {
             document.getElementById('admin-loc-count').innerText = globalLocations.length;
+            updateUnsavedBadge();
             const listEl = document.getElementById('custom-list');
             listEl.innerHTML = '';
             globalLocations.forEach((loc, idx) => {
@@ -449,6 +458,7 @@
                 .set({ locations: globalLocations, title: newTitle, message: newMessage })
                 .then(() => {
                     showToast("Live! Challenge updated.", "success");
+                    markLocationsClean();
                     btn.innerHTML = orig;
                 }).catch(e => { btn.innerHTML = orig; showToast("Failed to deploy.", "error"); });
         }

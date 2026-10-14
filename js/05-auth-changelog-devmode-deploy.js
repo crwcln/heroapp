@@ -266,7 +266,14 @@
             statsRef().onSnapshot(doc => {
                 const n = doc.exists ? (doc.data().visits || 0) : 0;
                 animateNumber(document.getElementById('visit-count'), n, 1200);
+                const adminCount = document.getElementById('visit-admin-count'); if (adminCount) adminCount.textContent = n.toLocaleString();
             }, err => console.error('Visits listener:', err));
+        }
+async function resetVisitCounter() {
+            if (!db || !userId) return showToast('Cannot reset while offline.', 'error');
+            if (!(await customConfirm({ title: 'Reset the visit counter?', message: 'This sets the public counter back to 0. It cannot be undone.', confirmText: 'Reset to 0', danger: true }))) return;
+            try { await statsRef().set({ visits: 0 }, { merge: true }); showToast('Visit counter reset.', 'success'); }
+            catch (e) { showToast(`Could not reset (${e.code || 'error'}).`, 'error'); }
         }
         function countVisit() {
             if (!db || !userId || sessionStorage.getItem('mq_counted')) return;

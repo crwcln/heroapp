@@ -71,13 +71,23 @@
         else { localStorage.setItem(cursorKey, String(Date.now() + 86400000)); ensureCursor(); showToast('Manoj Cursor is on for this browser for 24 hours.', 'success'); }
         syncCursor();
     };
-    window.addEventListener('pointermove', event => {
+    // One transform write per animation frame (not per raw pointer event) -- raw pointermove can fire far
+    // faster than the screen repaints, and writing a style every single time was the real source of the lag,
+    // especially layered over Leaflet's own listeners while the map is visible.
+    let pendingX = 0, pendingY = 0, rafQueued = false;
+    function paintCursor() {
+        rafQueued = false;
         if (!active || !cursorImage || !assetReady) return;
-        const dx = event.clientX - lastX, dy = event.clientY - lastY;
+        const dx = pendingX - lastX, dy = pendingY - lastY;
         const pointerTilt = cursorImage.classList.contains('pointing') ? 11 : 0;
         const angle = Math.max(-16, Math.min(16, dx * .7 + dy * .12 + pointerTilt));
-        cursorImage.style.transform = `translate3d(${event.clientX + 8}px,${event.clientY + 9}px,0) rotate(${angle}deg)`;
-        lastX = event.clientX; lastY = event.clientY;
+        cursorImage.style.transform = `translate3d(${pendingX + 2}px,${pendingY + 2}px,0) rotate(${angle}deg)`;
+        lastX = pendingX; lastY = pendingY;
+    }
+    window.addEventListener('pointermove', event => {
+        if (!active || !cursorImage || !assetReady) return;
+        pendingX = event.clientX; pendingY = event.clientY;
+        if (!rafQueued) { rafQueued = true; requestAnimationFrame(paintCursor); }
     }, { passive: true });
     window.addEventListener('pointerover', event => {
         if (!cursorImage) return;

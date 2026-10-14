@@ -22,6 +22,7 @@
         function applyMode() {
             const s = store[yearMode], q = QUIZZES[yearMode];
             globalLocations = s.locs;
+            if (window.markLocationsClean) markLocationsClean();
             globalQuizTitle = s.title;
             currentGlobalMessage = s.msg;
 

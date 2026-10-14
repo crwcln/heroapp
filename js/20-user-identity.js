@@ -51,7 +51,43 @@
         const user = currentMember();
         if (user) {
             const name = localStorage.getItem('hero_member_name') || user.displayName || '';
-            accountForm.innerHTML = '<p class="text-sm text-slate-600 dark:text-slate-300">Signed in and verified as <strong id="hero-member-email"></strong>.</p><div class="member-photo-edit"><div class="member-photo-edit-preview" id="hero-member-photo-preview"></div><div><strong>Profile picture</strong><p>Choose a square photo. It is resized before being saved to your profile.</p><label class="cm-btn ghost" for="hero-member-photo-file">Choose photo</label><input id="hero-member-photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden><button id="hero-member-photo-remove" type="button" class="hero-auth-link">Remove photo</button></div></div><label class="block text-xs font-bold uppercase tracking-wide mt-4 mb-1">Display name</label><input id="hero-member-name" maxlength="40" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="name"><button id="hero-member-save" class="cm-btn go w-full mt-3">Save profile</button><div class="border-t mt-5 pt-4"><h3 class="font-bold text-sm">Password</h3><p class="text-xs text-slate-500 mt-1">To change it, confirm your current password first. If you forgot it, request a reset email.</p><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1" for="hero-member-old-password">Current password</label><input id="hero-member-old-password" type="password" autocomplete="current-password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="Current password"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1" for="hero-member-password">New password</label><input id="hero-member-password" type="password" minlength="8" autocomplete="new-password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="At least 8 characters"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1" for="hero-member-password-confirm">Confirm new password</label><input id="hero-member-password-confirm" type="password" minlength="8" autocomplete="new-password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" placeholder="Type the new password again"><button id="hero-member-password-save" class="cm-btn ghost w-full mt-2">Update password</button><button id="hero-member-password-reset" type="button" class="hero-auth-link mt-2">I forgot my current password — email me a reset link</button></div><button id="hero-member-signout" class="cm-btn ghost w-full mt-4">Sign out</button>';
+            accountForm.innerHTML = `
+                <section class="acct-card">
+                    <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Signed in and verified as <strong id="hero-member-email"></strong></p></div></header>
+                    <div class="member-photo-edit">
+                        <div class="member-photo-edit-preview" id="hero-member-photo-preview"></div>
+                        <div>
+                            <strong>Profile picture</strong>
+                            <p>Choose a square photo. It is resized before being saved to your profile.</p>
+                            <div class="acct-photo-btns">
+                                <label class="cm-btn go acct-btn-sm" for="hero-member-photo-file"><i data-lucide="image-plus"></i> Choose photo</label>
+                                <button id="hero-member-photo-remove" type="button" class="hero-auth-link">Remove photo</button>
+                            </div>
+                            <input id="hero-member-photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                        </div>
+                    </div>
+                    <label class="acct-label" for="hero-member-name">Display name</label>
+                    <input id="hero-member-name" maxlength="40" class="acct-input" autocomplete="name">
+                    <button id="hero-member-save" class="cm-btn go w-full mt-4"><i data-lucide="check" class="w-4 h-4"></i> Save profile</button>
+                </section>
+
+                <section class="acct-card">
+                    <header class="acct-card-head"><span class="acct-ico"><i data-lucide="key-round"></i></span><div><h3>Password</h3><p>To change it, confirm your current password first. If you forgot it, request a reset email.</p></div></header>
+                    <label class="acct-label" for="hero-member-old-password">Current password</label>
+                    <input id="hero-member-old-password" type="password" autocomplete="current-password" class="acct-input" placeholder="Current password">
+                    <div class="acct-grid-2">
+                        <div><label class="acct-label" for="hero-member-password">New password</label><input id="hero-member-password" type="password" minlength="8" autocomplete="new-password" class="acct-input" placeholder="At least 8 characters"></div>
+                        <div><label class="acct-label" for="hero-member-password-confirm">Confirm new password</label><input id="hero-member-password-confirm" type="password" minlength="8" autocomplete="new-password" class="acct-input" placeholder="Type it again"></div>
+                    </div>
+                    <button id="hero-member-password-save" class="cm-btn ghost w-full mt-4"><i data-lucide="lock" class="w-4 h-4"></i> Update password</button>
+                    <button id="hero-member-password-reset" type="button" class="hero-auth-link mt-3">I forgot my current password \u2014 email me a reset link</button>
+                </section>
+
+                <section class="acct-card acct-card-danger">
+                    <button id="hero-member-signout" class="cm-btn ghost w-full"><i data-lucide="log-out" class="w-4 h-4"></i> Sign out</button>
+                </section>
+            `;
+            if (window.lucide) lucide.createIcons();
             accountForm.querySelector('#hero-member-email').textContent = user.email || '';
             accountForm.querySelector('#hero-member-name').value = name;
             updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), profilePhotoUid === user.uid ? profilePhoto : '');
@@ -105,7 +141,7 @@
     function renderGateForm() {
         if (!gateForm) return;
         const register = authMode === 'register';
-        gateForm.innerHTML = `${register ? '<label class="hero-auth-label">Your name</label><input id="gate-name" class="hero-auth-input" maxlength="40" autocomplete="name" placeholder="Display name">' : ''}<label class="hero-auth-label">Email</label><input id="gate-email" class="hero-auth-input" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com"><label class="hero-auth-label">Password</label><input id="gate-password" class="hero-auth-input" type="password" minlength="8" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="${register ? 'At least 8 characters' : 'Your password'}">${register ? '<label class="hero-auth-label">Confirm password</label><input id="gate-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again">' : ''}<button id="gate-submit" class="hero-auth-submit">${register ? 'Create account' : 'Sign in'}</button><div class="hero-auth-links"><button id="gate-toggle" type="button">${register ? 'Already have an account? Sign in' : 'New to Hero? Create account'}</button><button id="gate-reset" type="button">Forgot password?</button><button id="gate-email-link" type="button">Use an email sign-in link</button></div>`;
+        gateForm.innerHTML = `${register ? '<div class="hero-auth-steps"><span class="on">1. Create account</span><span class="arrow">\u2192</span><span>2. Verify email</span></div>' : ''}${register ? '<label class="hero-auth-label">Your name</label><input id="gate-name" class="hero-auth-input" maxlength="40" autocomplete="name" placeholder="Display name">' : ''}<label class="hero-auth-label">Email</label><input id="gate-email" class="hero-auth-input" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com"><label class="hero-auth-label">Password</label><input id="gate-password" class="hero-auth-input" type="password" minlength="8" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="${register ? 'At least 8 characters' : 'Your password'}">${register ? '<label class="hero-auth-label">Confirm password</label><input id="gate-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again">' : ''}<button id="gate-submit" class="hero-auth-submit">${register ? 'Create account' : 'Sign in'}</button><div class="hero-auth-links-primary"><button id="gate-toggle" type="button">${register ? 'Already have an account? Sign in' : 'New to Hero? Create account'}</button></div><div class="hero-auth-links"><button id="gate-reset" type="button">Forgot password?</button><span class="hero-auth-sep">\u00b7</span><button id="gate-email-link" type="button">Use an email sign-in link</button></div>`;
         gateForm.querySelector('#gate-submit').onclick = submitPasswordAuth;
         gateForm.querySelector('#gate-toggle').onclick = () => { authMode = register ? 'login' : 'register'; setGateStatus(''); renderGateForm(); };
         gateForm.querySelector('#gate-reset').onclick = resetPassword;

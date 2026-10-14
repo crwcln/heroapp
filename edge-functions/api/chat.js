@@ -75,15 +75,18 @@ export async function onRequestPost(context) {
     contents,
     generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
   });
+  const wantsStream = body.stream === true;
+  const endpointFor = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:${wantsStream ? 'streamGenerateContent?alt=sse' : 'generateContent'}`;
+
   let r = null;
   const tried = [];
   for (const model of models) {
     try {
-      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      r = await fetch(endpointFor(model), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: payload,
-        signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
+        signal: AbortSignal.timeout ? AbortSignal.timeout(wantsStream ? 25000 : 15000) : undefined,
       });
     } catch { tried.push(model); r = null; continue; }
     if (r.ok || ![404, 429, 500, 502, 503, 504].includes(r.status)) break;   // busy, retired or erroring: try the next model
@@ -96,13 +99,48 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: 'upstream_error', status: r.status, detail: String((err.error && err.error.message) || '').slice(0, 160), tried }, 502);
   }
 
-  const data = await r.json().catch(() => ({}));
-  const reply = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts
-    ? data.candidates[0].content.parts.map((p) => p.text || '').join('').trim() : '';
-  const finish = data.candidates && data.candidates[0] && data.candidates[0].finishReason;
-  return json(reply ? { ok: true, reply } : { ok: false, error: 'empty_reply', detail: String(finish || 'no text') }, reply ? 200 : 502);
-}
+  if (!wantsStream) {
+    const data = await r.json().catch(() => ({}));
+    const reply = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts
+      ? data.candidates[0].content.parts.map((p) => p.text || '').join('').trim() : '';
+    const finish = data.candidates && data.candidates[0] && data.candidates[0].finishReason;
+    return json(reply ? { ok: true, reply } : { ok: false, error: 'empty_reply', detail: String(finish || 'no text') }, reply ? 200 : 502);
+  }
 
+  // Streaming: re-emit Gemini's SSE as a smaller, stable shape -- {t:"<text delta>"} per event, {done:true} at the
+  // end -- so the client never has to understand Gemini's own response format, only this one line protocol.
+  const encoder = new TextEncoder();
+  const upstreamReader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '', sawAnyText = false;
+  const SEP = String.fromCharCode(10) + String.fromCharCode(10);
+  const out = new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await upstreamReader.read();
+      if (done) {
+        if (!sawAnyText) controller.enqueue(encoder.encode('data: ' + JSON.stringify({ error: 'empty_reply' }) + SEP));
+        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ done: true }) + SEP));
+        controller.close();
+        return;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(SEP);
+      buffer = events.pop() || '';
+      for (const evt of events) {
+        const line = evt.split(String.fromCharCode(10)).find((l) => l.startsWith('data: '));
+        if (!line) continue;
+        try {
+          const chunk = JSON.parse(line.slice(6));
+          const parts = chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content && chunk.candidates[0].content.parts;
+          const text = parts ? parts.map((p) => p.text || '').join('') : '';
+          if (text) { sawAnyText = true; controller.enqueue(encoder.encode('data: ' + JSON.stringify({ t: text }) + SEP)); }
+        } catch (e) { /* partial or non-JSON line: skip it, the rest of the stream still arrives */ }
+      }
+    },
+    cancel() { try { upstreamReader.cancel(); } catch (e) {} },
+  });
+  return new Response(out, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } });
+}
 // GET /api/chat -> quick config check (no secrets)
 export function onRequestGet(context) {
   return json({ ok: true, GEMINI_API_KEY: !!context.env.GEMINI_API_KEY, models: [...new Set([context.env.GEMINI_MODEL, ...DEFAULT_MODELS].filter(Boolean))] });
