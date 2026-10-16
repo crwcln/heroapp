@@ -129,7 +129,7 @@
             } catch (e) {
                 sh.streamText = null;
                 const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", server_not_configured: 'Clio needs FIREBASE_API_KEY set in EdgeOne env vars (the same public value already in js/02-firebase-config.js), then redeploy.', signed_out: 'Sign in with a verified Hero account to talk with Clio.', not_verified: 'Verify your email to talk with Clio.', rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
-                sh.msgs.push({ r: 'model', t: m || "Clio couldn't answer just now. Please try again.", err: true });
+                sh.msgs.push({ r: 'model', t: m || `Clio couldn't answer just now${e && e.message ? ` (${String(e.message).slice(0, 140)})` : ''}. Please try again, and use \u201cSend a Word\u201d if it keeps happening.`, err: true });
             }
             sh.busy = false; shRender();
         }

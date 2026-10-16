@@ -17,10 +17,14 @@ function flOpen() {
     flState = { cv, ctx: cv.getContext('2d'), img, y: 260, vy: 0, pipes: [], score: 0, t: 0, dead: false, raf: 0, posted: false };
     cv.onpointerdown = flFlap; el.querySelector('.fl-again').onclick = () => { flReset(); flLoop(); }; el.querySelector('.fl-submit').onclick = flPost; flLoop();
 }
-function flKeys(e) { if (e.key === 'Escape') flClose(); if (e.key === ' ' && document.getElementById('flappy') && e.target.tagName !== 'INPUT') { e.preventDefault(); flFlap(); } }
+function flKeys(e) {
+    if (e.key === 'Escape') flClose();
+    const typing = e.target.closest('input, textarea, [contenteditable="true"]');
+    if (e.key === ' ' && document.getElementById('flappy') && !typing) { e.preventDefault(); flFlap(); }
+}
 function flReset() { Object.assign(flState, { y: 260, vy: 0, pipes: [], score: 0, t: 0, dead: false, posted: false }); document.getElementById('flappy').classList.remove('over'); }
 function flFlap() { if (flState && !flState.dead) flState.vy = -7.6; }
-function flClose() { if (flState) cancelAnimationFrame(flState.raf); document.removeEventListener('keydown', flKeys); const el = document.getElementById('flappy'); if (el) { el.classList.remove('open'); setTimeout(() => el.remove(), 400); } }
+function flClose() { if (flState) cancelAnimationFrame(flState.raf); document.removeEventListener('keydown', flKeys); flState = null; const el = document.getElementById('flappy'); if (el) { el.classList.remove('open'); setTimeout(() => el.remove(), 400); } }
 async function flBoard() {
     const box = document.querySelector('#flappy .fl-board'); if (!box) return;
     try { const s = await flCol().orderBy('score', 'desc').limit(5).get(); box.innerHTML = ''; s.docs.forEach((d, i) => { const r = document.createElement('div'); r.innerHTML = '<span></span><b></b>'; r.firstChild.textContent = `${i + 1}. ${d.data().name}`; r.lastChild.textContent = d.data().score; box.appendChild(r); }); if (!s.size) box.textContent = 'No scores yet. Be the first!'; }

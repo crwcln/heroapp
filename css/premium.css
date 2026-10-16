@@ -425,3 +425,28 @@ html.dark .acct-ico { color: var(--brand-300); }
 .hero-auth-steps { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 2px 0 18px; font-size: 11px; font-weight: 800; letter-spacing: .03em; color: #6b6f85; }
 .hero-auth-steps .on { color: var(--sec); }
 .hero-auth-steps .arrow { opacity: .5; }
+
+.bulk-btn-off { filter: grayscale(1) !important; opacity: .4 !important; cursor: not-allowed !important; pointer-events: none !important; }
+.bulk-select-toolbar > button { padding: 7px 14px !important; font-size: 12px !important; border-radius: 10px; font-weight: 700; }
+
+/* ===== year-switch transition ===== */
+.year-swap-out { animation: yearOut .16s ease both; }
+.year-swap-in { animation: yearIn .28s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes yearOut { to { opacity: 0; transform: translateY(-4px) scale(.99); } }
+@keyframes yearIn { from { opacity: 0; transform: translateY(4px) scale(.99); } to { opacity: 1; transform: none; } }
+html[data-motion=off] .year-swap-out, html[data-motion=off] .year-swap-in { animation: none; }
+
+/* ===== verification-pending state: unmistakably "one step left", never reads as signed out ===== */
+.hero-verify-card { text-align: center; padding: 8px 4px 4px; }
+.hero-verify-icon { width: 40px; height: 40px; margin: 0 auto 14px; display: block; color: var(--sec); padding: 9px; border-radius: 14px; background: rgba(var(--sec-rgb),.14); }
+.hero-verify-card h3 { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+.hero-verify-card p { font-size: 13px; line-height: 1.55; color: #c7cbe0; margin-bottom: 16px; }
+.hero-auth-secondary { width: 100%; min-height: 42px; margin-top: 10px; border: 1px solid rgba(255,255,255,.18); border-radius: 11px; background: transparent; color: #e4e6f5; font-weight: 700; font-size: 13px; cursor: pointer; }
+.hero-auth-secondary:hover { background: rgba(255,255,255,.06); }
+
+/* ===== account dialog: a bit more breathing room ===== */
+.acct-card { padding: 24px; margin-bottom: 20px; }
+.acct-card-head { margin-bottom: 20px; }
+.acct-grid-2 { gap: 16px; }
+.acct-label { margin: 18px 0 7px; }
+.member-photo-edit { gap: 18px; }

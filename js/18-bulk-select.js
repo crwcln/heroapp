@@ -18,11 +18,12 @@ function bulkWire(listId, getArr, setArr, saveFn) {
         rows.forEach((r, i) => r.classList.toggle('bulk-on', sel.has(i)));
         bar.style.display = getArr().length ? 'flex' : 'none';
         bar.querySelector('.bulk-n').textContent = sel.size;
-        delSelBtn.disabled = !sel.size; delSelBtn.style.opacity = sel.size ? 1 : .5;
+        delSelBtn.disabled = !sel.size; delSelBtn.classList.toggle('bulk-btn-off', !sel.size);
     }
     function wireRows() {
         [...list.children].forEach((row, i) => {
             row.style.cursor = 'pointer';
+            row.addEventListener('mousedown', e => { if (e.shiftKey || e.metaKey || e.ctrlKey) e.preventDefault(); });
             row.onclick = (e) => {
                 if (e.target.closest('button')) return;   // let the row's own delete/edit buttons work normally
                 if (e.shiftKey && lastIdx !== null) { const [a, b] = [lastIdx, i].sort((x, y) => x - y); sel.clear(); for (let k = a; k <= b; k++) sel.add(k); }

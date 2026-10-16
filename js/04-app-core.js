@@ -384,8 +384,12 @@
             const val = input.value;
             if (!val) return showToast("Enter the password.", "error");
             adminChecking = true;
+            const btn = document.getElementById('admin-enter-btn');
+            const origLabel = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Checking\u2026'; }
             const ok = await checkPassword('admin', val);
             adminChecking = false;
+            if (btn) { btn.disabled = false; btn.textContent = origLabel; }
             if (ok === true) {
                 adminToken = lastAuthToken; onAdminUnlocked();
                 document.getElementById('admin-lock').classList.add('hidden');

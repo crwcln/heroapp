@@ -347,7 +347,10 @@
 
     function showVerificationControls(user) {
         if (!gateForm || !user || !user.email || user.emailVerified) return;
-        gateForm.innerHTML = `<p class="hero-auth-pending">Signed in as <strong>${esc(user.email)}</strong>. Verify this account once to unlock Hero. The verified status stays with your account.</p><button id="gate-resend" class="hero-auth-submit">Resend verification email</button><button id="gate-refresh" class="hero-auth-secondary">I verified my email</button><button id="gate-signout" class="hero-auth-link">Sign in with another account</button>`;
+        // This is deliberately NOT styled like the plain sign-in form: a user who just entered the right
+        // password should never mistake "one more step" for "that didn't work" / "signed out".
+        gateForm.innerHTML = `<div class="hero-verify-card"><i data-lucide="mail-check" class="hero-verify-icon"></i><h3>Almost there</h3><p>You're signed in as <strong>${esc(user.email)}</strong>. Click the link we emailed you to verify this account \u2014 just once, future sign-ins won't ask again.</p><button id="gate-resend" class="hero-auth-submit">Resend verification email</button><button id="gate-refresh" class="hero-auth-secondary">I verified my email</button><button id="gate-signout" class="hero-auth-link">Sign in with another account</button></div>`;
+        if (window.lucide) lucide.createIcons();
         gateForm.querySelector('#gate-resend').onclick = resendVerification;
         gateForm.querySelector('#gate-refresh').onclick = refreshVerification;
         gateForm.querySelector('#gate-signout').onclick = signOut;
