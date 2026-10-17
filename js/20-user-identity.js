@@ -1,573 +1,417 @@
-// ===== VERIFIED ACCOUNTS, MEMBER PROFILES, AND MODERATION IDENTITY =====
+// ================= HERO ACCOUNTS =================
+// Rebuilt from scratch (previous version removed, not reused) after reports of sign-in state confusion.
+//
+// Design rule, and the reason for the rewrite: there is exactly ONE place that decides whether a Firebase
+// user is allowed into the app -- the `applyFirebaseUser` function in js/04-app-core.js, which broadcasts
+// its decision as a `hero-auth-state` event. This file never makes that decision itself; it only reacts to
+// the event. The previous version tracked its own partial notion of "signed in" alongside that decision,
+// and the two could disagree. Here the UI is a pure function of the last `hero-auth-state` it received.
+//
+// Public surface other files rely on (kept the same on purpose, so nothing else needed to change):
+//   window.__heroOpenAccountDialog()   opens the sign-in / account dialog
+//   window.__heroShowAuthGate()        same dialog, used when a blocked view needs to show it
+//   window.__heroDeviceProfiles        { deviceId: {name,email,userId,deviceId} } for admin tooling
+//   #hero-account-open                 the nav button (created here, inserted into #nav-actions)
+//   #member-profile-content            populated with the signed-in profile (profile-view in index.html)
 (function () {
-    const pendingEmailKey = 'hero_pending_email', pendingNameKey = 'hero_pending_name';
-    let accountDialog, accountStatus, accountForm, authGate, gateStatus, gateForm, authMode = 'register';
-    let profileSub = null, profileScores = [], knownProfiles = [], profileWriteKey = '', profileWriteTask = null, profileSavedKey = '', profilePhoto = '', profilePhotoUid = '';
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const dataCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data');
-    const currentMember = () => auth && auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.emailVerified && auth.currentUser.uid !== 'admin' ? auth.currentUser : null;
-    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    function updatePhotoPreview(box, photo) {
-        if (!box) return;
-        box.replaceChildren();
-        if (photo) { const image = document.createElement('img'); image.src = photo; image.alt = 'Profile picture preview'; box.appendChild(image); }
-        else { const initial = document.createElement('span'); initial.textContent = (currentMember()?.displayName || 'H').trim().charAt(0).toUpperCase(); box.appendChild(initial); }
-    }
-    async function compressProfilePhoto(file) {
-        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('Choose a PNG, JPG, or WebP image.');
-        if (file.size > 12 * 1024 * 1024) throw new Error('Choose an image smaller than 12 MB.');
-        const bitmap = await createImageBitmap(file), side = Math.min(bitmap.width, bitmap.height), cropX = (bitmap.width - side) / 2, cropY = (bitmap.height - side) / 2;
+    const memberRef = (uid) => dataCol().collection('members').doc(uid);
+    const ROLES = [[30000, 'Legend'], [15000, 'Historian'], [5000, 'Cartographer'], [1000, 'Scout'], [0, 'Explorer']];
+    const roleFor = (score) => (ROLES.find(([min]) => score >= min) || ROLES[ROLES.length - 1])[1];
+
+    let latest = { user: null, authorized: false, isAdmin: false };
+    let mode = 'signin';                 // gate form: 'signin' | 'register'
+    let dialog = null, body = null;
+    let knownProfilesUnsub = null;
+
+    // ---------------- photo resize: a square JPEG under ~100KB, stored inline on the member doc ----------------
+    async function resizePhoto(file) {
+        const bitmap = await createImageBitmap(file);
+        const side = Math.min(bitmap.width, bitmap.height);
         const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
-        canvas.getContext('2d').drawImage(bitmap, cropX, cropY, side, side, 0, 0, 256, 256); bitmap.close();
-        let quality = .78, blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
-        while (blob && blob.size > 100000 && quality > .42) { quality -= .1; blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality)); }
-        if (!blob || blob.size > 100000) throw new Error('That image could not be compressed enough. Try a simpler photo.');
-        const bytes = new Uint8Array(await blob.arrayBuffer()); let binary = '';
-        for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-        return 'data:image/jpeg;base64,' + btoa(binary);
+        canvas.getContext('2d').drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 256, 256);
+        bitmap.close();
+        let quality = 0.82, blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
+        while (blob && blob.size > 100000 && quality > 0.4) { quality -= 0.1; blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality)); }
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
 
-    function setStatus(msg, error = false) {
-        if (!accountStatus) return;
-        accountStatus.textContent = msg;
-        accountStatus.classList.toggle('text-rose-600', error);
-        accountStatus.classList.toggle('text-emerald-600', !error);
+    // ---------------- dialog shell ----------------
+    function ensureDialog() {
+        if (dialog) return;
+        dialog = document.createElement('div');
+        dialog.id = 'hero-account-dialog';
+        dialog.className = 'hero-auth-overlay hidden';
+        dialog.innerHTML = '<div class="hero-auth-backdrop"></div><div class="hero-auth-card glass-panel"><button type="button" class="hero-auth-close" aria-label="Close">&times;</button><div id="hero-auth-body"></div></div>';
+        document.body.appendChild(dialog);
+        dialog.querySelector('.hero-auth-backdrop').onclick = closeDialog;
+        dialog.querySelector('.hero-auth-close').onclick = closeDialog;
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dialog.classList.contains('hidden')) closeDialog(); });
+        body = dialog.querySelector('#hero-auth-body');
     }
-    function setGateStatus(msg, error = false) {
-        if (!gateStatus) return;
-        gateStatus.textContent = msg;
-        gateStatus.classList.toggle('text-rose-300', error);
-        gateStatus.classList.toggle('text-emerald-300', !error);
-    }
-    function setAccountLabel(label) {
-        const button = document.getElementById('hero-account-open');
-        if (!button) return;
-        const text = button.querySelector('span');
-        if (text) text.textContent = label; else button.textContent = label;
-    }
-    window.__heroShowAuthGate = () => { if (authGate) authGate.classList.remove('hidden'); };
+    function openDialog() { ensureDialog(); dialog.classList.remove('hidden'); requestAnimationFrame(() => dialog.classList.add('open')); render(); }
+    function closeDialog() { if (!dialog) return; dialog.classList.remove('open'); setTimeout(() => dialog.classList.add('hidden'), 200); }
+    window.__heroOpenAccountDialog = openDialog;
+    window.__heroShowAuthGate = openDialog;
 
-    function renderAccount() {
-        if (!accountForm) return;
-        const user = currentMember();
-        if (user) {
-            const name = localStorage.getItem('hero_member_name') || user.displayName || '';
-            accountForm.innerHTML = `
-                <section class="acct-card">
-                    <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Signed in and verified as <strong id="hero-member-email"></strong></p></div></header>
-                    <div class="member-photo-edit">
-                        <div class="member-photo-edit-preview" id="hero-member-photo-preview"></div>
-                        <div>
-                            <strong>Profile picture</strong>
-                            <p>Choose a square photo. It is resized before being saved to your profile.</p>
-                            <div class="acct-photo-btns">
-                                <label class="cm-btn go acct-btn-sm" for="hero-member-photo-file"><i data-lucide="image-plus"></i> Choose photo</label>
-                                <button id="hero-member-photo-remove" type="button" class="hero-auth-link">Remove photo</button>
-                            </div>
-                            <input id="hero-member-photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-                        </div>
-                    </div>
-                    <label class="acct-label" for="hero-member-name">Display name</label>
-                    <input id="hero-member-name" maxlength="40" class="acct-input" autocomplete="name">
-                    <button id="hero-member-save" class="cm-btn go w-full mt-4"><i data-lucide="check" class="w-4 h-4"></i> Save profile</button>
-                </section>
-
-                <section class="acct-card">
-                    <header class="acct-card-head"><span class="acct-ico"><i data-lucide="key-round"></i></span><div><h3>Password</h3><p>To change it, confirm your current password first. If you forgot it, request a reset email.</p></div></header>
-                    <label class="acct-label" for="hero-member-old-password">Current password</label>
-                    <input id="hero-member-old-password" type="password" autocomplete="current-password" class="acct-input" placeholder="Current password">
-                    <div class="acct-grid-2">
-                        <div><label class="acct-label" for="hero-member-password">New password</label><input id="hero-member-password" type="password" minlength="8" autocomplete="new-password" class="acct-input" placeholder="At least 8 characters"></div>
-                        <div><label class="acct-label" for="hero-member-password-confirm">Confirm new password</label><input id="hero-member-password-confirm" type="password" minlength="8" autocomplete="new-password" class="acct-input" placeholder="Type it again"></div>
-                    </div>
-                    <button id="hero-member-password-save" class="cm-btn ghost w-full mt-4"><i data-lucide="lock" class="w-4 h-4"></i> Update password</button>
-                    <button id="hero-member-password-reset" type="button" class="hero-auth-link mt-3">I forgot my current password \u2014 email me a reset link</button>
-                </section>
-
-                <section class="acct-card acct-card-danger">
-                    <button id="hero-member-signout" class="cm-btn ghost w-full"><i data-lucide="log-out" class="w-4 h-4"></i> Sign out</button>
-                </section>
-            `;
-            if (window.lucide) lucide.createIcons();
-            accountForm.querySelector('#hero-member-email').textContent = user.email || '';
-            accountForm.querySelector('#hero-member-name').value = name;
-            updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), profilePhotoUid === user.uid ? profilePhoto : '');
-            accountForm.querySelector('#hero-member-photo-file').onchange = async event => {
-                const file = event.target.files && event.target.files[0]; event.target.value = '';
-                if (!file) return;
-                try {
-                    const photo = await compressProfilePhoto(file);
-                    const saved = await saveProfile(user, accountForm.querySelector('#hero-member-name').value.trim(), photo);
-                    if (saved) { profilePhoto = photo; profilePhotoUid = user.uid; updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), photo); await refreshMemberProfile(user); }
-                } catch (error) { setStatus(error.message || 'Could not save that profile photo.', true); }
-            };
-            accountForm.querySelector('#hero-member-photo-remove').onclick = async () => {
-                const saved = await saveProfile(user, accountForm.querySelector('#hero-member-name').value.trim(), '');
-                if (saved) { profilePhoto = ''; profilePhotoUid = user.uid; updatePhotoPreview(accountForm.querySelector('#hero-member-photo-preview'), ''); await refreshMemberProfile(user); }
-            };
-            accountForm.querySelector('#hero-member-save').onclick = async () => {
-                const nextName = accountForm.querySelector('#hero-member-name').value.trim();
-                if (nextName.length < 2 || nextName.length > 40) return setStatus('Name must be 2 to 40 characters.', true);
-                localStorage.setItem('hero_member_name', nextName);
-                await saveProfile(user, nextName, profilePhotoUid === user.uid ? profilePhoto : undefined);
-                await refreshMemberProfile(user);
-            };
-            accountForm.querySelector('#hero-member-password-save').onclick = async () => {
-                const oldPassword = accountForm.querySelector('#hero-member-old-password').value;
-                const password = accountForm.querySelector('#hero-member-password').value;
-                const confirmation = accountForm.querySelector('#hero-member-password-confirm').value;
-                if (!oldPassword) return setStatus('Enter your current password first.', true);
-                if (password.length < 8) return setStatus('Use a password with at least 8 characters.', true);
-                if (password !== confirmation) return setStatus('The new passwords do not match.', true);
-                try {
-                    const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPassword);
-                    await user.reauthenticateWithCredential(credential);
-                    await user.updatePassword(password);
-                    accountForm.querySelector('#hero-member-old-password').value = ''; accountForm.querySelector('#hero-member-password').value = ''; accountForm.querySelector('#hero-member-password-confirm').value = '';
-                    setStatus('Password updated.');
-                } catch (e) { setStatus(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'That current password is not correct.' : `Could not update password (${e.code || 'error'}).`, true); }
-            };
-            accountForm.querySelector('#hero-member-password-reset').onclick = () => sendProfilePasswordReset(user);
-            accountForm.querySelector('#hero-member-signout').onclick = signOut;
-            setAccountLabel(name || 'Profile');
-        } else {
-            accountForm.innerHTML = '<p class="text-sm text-slate-600 dark:text-slate-300">Sign in with your password or use an email link.</p><label class="block text-xs font-bold uppercase tracking-wide mt-4 mb-1">Email</label><input id="hero-member-email" type="email" maxlength="254" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="email"><label class="block text-xs font-bold uppercase tracking-wide mt-3 mb-1">Password</label><input id="hero-member-password" type="password" class="w-full p-3 rounded-lg border bg-white dark:bg-slate-900 dark:text-white" autocomplete="current-password"><div class="flex gap-2 mt-4"><button id="hero-member-password-login" class="cm-btn go flex-1">Sign in</button><button id="hero-member-link" class="cm-btn ghost">Email link</button></div>';
-            accountForm.querySelector('#hero-member-email').value = localStorage.getItem(pendingEmailKey) || '';
-            accountForm.querySelector('#hero-member-password-login').onclick = passwordSignIn;
-            accountForm.querySelector('#hero-member-link').onclick = sendLink;
-            setAccountLabel('Sign in');
-        }
+    // ---------------- nav button ----------------
+    function ensureNavButton() {
+        if (document.getElementById('hero-account-open')) return;
+        const actions = document.getElementById('nav-actions'); if (!actions) return;
+        const btn = document.createElement('button');
+        btn.id = 'hero-account-open';
+        btn.className = 'flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition';
+        btn.setAttribute('aria-label', 'Profile and account');
+        btn.innerHTML = '<i data-lucide="user-round" class="w-4 h-4"></i><span class="hidden sm:inline">Profile</span>';
+        btn.onclick = () => {
+            if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') switchView('profile-view');
+            else openDialog();
+        };
+        actions.insertBefore(btn, document.getElementById('nav-more') || document.getElementById('theme-btn') || null);
+        if (window.lucide) lucide.createIcons();
     }
 
-    function renderGateForm() {
-        if (!gateForm) return;
-        const register = authMode === 'register';
-        gateForm.innerHTML = `${register ? '<div class="hero-auth-steps"><span class="on">1. Create account</span><span class="arrow">\u2192</span><span>2. Verify email</span></div>' : ''}${register ? '<label class="hero-auth-label">Your name</label><input id="gate-name" class="hero-auth-input" maxlength="40" autocomplete="name" placeholder="Display name">' : ''}<label class="hero-auth-label">Email</label><input id="gate-email" class="hero-auth-input" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com"><label class="hero-auth-label">Password</label><input id="gate-password" class="hero-auth-input" type="password" minlength="8" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="${register ? 'At least 8 characters' : 'Your password'}">${register ? '<label class="hero-auth-label">Confirm password</label><input id="gate-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again">' : ''}<button id="gate-submit" class="hero-auth-submit">${register ? 'Create account' : 'Sign in'}</button><div class="hero-auth-links-primary"><button id="gate-toggle" type="button">${register ? 'Already have an account? Sign in' : 'New to Hero? Create account'}</button></div><div class="hero-auth-links"><button id="gate-reset" type="button">Forgot password?</button><span class="hero-auth-sep">\u00b7</span><button id="gate-email-link" type="button">Use an email sign-in link</button></div>`;
-        gateForm.querySelector('#gate-submit').onclick = submitPasswordAuth;
-        gateForm.querySelector('#gate-toggle').onclick = () => { authMode = register ? 'login' : 'register'; setGateStatus(''); renderGateForm(); };
-        gateForm.querySelector('#gate-reset').onclick = resetPassword;
-        gateForm.querySelector('#gate-email-link').onclick = sendLink;
-        gateForm.querySelectorAll('input').forEach(input => input.addEventListener('keydown', e => { if (e.key === 'Enter') submitPasswordAuth(); }));
+    // ---------------- gate: sign in / create account ----------------
+    function renderGate(errorText) {
+        const register = mode === 'register';
+        body.innerHTML = `
+            <div class="hero-auth-mark">H</div>
+            <p class="hero-auth-eyebrow">HERO ACCOUNT</p>
+            <h2 class="hero-auth-title">${register ? 'Create your account' : 'Welcome back'}</h2>
+            <p class="hero-auth-sub">${register ? "One quick email check, then you're set on this browser." : 'Sign in to play, save scores, and talk with Clio.'}</p>
+            ${errorText ? `<div class="hero-auth-error">${esc(errorText)}</div>` : ''}
+            <form id="ha-form" novalidate>
+                ${register ? '<label class="hero-auth-label">Name</label><input id="ha-name" class="hero-auth-input" maxlength="40" autocomplete="name" placeholder="Display name" required>' : ''}
+                <label class="hero-auth-label">Email</label>
+                <input id="ha-email" class="hero-auth-input" type="email" autocomplete="email" placeholder="you@example.com" required>
+                <label class="hero-auth-label">Password</label>
+                <input id="ha-password" class="hero-auth-input" type="password" minlength="8" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="${register ? 'At least 8 characters' : 'Your password'}" required>
+                ${register ? '<label class="hero-auth-label">Confirm password</label><input id="ha-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again" required>' : ''}
+                <button type="submit" id="ha-submit" class="hero-auth-submit">${register ? 'Create account' : 'Sign in'}</button>
+            </form>
+            <div class="hero-auth-links-primary"><button type="button" id="ha-toggle">${register ? 'Already have an account? Sign in' : "New to Hero? Create an account"}</button></div>
+            ${register ? '' : '<div class="hero-auth-links"><button type="button" id="ha-forgot">Forgot password?</button></div>'}
+        `;
+        document.getElementById('ha-toggle').onclick = () => { mode = register ? 'signin' : 'register'; renderGate(); };
+        if (!register) document.getElementById('ha-forgot').onclick = handleForgot;
+        document.getElementById('ha-form').addEventListener('submit', handleGateSubmit);
+        document.getElementById(register ? 'ha-name' : 'ha-email').focus();
     }
 
-    async function submitPasswordAuth() {
-        if (!auth) return setGateStatus('Connecting to secure sign-in. Please wait a moment.', true);
-        const email = gateForm.querySelector('#gate-email').value.trim().toLowerCase();
-        const password = gateForm.querySelector('#gate-password').value;
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setGateStatus('Enter a valid email address.', true);
-        if (password.length < 8) return setGateStatus('Password must be at least 8 characters.', true);
+    async function handleGateSubmit(e) {
+        e.preventDefault();
+        const register = mode === 'register';
+        const email = document.getElementById('ha-email').value.trim();
+        const password = document.getElementById('ha-password').value;
+        const name = register ? document.getElementById('ha-name').value.trim() : '';
+        const confirm = register ? document.getElementById('ha-confirm').value : '';
+        if (register && name.length < 2) return renderGate('Enter a name with at least 2 characters.');
+        if (!email) return renderGate('Enter your email address.');
+        if (password.length < 8) return renderGate('Password must be at least 8 characters.');
+        if (register && password !== confirm) return renderGate("Passwords don't match.");
+
+        const btn = document.getElementById('ha-submit');
+        btn.disabled = true; const original = btn.textContent; btn.textContent = register ? 'Creating account\u2026' : 'Signing in\u2026';
         try {
-            if (authMode === 'register') {
-                const name = gateForm.querySelector('#gate-name').value.trim();
-                if (name.length < 2 || name.length > 40) return setGateStatus('Name must be 2 to 40 characters.', true);
-                if (gateForm.querySelector('#gate-confirm').value !== password) return setGateStatus('Those passwords do not match.', true);
-                const credential = await auth.createUserWithEmailAndPassword(email, password);
-                await credential.user.updateProfile({ displayName: name });
-                localStorage.setItem('hero_member_name', name);
-                localStorage.setItem(pendingNameKey, name); localStorage.setItem(pendingEmailKey, email);
-                await credential.user.sendEmailVerification({ url: location.origin + location.pathname });
-                setGateStatus('Check your inbox for a verification link. Verify this account once; future sign-ins will not ask you to verify again.');
-                renderAccount();
+            if (register) {
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                await cred.user.updateProfile({ displayName: name });
+                await cred.user.sendEmailVerification();
             } else {
                 await auth.signInWithEmailAndPassword(email, password);
-                localStorage.setItem(pendingEmailKey, email);
-                setGateStatus('Signed in. Checking email verification...');
             }
-        } catch (e) {
-            const messages = { 'auth/email-already-in-use': 'That email already has an account. Sign in instead.', 'auth/invalid-credential': 'Email or password is incorrect.', 'auth/user-not-found': 'Email or password is incorrect.', 'auth/wrong-password': 'Email or password is incorrect.', 'auth/weak-password': 'Choose a stronger password (at least 8 characters).', 'auth/invalid-email': 'Enter a valid email address.', 'auth/too-many-requests': 'Too many attempts. Wait a little and try again.' };
-            setGateStatus(messages[e.code] || `Could not sign in (${e.code || 'error'}).`, true);
+            // The real UI update comes from js/04's hero-auth-state event, which fires from onAuthStateChanged
+            // right after this resolves. We don't render a "success" state ourselves to avoid a second,
+            // competing source of truth -- we just stop showing this form's own loading state.
+        } catch (err) {
+            btn.disabled = false; btn.textContent = original;
+            renderGate(gateErrorMessage(err));
         }
     }
 
-    async function passwordSignIn() {
-        const email = accountForm.querySelector('#hero-member-email').value.trim().toLowerCase();
-        const password = accountForm.querySelector('#hero-member-password').value;
-        try { await auth.signInWithEmailAndPassword(email, password); }
-        catch (e) { setStatus(e.code === 'auth/invalid-credential' ? 'Email or password is incorrect.' : `Could not sign in (${e.code || 'error'}).`, true); }
-    }
-    async function resetPassword() {
-        const email = gateForm.querySelector('#gate-email').value.trim().toLowerCase();
-        if (!email) return setGateStatus('Enter your email address first.');
-        try { await auth.sendPasswordResetEmail(email, { url: location.origin + location.pathname }); setGateStatus('If an account exists for that address, a password reset email is on its way.'); }
-        catch (e) { setGateStatus(`Could not send reset email (${e.code || 'error'}).`, true); }
-    }
-    async function sendProfilePasswordReset(user) {
-        if (!user || !user.email) return setStatus('This account has no email address for password recovery.', true);
-        try { await auth.sendPasswordResetEmail(user.email, { url: location.origin + location.pathname }); setStatus(`A password reset link was sent to ${user.email}. Check your inbox.`); }
-        catch (e) { setStatus(`Could not send reset email (${e.code || 'error'}).`, true); }
-    }
-    async function handlePasswordResetAction() {
-        const params = new URLSearchParams(location.search);
-        const mode = params.get('mode');
-        if (!['resetPassword', 'verifyEmail'].includes(mode) || !params.get('oobCode') || !auth) return;
-        const code = params.get('oobCode');
-        let page = document.getElementById('hero-password-reset-page');
-        if (!page) { page = document.createElement('div'); page.id = 'hero-password-reset-page'; page.className = 'hero-password-reset-page'; page.innerHTML = '<main class="hero-password-reset-card"><div class="hero-auth-mark">H</div><p class="hero-auth-eyebrow">HERO ACCOUNT</p><h1 id="hero-action-title">Choose a new password</h1><p id="hero-reset-description" class="hero-password-reset-copy">Verifying your secure link…</p><form id="hero-reset-form" class="hidden" novalidate><label class="hero-auth-label" for="hero-reset-password">New password</label><input id="hero-reset-password" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><label class="hero-auth-label" for="hero-reset-confirm">Confirm password</label><input id="hero-reset-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again"><button class="hero-auth-submit" type="submit">Save new password</button></form><p id="hero-reset-status" class="hero-auth-status" role="status"></p><button id="hero-reset-home" class="hero-auth-secondary" type="button">Return to sign in</button></main>'; document.body.appendChild(page); }
-        const description = page.querySelector('#hero-reset-description'), form = page.querySelector('#hero-reset-form'), status = page.querySelector('#hero-reset-status');
-        page.querySelector('#hero-action-title').textContent = mode === 'verifyEmail' ? 'Verify your email' : 'Choose a new password';
-        page.classList.add('is-open');
-        if (mode === 'verifyEmail') {
-            form.classList.add('hidden');
-            try {
-                await auth.applyActionCode(code);
-                if (auth.currentUser) { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); await window.__heroApplyAuthUser(auth.currentUser); }
-                description.textContent = auth.currentUser?.email ? `${auth.currentUser.email} is verified. You can return to Hero now.` : 'Your email is verified. Return to Hero and sign in to continue.';
-                status.textContent = 'Email verified successfully.';
-            } catch (error) {
-                let alreadyVerified = false;
-                if (auth.currentUser) {
-                    try {
-                        await auth.currentUser.reload();
-                        alreadyVerified = auth.currentUser.emailVerified === true;
-                        if (alreadyVerified) {
-                            await auth.currentUser.getIdToken(true);
-                            await window.__heroApplyAuthUser(auth.currentUser);
-                        }
-                    } catch (_) { /* Keep the link's normal expired/invalid message. */ }
-                }
-                description.textContent = alreadyVerified
-                    ? 'This account is already verified. You do not need to verify it again.'
-                    : 'This link is invalid, expired, or already used. If you already verified this account, sign in; you only need to verify once.';
-                status.textContent = alreadyVerified ? 'Email already verified.' : '';
-            }
-        } else {
-        let email = '';
-        try {
-            email = await auth.verifyPasswordResetCode(code);
-            description.textContent = `Reset password for ${email}. Choose a new password below.`;
-            form.classList.remove('hidden');
-            form.onsubmit = async event => {
-                event.preventDefault();
-                const next = form.querySelector('#hero-reset-password').value, confirm = form.querySelector('#hero-reset-confirm').value;
-                if (next.length < 8) { status.textContent = 'Use at least 8 characters.'; return; }
-                if (next !== confirm) { status.textContent = 'Those passwords do not match.'; return; }
-                const button = form.querySelector('button'); button.disabled = true; status.textContent = 'Saving your new password…';
-                try {
-                    await auth.confirmPasswordReset(code, next);
-                    if (auth.currentUser) await auth.signOut();
-                    history.replaceState({}, document.title, location.pathname);
-                    description.textContent = 'Your password has been changed. Sign in with the new password to continue.';
-                    form.classList.add('hidden'); status.textContent = 'Password updated successfully.'; button.disabled = false;
-                } catch (error) { status.textContent = error.code === 'auth/weak-password' ? 'Choose a stronger password.' : `Could not update password (${error.code || 'error'}). Request a fresh reset link and try again.`; button.disabled = false; }
-            };
-        } catch (error) {
-            description.textContent = 'This reset link is invalid or has expired. Return to sign in and request a fresh link.';
-            status.textContent = '';
-        }
-        }
-        page.querySelector('#hero-reset-home').onclick = () => { page.classList.remove('is-open'); history.replaceState({}, document.title, location.pathname); if (gateForm) { authMode = 'login'; renderGateForm(); setGateStatus('Sign in with your password, or request another reset link.'); } };
-    }
-    async function resendVerification() {
-        const user = auth && auth.currentUser;
-        if (!user || !user.email) return setGateStatus('Sign in first to check your verification status.', true);
-        try {
-            await user.reload();
-            if (user.emailVerified) {
-                await user.getIdToken(true);
-                await window.__heroApplyAuthUser(user);
-                setGateStatus('This account is already verified. You only need to verify your email once.');
-                return;
-            }
-            await user.sendEmailVerification({ url: location.origin + location.pathname });
-            setGateStatus('Verification email sent. Once verified, this account will not need another verification email.');
-        }
-        catch (e) { setGateStatus(`Could not send verification email (${e.code || 'error'}).`, true); }
-    }
-    async function refreshVerification() {
-        if (!auth || !auth.currentUser) return setGateStatus('Sign in first, then verify your email.', true);
-        try {
-            await auth.currentUser.reload();
-            await auth.currentUser.getIdToken(true);
-            await window.__heroApplyAuthUser(auth.currentUser);
-            if (!auth.currentUser.emailVerified) setGateStatus('It is not verified yet. Open the link in your email, then check again.', true);
-        } catch (e) { setGateStatus(`Could not check verification (${e.code || 'error'}).`, true); }
+    function gateErrorMessage(err) {
+        const map = {
+            'auth/email-already-in-use': 'An account already exists for that email. Try signing in instead.',
+            'auth/invalid-email': "That doesn't look like a valid email address.",
+            'auth/weak-password': 'Choose a stronger password (at least 8 characters).',
+            'auth/wrong-password': 'Incorrect email or password.',
+            'auth/user-not-found': 'Incorrect email or password.',
+            'auth/invalid-credential': 'Incorrect email or password.',
+            'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
+            'auth/network-request-failed': 'Could not reach the sign-in server. Check your connection.',
+        };
+        return map[err.code] || (err.message || 'Something went wrong. Please try again.');
     }
 
-    async function sendLink() {
-        if (!auth) return setGateStatus('Firebase is still connecting. Try again shortly.', true);
-        const emailInput = document.getElementById('gate-email') || accountForm?.querySelector('#hero-member-email');
-        const nameInput = document.getElementById('gate-name');
-        const email = (emailInput?.value || '').trim().toLowerCase();
-        const name = (nameInput?.value || localStorage.getItem('hero_member_name') || 'Hero player').trim();
-        const showMessage = (message, error = false) => authGate && !authGate.classList.contains('hidden') ? setGateStatus(message, error) : setStatus(message, error);
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showMessage('Enter a valid email address.', true);
-        localStorage.setItem(pendingEmailKey, email); localStorage.setItem(pendingNameKey, name);
-        try { await auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true }); showMessage(`A sign-in link was sent to ${email}.`); }
-        catch (e) { showMessage(`Could not send the link (${e.code || 'error'}). Check Email link sign-in and authorized domains in Firebase.`, true); }
-    }
-    async function finishEmailLink() {
-        if (!auth || !auth.isSignInWithEmailLink(location.href)) return;
-        window.__heroEmailLinkPending = true;
+    async function handleForgot() {
+        const email = (document.getElementById('ha-email').value || '').trim();
+        if (!email) return renderGate('Enter your email above first, then press Forgot password.');
         try {
-            let email = localStorage.getItem(pendingEmailKey);
-            if (!email) email = prompt('Enter the email address that received this sign-in link:');
-            if (!email) return;
-            const result = await auth.signInWithEmailLink(email.trim().toLowerCase(), location.href);
-            await result.user.reload();
-            localStorage.removeItem(pendingEmailKey);
-            history.replaceState({}, document.title, location.pathname + location.hash);
-            if (result.user.emailVerified) {
-                await saveProfile(result.user, localStorage.getItem(pendingNameKey) || result.user.displayName || '');
-                localStorage.removeItem(pendingNameKey);
-                setGateStatus('Email verified. Welcome to Hero.');
-            }
-        } catch (e) { setGateStatus(`Could not complete sign-in (${e.code || 'error'}). Try the link in the same browser.`, true); }
-        finally { window.__heroEmailLinkPending = false; }
+            await auth.sendPasswordResetEmail(email);
+            renderGate(); 
+            const sub = body.querySelector('.hero-auth-sub');
+            if (sub) sub.textContent = `Password reset email sent to ${email}. Check your inbox.`;
+        } catch (err) { renderGate(gateErrorMessage(err)); }
     }
 
-    async function saveProfile(user, name, photoURL) {
-        if (!db || !user || user.isAnonymous || !user.emailVerified || !user.email) return false;
-        if (!name || name.length < 2 || name.length > 40) { setStatus('Add a name to finish your profile.', true); return false; }
-        const photoKey = photoURL === undefined ? 'keep-photo' : photoURL;
-        const key = `${user.uid}|${user.email}|${name}|${photoKey}`;
-        if (key === profileSavedKey) return true;
-        if (profileWriteTask && key === profileWriteKey) return profileWriteTask;
-        profileWriteKey = key;
-        profileWriteTask = (async () => {
-            let writeTarget = `artifacts/${appId}/public/data/members/${user.uid}`;
-            try {
-                await user.getIdToken(true);
-                const stamp = firebase.firestore.FieldValue.serverTimestamp();
-                const member = { userId: user.uid, name, email: user.email, updatedAt: stamp };
-                if (photoURL !== undefined) member.photoURL = photoURL;
-                await dataCol().collection('members').doc(user.uid).set(member, { merge: true });
-                writeTarget = `artifacts/${appId}/public/data/deviceProfiles/${deviceId()}`;
-                await dataCol().collection('deviceProfiles').doc(deviceId()).set({ deviceId: deviceId(), userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-                profileSavedKey = key; window.dispatchEvent(new Event('hero-profiles-updated')); setStatus('Profile saved.'); return true;
-            } catch (e) {
-                console.error('Profile save failed:', { code: e.code, projectId: firebase.app().options.projectId, path: writeTarget, error: e });
-                setStatus(e.code === 'permission-denied'
-                    ? `Firestore denied ${writeTarget} in project ${firebase.app().options.projectId}. Publish this repo's firestore.rules to that exact Firebase project, then sign out and back in.`
-                    : `Profile could not be saved (${e.code || 'error'}).`, true);
-                return false;
-            }
-            finally { profileWriteTask = null; }
-        })();
-        return profileWriteTask;
-    }
-
-    function showVerificationControls(user) {
-        if (!gateForm || !user || !user.email || user.emailVerified) return;
-        // This is deliberately NOT styled like the plain sign-in form: a user who just entered the right
-        // password should never mistake "one more step" for "that didn't work" / "signed out".
-        gateForm.innerHTML = `<div class="hero-verify-card"><i data-lucide="mail-check" class="hero-verify-icon"></i><h3>Almost there</h3><p>You're signed in as <strong>${esc(user.email)}</strong>. Click the link we emailed you to verify this account \u2014 just once, future sign-ins won't ask again.</p><button id="gate-resend" class="hero-auth-submit">Resend verification email</button><button id="gate-refresh" class="hero-auth-secondary">I verified my email</button><button id="gate-signout" class="hero-auth-link">Sign in with another account</button></div>`;
+    // ---------------- verify-pending ----------------
+    function renderVerifyPending(user) {
+        body.innerHTML = `
+            <div class="hero-verify-card">
+                <i data-lucide="mail-check" class="hero-verify-icon"></i>
+                <h3>Almost there</h3>
+                <p>You're signed in as <strong>${esc(user.email)}</strong>. Click the link we emailed you to verify this account &mdash; just once, future sign-ins won't ask again.</p>
+                <div id="hv-status" class="hero-verify-status"></div>
+                <button type="button" id="hv-resend" class="hero-auth-submit">Resend verification email</button>
+                <button type="button" id="hv-check" class="hero-auth-secondary">I verified my email</button>
+                <div class="hero-auth-links"><button type="button" id="hv-signout">Sign in with a different account</button></div>
+            </div>`;
         if (window.lucide) lucide.createIcons();
-        gateForm.querySelector('#gate-resend').onclick = resendVerification;
-        gateForm.querySelector('#gate-refresh').onclick = refreshVerification;
-        gateForm.querySelector('#gate-signout').onclick = signOut;
-    }
-
-    function roleName(isAdmin, points) {
-        if (isAdmin) return 'Steward';
-        if (points >= 30000) return 'Legend';
-        if (points >= 15000) return 'Historian';
-        if (points >= 5000) return 'Cartographer';
-        if (points >= 1000) return 'Scout';
-        return 'Explorer';
-    }
-    async function refreshMemberProfile(user, isAdmin = false) {
-        const box = document.getElementById('member-profile-content');
-        if (!box || !user || user.isAnonymous) return;
-        try {
-            const [boards, memberDoc] = await Promise.all([
-                Promise.all(['leaderboard', 'leaderboardTwoYear', 'flappy'].map(name => dataCol().collection(name).where('userId', '==', user.uid).get())),
-                dataCol().collection('members').doc(user.uid).get()
-            ]);
-            profilePhoto = memberDoc.exists && typeof memberDoc.data().photoURL === 'string' ? memberDoc.data().photoURL : '';
-            profilePhotoUid = user.uid;
-            updatePhotoPreview(accountForm?.querySelector('#hero-member-photo-preview'), profilePhoto);
-            profileScores = boards.slice(0, 2).flatMap((snap, i) => snap.docs.map(doc => ({ ...doc.data(), tour: i ? '2 Year' : '1 Year' })));
-            profileScores.push(...boards[2].docs.map(doc => ({ ...doc.data(), tour: 'Flappy Bird', flappy: true })));
-            const quizScores = profileScores.filter(row => !row.flappy);
-            const best = quizScores.reduce((n, row) => Math.max(n, Number(row.score) || 0), 0);
-            const flappyBest = profileScores.filter(row => row.flappy).reduce((n, row) => Math.max(n, Number(row.score) || 0), 0);
-            const total = quizScores.reduce((n, row) => n + (Number(row.score) || 0), 0);
-            const perfect = quizScores.some(row => row.perfect === true), achievements = [];
-            if (quizScores.length) achievements.push(['First Voyage', 'Saved your first quiz score.']);
-            if (quizScores.length >= 5) achievements.push(['Seasoned Explorer', 'Saved scores from five journeys.']);
-            if (perfect) achievements.push(['Flawless Voyage', 'Completed a journey without a missed location.']);
-            if (best >= 1000) achievements.push(['Thousand Point Club', 'Scored at least 1,000 points in one journey.']);
-            if (best >= 5000) achievements.push(['Atlas Keeper', 'Scored at least 5,000 points in one journey.']);
-            if (flappyBest >= 10) achievements.push(['Skybound', 'Scored at least 10 in Flappy Bird.']);
-            const role = roleName(isAdmin, total);
-            box.replaceChildren();
-            const heading = document.createElement('div'); heading.className = 'member-profile-heading';
-            const avatar = document.createElement('div'); avatar.className = 'member-avatar';
-            if (profilePhoto) { const image = document.createElement('img'); image.className = 'member-avatar-photo'; image.src = profilePhoto; image.alt = 'Profile picture'; avatar.appendChild(image); }
-            else avatar.textContent = (user.displayName || localStorage.getItem('hero_member_name') || user.email || 'H').trim().charAt(0).toUpperCase();
-            const identity = document.createElement('div'); identity.innerHTML = '<h2></h2><p></p><span class="member-role"></span>';
-            identity.querySelector('h2').textContent = localStorage.getItem('hero_member_name') || user.displayName || 'Hero player';
-            identity.querySelector('p').textContent = user.email || '';
-            identity.querySelector('.member-role').textContent = role;
-            heading.append(avatar, identity); box.appendChild(heading);
-            const stats = document.createElement('div'); stats.className = 'member-stats';
-            [[quizScores.length, 'Journeys'], [best.toLocaleString(), 'Quiz best'], [total.toLocaleString(), 'Career points'], [flappyBest.toLocaleString(), 'Flappy best']].forEach(([value, label]) => { const item = document.createElement('div'); item.className = 'member-stat'; item.innerHTML = '<strong></strong><span></span>'; item.querySelector('strong').textContent = value; item.querySelector('span').textContent = label; stats.appendChild(item); });
-            box.appendChild(stats);
-            const ach = document.createElement('section'); ach.className = 'member-achievements'; ach.innerHTML = '<h3>Achievements & badges</h3><div class="member-badges"></div>';
-            if (achievements.length) achievements.forEach(([title, desc]) => { const badge = document.createElement('article'); badge.className = 'member-badge'; badge.innerHTML = '<span class="member-badge-icon">✦</span><div><strong></strong><p></p></div>'; badge.querySelector('strong').textContent = title; badge.querySelector('p').textContent = desc; ach.querySelector('.member-badges').appendChild(badge); });
-            else { const empty = document.createElement('p'); empty.className = 'member-empty'; empty.textContent = 'Play a journey and save a score to start earning badges.'; ach.querySelector('.member-badges').appendChild(empty); }
-            box.appendChild(ach);
-            const recent = document.createElement('section'); recent.className = 'member-recent'; recent.innerHTML = '<h3>Recent scores</h3><div class="member-score-list"></div>';
-            profileScores.sort((a, b) => (Number((b.timestamp || b.ts)?.seconds || 0) - Number((a.timestamp || a.ts)?.seconds || 0))).slice(0, 8).forEach(row => { const line = document.createElement('div'); line.className = 'member-score'; const tour = document.createElement('span'); tour.textContent = row.tour; const score = document.createElement('strong'); score.textContent = (Number(row.score) || 0).toLocaleString(); const time = document.createElement('small'); time.textContent = row.flappy ? 'best run' : `${Number(row.time) || 0}s`; line.append(tour, score, time); recent.querySelector('.member-score-list').appendChild(line); });
-            box.appendChild(recent);
-        } catch (e) { box.textContent = `Could not load your profile (${e.code || 'error'}).`; }
-    }
-
-    async function signOut() {
-        try { await auth.signOut(); localStorage.removeItem('hero_member_name'); renderAccount(); setGateStatus('You are signed out. Sign in to continue.'); }
-        catch (e) { setGateStatus(`Could not sign out (${e.code || 'error'}).`, true); }
-    }
-
-    function renderKnownProfiles() {
-        const box = document.getElementById('hero-known-profiles'); if (!box) return;
-        window.__heroDeviceProfiles = Object.fromEntries(knownProfiles.map(p => [p.deviceId, p]));
-        box.replaceChildren();
-        if (!knownProfiles.length) {
-            const empty = document.createElement('p'); empty.className = 'text-sm text-slate-500'; empty.textContent = 'No verified profiles yet.'; box.appendChild(empty);
-            window.dispatchEvent(new Event('hero-profiles-updated'));
-            return;
-        }
-
-        // One verified email can appear on several browsers. Show one account row, with each browser
-        // ID nested underneath so stewards can still ban an individual browser when needed.
-        const groups = new Map();
-        knownProfiles.forEach(profile => {
-            const email = String(profile.email || '').trim().toLowerCase();
-            const key = email || `uid:${profile.userId || profile.deviceId}`;
-            let group = groups.get(key);
-            if (!group) {
-                group = { name: profile.name || 'No name', email: profile.email || '', browsers: [], accounts: new Map() };
-                groups.set(key, group);
-            }
-            group.browsers.push(profile);
-            if (profile.userId) group.accounts.set(profile.userId, profile);
-        });
-
-        groups.forEach(group => {
-            const row = document.createElement('div'); row.className = 'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3';
-            const info = document.createElement('div'); info.className = 'min-w-0';
-            const title = document.createElement('div'); title.className = 'font-bold text-sm'; title.textContent = group.name;
-            const email = document.createElement('div'); email.className = 'text-xs text-slate-500'; email.textContent = group.email || 'No email recorded';
-            const summary = document.createElement('div'); summary.className = 'text-xs text-slate-500 mt-1';
-            summary.textContent = `${group.browsers.length} browser${group.browsers.length === 1 ? '' : 's'} linked`;
-            info.append(title, email, summary);
-
-            const actions = document.createElement('div'); actions.className = 'flex flex-wrap items-center gap-2';
-            const browserDetails = document.createElement('details'); browserDetails.className = 'text-xs';
-            const browserSummary = document.createElement('summary'); browserSummary.className = 'cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 font-semibold'; browserSummary.textContent = 'Browser IDs';
-            const browserList = document.createElement('div'); browserList.className = 'mt-2 grid gap-2';
-            group.browsers.forEach(profile => {
-                const browserRow = document.createElement('div'); browserRow.className = 'flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-900 px-3 py-2';
-                const id = document.createElement('code'); id.className = 'font-mono text-[10px] text-slate-500 break-all'; id.textContent = profile.deviceId;
-                const banBrowser = document.createElement('button'); banBrowser.className = 'cm-btn ghost'; banBrowser.textContent = 'Ban browser'; banBrowser.onclick = () => banDevice(profile.deviceId, 'Browser banned by steward');
-                browserRow.append(id, banBrowser); browserList.appendChild(browserRow);
-            });
-            browserDetails.append(browserSummary, browserList);
-            actions.appendChild(browserDetails);
-            group.accounts.forEach((profile, uid) => {
-                const account = document.createElement('button'); account.className = 'cm-btn go'; account.textContent = group.accounts.size > 1 ? `Ban account ${uid.slice(0, 6)}` : 'Ban account';
-                account.onclick = () => banDevice('u_' + uid, 'Account banned by steward');
-                actions.appendChild(account);
-            });
-            row.append(info, actions); box.appendChild(row);
-        });
-        window.dispatchEvent(new Event('hero-profiles-updated'));
-    }
-    function startProfiles() {
-        if (!db || profileSub) return;
-        profileSub = dataCol().collection('deviceProfiles').orderBy('updatedAt', 'desc').limit(200).onSnapshot(s => { knownProfiles = s.docs.map(d => Object.assign({ deviceId: d.id }, d.data())); renderKnownProfiles(); }, e => {
-            console.error('Verified profiles:', e);
-            const box = document.getElementById('hero-known-profiles'); if (box) box.textContent = `Could not load verified profiles (${e.code || 'error'}).`;
-        });
-    }
-    function stopProfiles() { if (profileSub) profileSub(); profileSub = null; knownProfiles = []; window.__heroDeviceProfiles = {}; const box = document.getElementById('hero-known-profiles'); if (box) box.innerHTML = ''; }
-
-    function makeUI() {
-        const actions = document.getElementById('nav-actions');
-        if (!actions || document.getElementById('hero-account-open')) return;
-        const button = document.createElement('button'); button.id = 'hero-account-open'; button.className = 'flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition'; button.setAttribute('aria-label', 'Profile and account'); button.innerHTML = '<i data-lucide="user-round" class="w-4 h-4"></i><span class="hidden sm:inline">Profile</span>'; actions.insertBefore(button, document.getElementById('nav-more') || document.getElementById('theme-btn'));
-        const dialog = document.createElement('div'); dialog.id = 'hero-account-dialog'; dialog.className = 'hidden fixed inset-0 z-[100] bg-slate-950/60 p-4 items-center justify-center';
-        dialog.innerHTML = '<section class="glass-panel w-full max-w-md rounded-2xl p-6"><div class="flex items-center justify-between"><h2 class="text-xl font-extrabold">Account</h2><button id="hero-account-close" class="cm-btn ghost" aria-label="Close">Close</button></div><div id="hero-account-form" class="mt-4"></div><p id="hero-account-status" class="text-sm mt-3" role="status"></p></section>';
-        document.body.appendChild(dialog); accountDialog = dialog; accountForm = dialog.querySelector('#hero-account-form'); accountStatus = dialog.querySelector('#hero-account-status');
-        window.__heroOpenAccountDialog = () => { renderAccount(); dialog.classList.remove('hidden'); dialog.classList.add('flex'); };
-        button.onclick = () => { if (currentMember()) switchView('profile-view'); else window.__heroOpenAccountDialog(); };
-        dialog.querySelector('#hero-account-close').onclick = () => { dialog.classList.add('hidden'); dialog.classList.remove('flex'); };
-        dialog.addEventListener('click', e => { if (e.target === dialog) { dialog.classList.add('hidden'); dialog.classList.remove('flex'); } });
-
-        authGate = document.createElement('div'); authGate.id = 'hero-auth-gate'; authGate.className = 'hero-auth-gate hidden';
-        authGate.innerHTML = '<section class="hero-auth-card"><div class="hero-auth-mark">H</div><p class="hero-auth-eyebrow">HERO ACCOUNT</p><h1>Make your mark.</h1><p class="hero-auth-description">Sign in to play, save scores, build your profile, and earn achievements. Verify your email to unlock the site.</p><div id="hero-auth-form"></div><p id="hero-auth-status" class="hero-auth-status" role="status">Connecting to secure sign-in...</p><div class="hero-auth-steward"><button id="hero-steward-toggle" type="button">Steward sign-in</button><div id="hero-steward-fields" class="hidden"><input id="hero-steward-password" type="password" placeholder="Steward password" autocomplete="current-password"><button id="hero-steward-submit" type="button">Continue</button></div></div></section>';
-        document.body.appendChild(authGate); gateForm = authGate.querySelector('#hero-auth-form'); gateStatus = authGate.querySelector('#hero-auth-status'); renderGateForm();
-        if (window.__heroAuthResolved && !window.__heroCanAccessApp) authGate.classList.remove('hidden');
-        authGate.querySelector('#hero-steward-toggle').onclick = () => authGate.querySelector('#hero-steward-fields').classList.toggle('hidden');
-        const steward = authGate.querySelector('#hero-steward-password');
-        const doStewardLogin = () => { const input = document.getElementById('admin-password'); if (!input) return setGateStatus('Open the Steward page and try again.', true); input.value = steward.value; setGateStatus('Checking steward credentials...'); unlockAdmin().then(() => setTimeout(() => { if (!window.__heroCanAccessApp) setGateStatus('Steward sign-in did not complete. Check the password and secure sign-in setup.', true); }, 1800)); };
-        authGate.querySelector('#hero-steward-submit').onclick = doStewardLogin;
-        steward.addEventListener('keydown', e => { if (e.key === 'Enter') doStewardLogin(); });
-
-        const card = document.createElement('section'); card.dataset.atab = 'site'; card.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mt-6';
-        if (document.getElementById('admin-panel').dataset.active !== 'site') card.classList.add('atab-off');
-        card.innerHTML = '<h3 class="font-bold text-slate-900 dark:text-white">Verified accounts and browsers</h3><p class="text-xs text-slate-500 mt-1 mb-3">Browsers using the same verified email are grouped together. Expand Browser IDs to ban one browser, or ban the account to block all of them.</p><div id="hero-known-profiles" class="space-y-2"></div>';
-        document.getElementById('admin-panel').appendChild(card);
-        if (window.lucide) lucide.createIcons(); renderAccount();
-        if (!auth) { setGateStatus('Firebase sign-in is unavailable. Check the site Firebase configuration.'); authGate.classList.remove('hidden'); }
-        else if (auth.currentUser) window.__heroApplyAuthUser(auth.currentUser);
-        else setGateStatus('Sign in or create a verified account to continue.');
-    }
-
-    window.addEventListener('DOMContentLoaded', makeUI);
-    window.addEventListener('hero-firebase-ready', finishEmailLink);
-    window.addEventListener('hero-firebase-ready', handlePasswordResetAction);
-    window.addEventListener('hero-auth-state', async e => {
-        const { user, authorized, isAdmin } = e.detail || {};
-        if (!user || profilePhotoUid && profilePhotoUid !== user.uid) { profilePhoto = ''; profilePhotoUid = ''; }
-        // Email verification is account-wide. Refresh stale auth state so a verified user returning
-        // from the email tab is not shown the verification gate again.
-        if (!authorized && user && !user.isAnonymous && user.email && !user.emailVerified) {
+        const status = document.getElementById('hv-status');
+        document.getElementById('hv-resend').onclick = async (e) => {
+            const btn = e.currentTarget; btn.disabled = true;
+            try { await user.sendEmailVerification(); status.textContent = 'Sent. Check your inbox (and spam folder).'; status.classList.remove('is-error'); }
+            catch (err) { status.textContent = gateErrorMessage(err); status.classList.add('is-error'); }
+            finally { btn.disabled = false; }
+        };
+        document.getElementById('hv-check').onclick = async (e) => {
+            const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Checking\u2026';
             try {
                 await user.reload();
-                if (user.emailVerified) {
-                    await user.getIdToken(true);
-                    await window.__heroApplyAuthUser(user);
-                    return;
-                }
-            } catch (error) { console.warn('Could not refresh email verification state:', error); }
-        }
-        renderAccount();
-        if (authorized) {
-            authGate?.classList.add('hidden');
-            if (user && !isAdmin) {
-                const name = localStorage.getItem('hero_member_name') || user.displayName || '';
-                if (name) await saveProfile(user, name);
-                const playerName = document.getElementById('player-name');
-                if (playerName && !playerName.value) playerName.value = name.slice(0, 15);
-                await refreshMemberProfile(user, false);
-                setAccountLabel(name || 'Profile');
-            } else if (user) await refreshMemberProfile(user, true);
-        } else {
-            authGate?.classList.remove('hidden');
-            const form = gateForm;
-            if (user && user.email && !user.emailVerified) {
-                setGateStatus(`Verify ${user.email} to unlock Hero. Check your inbox or resend the message.`);
-                showVerificationControls(user);
-            } else if (form && !form.querySelector('#gate-submit')) {
-                renderGateForm(); setGateStatus(user ? 'This account is not eligible to access the site.' : 'Sign in or create a verified account to continue.');
-            }
-        }
-    });
-    document.addEventListener('visibilitychange', async () => {
-        const user = auth && auth.currentUser;
-        if (document.visibilityState !== 'visible' || !user || user.isAnonymous || user.emailVerified) return;
+                if (user.emailVerified) { if (window.__heroApplyAuthUser) await window.__heroApplyAuthUser(auth.currentUser); }
+                else { status.textContent = "Not verified yet. Click the link in the email first."; status.classList.add('is-error'); }
+            } finally { btn.disabled = false; btn.textContent = 'I verified my email'; }
+        };
+        document.getElementById('hv-signout').onclick = () => auth.signOut();
+    }
+
+    // ---------------- signed-in account dialog ----------------
+    function renderAccount(user) {
+        body.innerHTML = `
+            <section class="acct-card">
+                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Signed in and verified as <strong>${esc(user.email)}</strong></p></div></header>
+                <div class="member-photo-edit">
+                    <div class="member-photo-edit-preview" id="ha-photo-preview"></div>
+                    <div>
+                        <strong>Profile picture</strong>
+                        <p>Choose a square photo. It's resized before saving.</p>
+                        <div class="acct-photo-btns">
+                            <label class="cm-btn go acct-btn-sm" for="ha-photo-file"><i data-lucide="image-plus"></i> Choose photo</label>
+                            <button type="button" id="ha-photo-remove" class="hero-auth-link">Remove photo</button>
+                        </div>
+                        <input id="ha-photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                    </div>
+                </div>
+                <label class="acct-label" for="ha-name2">Display name</label>
+                <input id="ha-name2" class="acct-input" maxlength="40" autocomplete="name" value="${esc(user.displayName || '')}">
+                <button type="button" id="ha-save" class="cm-btn go w-full mt-4"><i data-lucide="check" class="w-4 h-4"></i> Save profile</button>
+            </section>
+            <section class="acct-card">
+                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="key-round"></i></span><div><h3>Password</h3><p>Confirm your current password to change it, or request a reset email.</p></div></header>
+                <label class="acct-label" for="ha-old-pass">Current password</label>
+                <input id="ha-old-pass" type="password" class="acct-input" autocomplete="current-password" placeholder="Current password">
+                <div class="acct-grid-2">
+                    <div><label class="acct-label" for="ha-new-pass">New password</label><input id="ha-new-pass" type="password" minlength="8" class="acct-input" autocomplete="new-password" placeholder="At least 8 characters"></div>
+                    <div><label class="acct-label" for="ha-new-pass2">Confirm new password</label><input id="ha-new-pass2" type="password" minlength="8" class="acct-input" autocomplete="new-password" placeholder="Type it again"></div>
+                </div>
+                <button type="button" id="ha-pw-save" class="cm-btn ghost w-full mt-4"><i data-lucide="lock" class="w-4 h-4"></i> Update password</button>
+                <button type="button" id="ha-pw-reset" class="hero-auth-link mt-3">Email me a reset link instead</button>
+            </section>
+            <section class="acct-card">
+                <h3 class="font-bold text-sm mb-3 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4"></i> Your Hero rank</h3>
+                <p id="ha-rank" class="text-sm text-slate-500">Loading\u2026</p>
+            </section>
+            <section class="acct-card acct-card-danger">
+                <button type="button" id="ha-signout" class="cm-btn ghost w-full"><i data-lucide="log-out" class="w-4 h-4"></i> Sign out</button>
+            </section>
+        `;
+        if (window.lucide) lucide.createIcons();
+
+        let pendingPhoto;
+        memberRef(user.uid).get().then((doc) => {
+            const photo = doc.exists ? doc.data().photoURL : '';
+            document.getElementById('ha-photo-preview').innerHTML = photo ? `<img src="${esc(photo)}" alt="">` : `<i data-lucide="user" class="w-6 h-6"></i>`;
+            if (window.lucide) lucide.createIcons();
+        }).catch(() => {});
+
+        document.getElementById('ha-photo-file').onchange = async (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            pendingPhoto = await resizePhoto(file).catch(() => null);
+            if (pendingPhoto) document.getElementById('ha-photo-preview').innerHTML = `<img src="${pendingPhoto}" alt="">`;
+        };
+        document.getElementById('ha-photo-remove').onclick = () => { pendingPhoto = ''; document.getElementById('ha-photo-preview').innerHTML = `<i data-lucide="user" class="w-6 h-6"></i>`; if (window.lucide) lucide.createIcons(); };
+
+        document.getElementById('ha-save').onclick = async (e) => {
+            const btn = e.currentTarget; btn.disabled = true;
+            const name = document.getElementById('ha-name2').value.trim();
+            if (name.length < 2) { showToast('Enter a display name (2+ characters).', 'error'); btn.disabled = false; return; }
+            try {
+                if (name !== user.displayName) await user.updateProfile({ displayName: name });
+                const payload = { userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                if (pendingPhoto !== undefined) payload.photoURL = pendingPhoto;
+                else { const existing = await memberRef(user.uid).get(); if (existing.exists && existing.data().photoURL) payload.photoURL = existing.data().photoURL; }
+                await memberRef(user.uid).set(payload, { merge: true });
+                await dataCol().collection('deviceProfiles').doc(window.__heroDeviceId || deviceId()).set({ deviceId: window.__heroDeviceId || deviceId(), userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+                showToast('Profile saved.', 'success');
+            } catch (err) { showToast(`Could not save profile (${err.code || 'error'}).`, 'error'); }
+            finally { btn.disabled = false; }
+        };
+
+        document.getElementById('ha-pw-save').onclick = async (e) => {
+            const btn = e.currentTarget;
+            const current = document.getElementById('ha-old-pass').value;
+            const next = document.getElementById('ha-new-pass').value;
+            const confirm = document.getElementById('ha-new-pass2').value;
+            if (!current) return showToast('Enter your current password.', 'error');
+            if (next.length < 8) return showToast('New password must be at least 8 characters.', 'error');
+            if (next !== confirm) return showToast("New passwords don't match.", 'error');
+            btn.disabled = true;
+            try {
+                const cred = firebase.auth.EmailAuthProvider.credential(user.email, current);
+                await user.reauthenticateWithCredential(cred);
+                await user.updatePassword(next);
+                ['ha-old-pass', 'ha-new-pass', 'ha-new-pass2'].forEach((id) => { document.getElementById(id).value = ''; });
+                showToast('Password updated.', 'success');
+            } catch (err) { showToast(gateErrorMessage(err), 'error'); }
+            finally { btn.disabled = false; }
+        };
+        document.getElementById('ha-pw-reset').onclick = async () => {
+            try { await auth.sendPasswordResetEmail(user.email); showToast('Reset email sent.', 'success'); }
+            catch (err) { showToast(gateErrorMessage(err), 'error'); }
+        };
+
+        document.getElementById('ha-signout').onclick = () => auth.signOut();
+
+        loadRankSummary(user, document.getElementById('ha-rank'));
+    }
+
+    // ---------------- rank/score summary (shared by the dialog and the profile page) ----------------
+    async function loadRankSummary(user, el) {
         try {
-            await user.reload();
-            if (user.emailVerified) {
-                await user.getIdToken(true);
-                await window.__heroApplyAuthUser(user);
-            }
-        } catch (error) { console.warn('Could not refresh email verification state:', error); }
+            const [y1, y2, flappy] = await Promise.all([
+                dataCol().collection('leaderboard').where('userId', '==', user.uid).get(),
+                dataCol().collection('leaderboardTwoYear').where('userId', '==', user.uid).get(),
+                dataCol().collection('flappy').where('userId', '==', user.uid).get(),
+            ]);
+            const quizScores = [...y1.docs, ...y2.docs].map((d) => Number(d.data().score) || 0);
+            const best = quizScores.length ? Math.max(...quizScores) : 0;
+            const flappyBest = flappy.docs.reduce((n, d) => Math.max(n, Number(d.data().score) || 0), 0);
+            el.innerHTML = `<div class="flex items-center gap-3"><span class="hero-rank-badge">${esc(roleFor(best))}</span><span class="text-xs text-slate-500">Best journey score: <strong>${best.toLocaleString()}</strong>${flappyBest ? ` &middot; Flappy best: <strong>${flappyBest}</strong>` : ''}</span></div>`;
+        } catch (err) { el.textContent = "Couldn't load your rank right now."; }
+    }
+
+    // ---------------- profile-view (the full page, not the dialog) ----------------
+    async function renderProfilePage(user) {
+        const host = document.getElementById('member-profile-content'); if (!host) return;
+        host.innerHTML = '<p class="text-slate-500">Loading your profile\u2026</p>';
+        try {
+            const memberDoc = await memberRef(user.uid).get();
+            const photo = memberDoc.exists ? memberDoc.data().photoURL : '';
+            const [y1, y2, flappy] = await Promise.all([
+                dataCol().collection('leaderboard').where('userId', '==', user.uid).get(),
+                dataCol().collection('leaderboardTwoYear').where('userId', '==', user.uid).get(),
+                dataCol().collection('flappy').where('userId', '==', user.uid).get(),
+            ]);
+            const quizRows = [...y1.docs.map((d) => ({ ...d.data(), tour: '1 Year' })), ...y2.docs.map((d) => ({ ...d.data(), tour: '2 Year' }))];
+            const scores = quizRows.map((r) => Number(r.score) || 0);
+            const best = scores.length ? Math.max(...scores) : 0;
+            const flappyBest = flappy.docs.reduce((n, d) => Math.max(n, Number(d.data().score) || 0), 0);
+            const perfect = quizRows.some((r) => r.perfect === true);
+
+            const achievements = [];
+            if (quizRows.length) achievements.push(['First Journey', 'Saved your first quiz score.']);
+            if (quizRows.length >= 5) achievements.push(['Seasoned Explorer', 'Saved scores from five journeys.']);
+            if (perfect) achievements.push(['Flawless Journey', 'Completed a journey without a missed location.']);
+            if (best >= 1000) achievements.push(['Thousand Point Club', 'Scored at least 1,000 in one journey.']);
+            if (best >= 5000) achievements.push(['Atlas Keeper', 'Scored at least 5,000 in one journey.']);
+            if (flappyBest >= 10) achievements.push(['Skybound', 'Scored at least 10 in Flappy Bird.']);
+
+            const recent = [...quizRows].sort((a, b) => (Number((b.timestamp || b.ts || {}).seconds) || 0) - (Number((a.timestamp || a.ts || {}).seconds) || 0)).slice(0, 8);
+
+            host.innerHTML = `
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="member-photo-edit-preview" style="width:72px;height:72px">${photo ? `<img src="${esc(photo)}" alt="">` : `<i data-lucide="user" class="w-7 h-7"></i>`}</div>
+                    <div><div class="text-xl font-extrabold">${esc(user.displayName || user.email)}</div><span class="hero-rank-badge">${esc(roleFor(best))}</span></div>
+                </div>
+                <div class="an-grid">
+                    <div class="an-kpi"><small>Journeys</small><strong>${quizRows.length}</strong></div>
+                    <div class="an-kpi"><small>Best score</small><strong>${best.toLocaleString()}</strong></div>
+                    <div class="an-kpi"><small>Flappy best</small><strong>${flappyBest || '\u2014'}</strong></div>
+                </div>
+                <section class="member-achievements"><h3>Achievements &amp; badges</h3><div class="member-badges">${achievements.length ? '' : '<p class="text-xs text-slate-500">Play a journey and save your score to start earning badges.</p>'}</div></section>
+                <section class="member-recent"><h3>Recent scores</h3><div class="member-score-list">${recent.length ? '' : '<p class="text-xs text-slate-500">No scores saved yet.</p>'}</div></section>
+            `;
+            if (window.lucide) lucide.createIcons();
+            const badgeBox = host.querySelector('.member-badges');
+            achievements.forEach(([title, desc]) => {
+                const badge = document.createElement('article'); badge.className = 'member-badge';
+                badge.innerHTML = '<span class="member-badge-icon">\u2726</span><div><strong></strong><p></p></div>';
+                badge.querySelector('strong').textContent = title; badge.querySelector('p').textContent = desc;
+                badgeBox.appendChild(badge);
+            });
+            const scoreBox = host.querySelector('.member-score-list');
+            recent.forEach((row) => {
+                const line = document.createElement('div'); line.className = 'member-score';
+                const tour = document.createElement('span'); tour.textContent = row.tour;
+                const score = document.createElement('strong'); score.textContent = (Number(row.score) || 0).toLocaleString();
+                const time = document.createElement('small'); time.textContent = `${Number(row.time) || 0}s`;
+                line.append(tour, score, time); scoreBox.appendChild(line);
+            });
+        } catch (err) {
+            host.innerHTML = '<p class="text-rose-500 text-sm">Could not load your profile right now.</p>';
+            console.error('profile load failed', err);
+        }
+    }
+
+    // ---------------- admin: device <-> account view (for the Banned Devices card in js/15) ----------------
+    function startKnownProfiles() {
+        if (knownProfilesUnsub) return;
+        knownProfilesUnsub = dataCol().collection('deviceProfiles').orderBy('updatedAt', 'desc').limit(200).onSnapshot((snap) => {
+            window.__heroDeviceProfiles = {};
+            snap.docs.forEach((d) => { window.__heroDeviceProfiles[d.id] = Object.assign({ deviceId: d.id }, d.data()); });
+        }, () => { window.__heroDeviceProfiles = {}; });
+    }
+    function stopKnownProfiles() { if (knownProfilesUnsub) knownProfilesUnsub(); knownProfilesUnsub = null; window.__heroDeviceProfiles = {}; }
+
+    // ---------------- the single render dispatch ----------------
+    function render() {
+        ensureNavButton();
+        if (!dialog || dialog.classList.contains('hidden')) {
+            // Dialog isn't open: still keep the profile page fresh if that's what's showing.
+            if (latest.authorized && latest.user && fbCurView === 'profile-view') renderProfilePage(latest.user);
+            return;
+        }
+        const user = latest.user;
+        if (latest.isAdmin) { closeDialog(); return; }   // stewards manage their own session via the Stewards' Gate, not this dialog
+        if (!user || user.isAnonymous) { mode = 'signin'; renderGate(); return; }
+        if (user.email && !user.emailVerified) { renderVerifyPending(user); return; }
+        if (latest.authorized) { renderAccount(user); return; }
+        renderGate();
+    }
+
+    window.addEventListener('hero-auth-state', (e) => {
+        latest = e.detail || { user: null, authorized: false, isAdmin: false };
+        ensureNavButton();
+        render();
+        if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') startKnownProfiles(); else stopKnownProfiles();
+        if (latest.authorized && fbCurView === 'profile-view') renderProfilePage(latest.user);
+        if (latest.authorized && dialog && !dialog.classList.contains('hidden')) setTimeout(closeDialog, 600);   // signed in while the gate was open: close it, let them see the app
     });
-    window.addEventListener('hero-admin-authenticated', startProfiles);
-    window.addEventListener('hero-admin-locked', stopProfiles);
-    window.addEventListener('hero-score-saved', () => { const user = currentMember(); if (user) refreshMemberProfile(user); });
-    window.addEventListener('hero-profiles-updated', () => { if (window.renderRuntimeBugs) window.renderRuntimeBugs(); });
-    window.addEventListener('hero-auth-state', e => { const user = e.detail && e.detail.user; if (user && !e.detail.authorized) profileScores = []; });
-    window.banVerifiedAccount = uid => banDevice('u_' + uid, 'Account banned by steward');
+
+    const _heroSwitchView = switchView;
+    switchView = function (id) {
+        _heroSwitchView(id);
+        if (id === 'profile-view') {
+            if (!latest.authorized || !latest.user) { _heroSwitchView('home-view'); openDialog(); return; }
+            renderProfilePage(latest.user);
+        }
+    };
+
+    ensureNavButton();
 })();

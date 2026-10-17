@@ -450,3 +450,19 @@ html[data-motion=off] .year-swap-out, html[data-motion=off] .year-swap-in { anim
 .acct-grid-2 { gap: 16px; }
 .acct-label { margin: 18px 0 7px; }
 .member-photo-edit { gap: 18px; }
+
+/* ===== hero-account-dialog: the single modal that serves as both the sign-in gate and account settings ===== */
+.hero-auth-overlay { position: fixed; inset: 0; z-index: 9700; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.hero-auth-overlay.hidden { display: none; }
+.hero-auth-backdrop { position: absolute; inset: 0; background: rgba(5,6,15,.65); backdrop-filter: blur(6px); opacity: 0; transition: opacity .25s; }
+.hero-auth-overlay.open .hero-auth-backdrop { opacity: 1; }
+.hero-auth-overlay .hero-auth-card { position: relative; max-height: calc(100dvh - 32px); overflow-y: auto; opacity: 0; transform: translateY(18px) scale(.97); transition: opacity .25s, transform .25s; }
+.hero-auth-overlay.open .hero-auth-card { opacity: 1; transform: none; }
+.hero-auth-close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,.08); color: #d6d9ec; font-size: 20px; line-height: 1; cursor: pointer; }
+.hero-auth-close:hover { background: rgba(255,255,255,.16); }
+.hero-auth-title { color: #fff; font-size: clamp(22px,4vw,26px); font-weight: 800; margin: 4px 0 4px; }
+.hero-auth-error { background: rgba(244,63,94,.14); border: 1px solid rgba(244,63,94,.35); color: #fda4af; font-size: 12.5px; font-weight: 600; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+.hero-verify-status { font-size: 12px; font-weight: 700; color: #9ae6b4; min-height: 16px; margin: 4px 0 12px; }
+.hero-verify-status.is-error { color: #fda4af; }
+.hero-rank-badge { display: inline-flex; padding: 5px 14px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: .03em; color: #16130a; background: linear-gradient(135deg, var(--sec), var(--brand-500)); }
+@media (prefers-reduced-motion: reduce) { .hero-auth-backdrop, .hero-auth-card { transition: none; } }
