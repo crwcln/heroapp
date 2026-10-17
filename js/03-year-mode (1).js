@@ -22,6 +22,7 @@
         function applyMode() {
             const s = store[yearMode], q = QUIZZES[yearMode];
             globalLocations = s.locs;
+            if (window.markLocationsClean) markLocationsClean();
             globalQuizTitle = s.title;
             currentGlobalMessage = s.msg;
 
@@ -44,6 +45,17 @@
             const vis = document.querySelector('.view-section:not(.hidden)');
             if (vis && (vis.id === 'quiz-view' || vis.id === 'summary-view')) switchView('home-view');
             customLocations = JSON.parse(localStorage.getItem(QUIZZES[k].custom)) || [];
+            // a quick fade-and-settle on the visible panel so switching 1 Year <-> 2 Year reads as a change, not a jump cut
+            const panel = document.querySelector('.view-section:not(.hidden) > .glass-panel');
+            if (panel && document.documentElement.dataset.motion !== 'off') {
+                panel.classList.remove('year-swap-in'); panel.classList.add('year-swap-out');
+                setTimeout(() => {
+                    renderUserCustomList(); applyMode(); loadLeaderboard();
+                    panel.classList.remove('year-swap-out'); panel.classList.add('year-swap-in');
+                    setTimeout(() => panel.classList.remove('year-swap-in'), 320);
+                }, 150);
+                return;
+            }
             renderUserCustomList();
             applyMode();
             loadLeaderboard();

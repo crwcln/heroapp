@@ -384,8 +384,12 @@
             const val = input.value;
             if (!val) return showToast("Enter the password.", "error");
             adminChecking = true;
+            const btn = document.getElementById('admin-enter-btn');
+            const origLabel = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Checking\u2026'; }
             const ok = await checkPassword('admin', val);
             adminChecking = false;
+            if (btn) { btn.disabled = false; btn.textContent = origLabel; }
             if (ok === true) {
                 adminToken = lastAuthToken; onAdminUnlocked();
                 document.getElementById('admin-lock').classList.add('hidden');
@@ -416,8 +420,17 @@
             finally { btnLoader.classList.add('hidden'); }
         }
 
+        let deployedLocationsSnapshot = null;
+        function markLocationsClean() { deployedLocationsSnapshot = JSON.stringify(globalLocations); updateUnsavedBadge(); }
+        function updateUnsavedBadge() {
+            const badge = document.getElementById('admin-unsaved-badge'); if (!badge) return;
+            const dirty = deployedLocationsSnapshot !== null && deployedLocationsSnapshot !== JSON.stringify(globalLocations);
+            badge.classList.toggle('hidden', !dirty);
+        }
+        window.markLocationsClean = markLocationsClean;
         function renderAdminList() {
             document.getElementById('admin-loc-count').innerText = globalLocations.length;
+            updateUnsavedBadge();
             const listEl = document.getElementById('custom-list');
             listEl.innerHTML = '';
             globalLocations.forEach((loc, idx) => {
@@ -449,6 +462,7 @@
                 .set({ locations: globalLocations, title: newTitle, message: newMessage })
                 .then(() => {
                     showToast("Live! Challenge updated.", "success");
+                    markLocationsClean();
                     btn.innerHTML = orig;
                 }).catch(e => { btn.innerHTML = orig; showToast("Failed to deploy.", "error"); });
         }

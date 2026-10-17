@@ -11,6 +11,24 @@
             document.querySelectorAll('[data-theme].st-card, [data-bg], [data-font]').forEach(b => { const k = b.dataset.theme ? 'theme' : b.dataset.bg ? 'bg' : 'font'; b.classList.toggle('on', prefs[k] === (b.dataset.theme || b.dataset.bg || b.dataset.font)); });
             document.getElementById('sw-motion').classList.toggle('on', prefs.motion === 'on');
             document.getElementById('cloak-title').value = prefs.cloak;
+            syncFaviconToTheme();
+        }
+
+        // ================= FAVICON FOLLOWS THEME =================
+        // Redraws the tab icon in the currently-selected colorway's brand/accent colors instead of a
+        // single color baked in at build time, so switching themes updates the browser tab too.
+        let faviconRaf = 0;
+        function syncFaviconToTheme() {
+            cancelAnimationFrame(faviconRaf);
+            faviconRaf = requestAnimationFrame(() => {
+                const cs = getComputedStyle(document.documentElement);
+                const brand = cs.getPropertyValue('--brand-600').trim() || '#1e3a6e';
+                const sec = cs.getPropertyValue('--sec').trim() || '#d4af37';
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='4' y='4' width='56' height='56' rx='14' fill='${brand}' stroke='${sec}' stroke-width='1.6'/><text x='32' y='34' text-anchor='middle' dominant-baseline='central' font-family='Georgia,serif' font-weight='700' font-size='30' fill='${sec}'>H</text></svg>`;
+                const href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+                document.querySelectorAll('link[rel="icon"][type="image/svg+xml"]').forEach(l => { l.href = href; });
+                const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = brand;
+            });
         }
         function setPref(k, v) {
             prefs[k] = v; applyPrefs();

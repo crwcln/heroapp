@@ -15,12 +15,12 @@ service cloud.firestore {
 
       // Visit counter: any visitor may add exactly 1 (admin can do anything via the rule above)
       match /globalSettings/stats {
-        allow create: if signedIn()
+        allow create: if isAdmin() || (signedIn()
           && request.resource.data.keys().hasOnly(['visits'])
-          && request.resource.data.visits == 1;
-        allow update: if signedIn()
+          && request.resource.data.visits == 1);
+        allow update: if isAdmin() || (signedIn()
           && request.resource.data.keys().hasOnly(['visits'])
-          && request.resource.data.visits == resource.data.visits + 1;
+          && request.resource.data.visits == resource.data.visits + 1);
       }
 
       // Leaderboards: anyone signed in can read and post a well-formed score; only admin can delete

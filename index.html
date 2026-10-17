@@ -84,6 +84,9 @@
         </div>
         <div id="nav-actions" class="flex items-center gap-2 sm:gap-6">
           <div class="nav-primary-links">
+            <button aria-label="Personal Practice" title="Personal Practice" onclick="startQuiz('custom')" class="flex items-center gap-2 text-sm font-semibold hover:text-emerald-600 dark:hover:text-emerald-400 transition group">
+                <i data-lucide="compass" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Personal Practice</span>
+            </button>
             <button aria-label="Hall of Heroes" title="Hall of Heroes" onclick="switchView('leaderboard-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
                 <i data-lucide="award" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Hall of Heroes</span>
             </button>
@@ -99,10 +102,7 @@
             <button aria-label="Stewards" title="Stewards" onclick="switchView('editor-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition group">
                 <i data-lucide="key-round" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Stewards</span>
             </button>
-            <button aria-label="Personal Practice" title="Personal Practice" onclick="startQuiz('custom')" class="flex items-center gap-2 text-sm font-semibold hover:text-emerald-600 dark:hover:text-emerald-400 transition group">
-                <i data-lucide="compass" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Personal Practice</span>
-            </button>
-          </div>
+                    </div>
           <details id="nav-more" class="nav-more">
             <summary aria-label="More navigation" title="More"><i data-lucide="ellipsis" aria-hidden="true"></i><span class="hidden sm:inline">More</span></summary>
             <div class="nav-more-menu" role="menu">
@@ -122,9 +122,6 @@
     </nav>
     <div id="home-view" class="view-section items-center justify-center p-6 sm:p-12 relative z-10">
         <div class="max-w-3xl w-full glass-panel p-10 sm:p-14 rounded-3xl text-center animate-slide-up">
-            <div class="inline-block bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 shadow-sm border border-indigo-200 dark:border-indigo-800/50">
-                Where history happened
-            </div>
             <div class="mb-2">
                 <h2 id="global-quiz-title" class="text-5xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 pb-2">
                     The Grand Tour
@@ -132,7 +129,7 @@
             </div>
             <p class="text-slate-500 dark:text-slate-400 mb-12 text-lg max-w-xl mx-auto font-medium"><span id="tagline">Studying, Redefined.</span><br>Pin down the places that shaped history. Beat the clock, build a streak, earn your place on the board.</p>
             <figure id="qotd" class="qotd"><blockquote id="qotd-t"></blockquote><figcaption id="qotd-a"></figcaption></figure>
-            <div id="mode-pick" class="flex justify-center gap-2 mb-6 flex-wrap"><button class="st-chip" data-gm="identify" onclick="setGameMode('identify')">Name the Place</button><button class="st-chip" data-gm="find" onclick="setGameMode('find')">Find the Land</button><button class="st-chip" onclick="switchView('review-view')">Revisit the Forgotten <span id="miss-count"></span></button><label class="st-chip" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rand-locs" style="accent-color:var(--brand-600)" onchange="localStorage.setItem('hero_rand', this.checked ? '1' : '')"> Random order</label></div>
+            <div id="mode-pick" class="flex justify-center gap-2 mb-6 flex-wrap"><button class="st-chip" data-gm="identify" onclick="setGameMode('identify')">Name the Place</button><button class="st-chip" data-gm="find" onclick="setGameMode('find')">Find the Land</button><button class="st-chip" onclick="switchView('review-view')">Revisit the Forgotten <span id="miss-count"></span></button><label class="st-chip cb-wrap" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rand-locs" class="cb-native" onchange="localStorage.setItem('hero_rand', this.checked ? '1' : '')"><span class="cb-box" aria-hidden="true"></span> Random order</label></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <button onclick="startQuiz('default')" class="group relative overflow-hidden flex flex-col items-center p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-indigo-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                     <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -291,8 +288,8 @@
                         <input type="email" id="fb-contact" maxlength="120" class="fb-input" placeholder="you@example.com" oninput="fbFieldError('fb-contact')">
                         <p class="fb-err hidden" id="fb-contact-err"></p>
                     </div>
-                    <label class="fb-check sm:col-span-2">
-                        <input type="checkbox" id="fb-diag" checked>
+                    <label class="fb-check cb-wrap sm:col-span-2">
+                        <input type="checkbox" id="fb-diag" class="cb-native" checked><span class="cb-box" aria-hidden="true"></span>
                         <span>
                             <span class="block text-sm font-bold text-slate-800 dark:text-slate-100">Include technical details</span>
                             <span class="block text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Browser, device, screen size and recent errors. This helps us reproduce the problem.</span>
@@ -324,7 +321,7 @@
         <div class="max-w-3xl w-full glass-panel p-8 sm:p-10 rounded-3xl animate-slide-up">
             <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Customs</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Make Hero yours. Saved on this device when cookies are accepted.</p>
-            <div class="st-sec"><h3>Colorway</h3><div class="st-grid"><button class="st-card" data-theme="cairn" onclick="setPref('theme','cairn')" style="--a:#193b72;--b:#d4af37"><i></i><span>Navy &amp; Gold</span></button><button class="st-card" data-theme="dusk" onclick="setPref('theme','dusk')" style="--a:#6546c7;--b:#d18bc8"><i></i><span>Violet Night</span></button><button class="st-card" data-theme="ember" onclick="setPref('theme','ember')" style="--a:#c65328;--b:#e7ad55"><i></i><span>Terracotta</span></button><button class="st-card" data-theme="moss" onclick="setPref('theme','moss')" style="--a:#117b70;--b:#a1bf61"><i></i><span>Evergreen</span></button><button class="st-card" data-theme="coral" onclick="setPref('theme','coral')" style="--a:#bd4266;--b:#e5a074"><i></i><span>Rose Clay</span></button><button class="st-card" data-theme="graphite" onclick="setPref('theme','graphite')" style="--a:#435c78;--b:#73c1ce"><i></i><span>Slate &amp; Ice</span></button></div></div>
+            <div class="st-sec"><h3>Colorway</h3><div class="st-grid"><button class="st-card" data-theme="cairn" onclick="setPref('theme','cairn')" style="--a:#1e3a6e;--b:#d4af37"><i></i><span>Navy &amp; Gold</span></button><button class="st-card" data-theme="dusk" onclick="setPref('theme','dusk')" style="--a:#5b2a86;--b:#f0a6c9"><i></i><span>Amethyst Dusk</span></button><button class="st-card" data-theme="ember" onclick="setPref('theme','ember')" style="--a:#9c3b1f;--b:#f2b705"><i></i><span>Burnt Amber</span></button><button class="st-card" data-theme="moss" onclick="setPref('theme','moss')" style="--a:#0b5d45;--b:#c9d16b"><i></i><span>Deep Moss</span></button><button class="st-card" data-theme="coral" onclick="setPref('theme','coral')" style="--a:#a8325a;--b:#ffb088"><i></i><span>Sunset Coral</span></button><button class="st-card" data-theme="graphite" onclick="setPref('theme','graphite')" style="--a:#2f3b52;--b:#5fd8c9"><i></i><span>Ink & Teal</span></button></div></div>
             <div class="st-sec"><h3>Background</h3><div class="st-grid"><button class="st-chip" data-bg="contour" onclick="setPref('bg','contour')">Contours</button><button class="st-chip" data-bg="aurora" onclick="setPref('bg','aurora')">Aurora</button><button class="st-chip" data-bg="grid" onclick="setPref('bg','grid')">Dot grid</button><button class="st-chip" data-bg="plain" onclick="setPref('bg','plain')">Plain</button></div></div>
             <div class="st-sec"><h3>Font</h3><div class="st-grid"><button class="st-chip" data-font="modern" onclick="setPref('font','modern')">Modern</button><button class="st-chip" data-font="serif" onclick="setPref('font','serif')">Serif</button><button class="st-chip" data-font="mono" onclick="setPref('font','mono')">Mono</button><button class="st-chip" data-font="round" onclick="setPref('font','round')">Rounded</button></div></div>
             <div class="st-sec"><h3>Behavior</h3>
@@ -404,7 +401,7 @@
             <h2 class="text-2xl font-extrabold mb-1 text-slate-900 dark:text-white">Stewards' Gate</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-8 font-medium">Enter the password to manage Hero.</p>
             <input type="password" id="admin-password" placeholder="Password" autocomplete="current-password" class="w-full p-4 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-800 dark:text-white mb-4 text-center font-bold">
-            <button onclick="unlockAdmin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition shadow-md">Enter</button>
+            <button onclick="unlockAdmin()" id="admin-enter-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-4 rounded-xl transition shadow-md">Enter</button>
             <button onclick="switchView('home-view')" class="w-full mt-3 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">← Back to Hero</button>
         </div>
 
@@ -503,6 +500,15 @@
                             <p id="dev-status" class="text-xs text-slate-500 mb-3 font-medium"></p>
                             <button onclick="toggleDevMode()" id="dev-toggle-btn" class="w-full text-white font-bold py-3 rounded-lg transition shadow"></button>
                         </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4 text-indigo-500"></i> Site Visits</h3>
+                        <p class="text-xs text-slate-500 mb-3 font-medium">The counter shown in the corner of every page, counted once per browser session.</p>
+                        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 mb-3">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Current total</span>
+                            <span id="visit-admin-count" class="text-sm font-bold text-slate-700 dark:text-slate-300 font-mono">&mdash;</span>
+                        </div>
+                        <button onclick="resetVisitCounter()" class="w-full border-2 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-bold py-2.5 rounded-lg transition flex justify-center items-center gap-2"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset to 0</button>
                     </div>
                     <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                         <div class="flex items-start gap-4">

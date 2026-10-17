@@ -45,7 +45,7 @@
         const ATABS = [['quiz', 'Quiz', 'map-pin'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['global', 'Global', 'megaphone'], ['site', 'Site', 'sliders-horizontal']];
         function initAdminTabs() {
             const panel = document.getElementById('admin-panel');
-            Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site' })
+            Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site', 'visit-admin-count': 'site' })
                 .forEach(([id, t]) => { document.getElementById(id).closest('[class*="rounded-2xl"]').dataset.atab = t; });
             const an = document.createElement('div');
             an.dataset.atab = 'analytics'; an.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
