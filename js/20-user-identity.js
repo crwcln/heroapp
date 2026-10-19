@@ -420,7 +420,8 @@
             switchView('profile-view');
         }
         if (latest.authorized && fbCurView === 'profile-view') renderProfilePage(latest.user);
-        if (latest.authorized && dialog && !dialog.classList.contains('hidden')) setTimeout(closeDialog, 600);   // signed in while the gate was open: close it, let them see the app
+        // Keep account settings open across auth refreshes. A successful sign-in
+        // launched from the gate is closed above only when profileOpenPending is set.
     });
 
     const _heroSwitchView = switchView;
