@@ -11,7 +11,7 @@
 //   window.__heroOpenAccountDialog()   opens the sign-in / account dialog
 //   window.__heroShowAuthGate()        same dialog, used when a blocked view needs to show it
 //   window.__heroDeviceProfiles        { deviceId: {name,email,userId,deviceId} } for admin tooling
-//   #hero-account-open                 the nav button (created here, inserted into #nav-actions)
+//   #hero-account-open                 the nav button (created here, inserted with the primary actions)
 //   #member-profile-content            populated with the signed-in profile (profile-view in index.html)
 (function () {
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -79,7 +79,10 @@
                 openDialog();
             }
         };
-        actions.insertBefore(btn, document.getElementById('nav-more') || document.getElementById('theme-btn') || null);
+        const primaryLinks = actions.querySelector('.nav-primary-links');
+        const settingsButton = primaryLinks && primaryLinks.querySelector('[aria-label="Settings"]');
+        if (primaryLinks && settingsButton) primaryLinks.insertBefore(btn, settingsButton);
+        else actions.insertBefore(btn, document.getElementById('nav-more') || document.getElementById('theme-btn') || null);
         if (window.lucide) lucide.createIcons();
     }
 

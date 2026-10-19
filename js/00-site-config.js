@@ -11,7 +11,7 @@ const SITE = {
   launchAt: '2026-10-20T23:00:00Z',
 
   // Increase intro to replay the opening film for everyone. Optional: set a custom MP4 path.
-  intro: 1,
+  intro: 2,
   introVideo: 'media/hero-trailer.mp4', // Example: 'media/hero-intro.mp4'
 
   // Turn features off here rather than removing their source files.
@@ -24,7 +24,7 @@ const SITE = {
     flappyBird: true,
     randomLocations: true,
   },
-};
+}
 
 // Site id is used by the Firestore paths throughout the app.
 window.__app_id = SITE.id;
