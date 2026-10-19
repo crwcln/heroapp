@@ -86,7 +86,9 @@ export async function onRequestPost(context) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: payload,
-        signal: AbortSignal.timeout ? AbortSignal.timeout(wantsStream ? 25000 : 15000) : undefined,
+        // A stream can legitimately take longer than the request setup. Applying
+        // AbortSignal.timeout here also aborts body reads after 25 seconds.
+        signal: !wantsStream && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
       });
     } catch { tried.push(model); r = null; continue; }
     if (r.ok || ![404, 429, 500, 502, 503, 504].includes(r.status)) break;   // busy, retired or erroring: try the next model
@@ -114,27 +116,40 @@ export async function onRequestPost(context) {
   const decoder = new TextDecoder();
   let buffer = '', sawAnyText = false;
   const SEP = String.fromCharCode(10) + String.fromCharCode(10);
+  let streamClosed = false;
   const out = new ReadableStream({
     async pull(controller) {
-      const { done, value } = await upstreamReader.read();
-      if (done) {
-        if (!sawAnyText) controller.enqueue(encoder.encode('data: ' + JSON.stringify({ error: 'empty_reply' }) + SEP));
+      if (streamClosed) return;
+      try {
+        const { done, value } = await upstreamReader.read();
+        if (done) {
+          if (!sawAnyText) controller.enqueue(encoder.encode('data: ' + JSON.stringify({ error: 'empty_reply' }) + SEP));
+          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ done: true }) + SEP));
+          streamClosed = true;
+          controller.close();
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split(SEP);
+        buffer = events.pop() || '';
+        for (const evt of events) {
+          const line = evt.split(String.fromCharCode(10)).find((l) => l.startsWith('data: '));
+          if (!line) continue;
+          try {
+            const chunk = JSON.parse(line.slice(6));
+            const parts = chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content && chunk.candidates[0].content.parts;
+            const text = parts ? parts.map((p) => p.text || '').join('') : '';
+            if (text) { sawAnyText = true; controller.enqueue(encoder.encode('data: ' + JSON.stringify({ t: text }) + SEP)); }
+          } catch (e) { /* Ignore malformed upstream events and keep reading. */ }
+        }
+      } catch (e) {
+        // Keep the browser's SSE connection valid so it can show a useful error
+        // instead of collapsing into an opaque fetch/network failure.
+        streamClosed = true;
+        try { await upstreamReader.cancel(); } catch (_) {}
+        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ error: 'upstream_unreachable' }) + SEP));
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ done: true }) + SEP));
         controller.close();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split(SEP);
-      buffer = events.pop() || '';
-      for (const evt of events) {
-        const line = evt.split(String.fromCharCode(10)).find((l) => l.startsWith('data: '));
-        if (!line) continue;
-        try {
-          const chunk = JSON.parse(line.slice(6));
-          const parts = chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content && chunk.candidates[0].content.parts;
-          const text = parts ? parts.map((p) => p.text || '').join('') : '';
-          if (text) { sawAnyText = true; controller.enqueue(encoder.encode('data: ' + JSON.stringify({ t: text }) + SEP)); }
-        } catch (e) { /* partial or non-JSON line: skip it, the rest of the stream still arrives */ }
       }
     },
     cancel() { try { upstreamReader.cancel(); } catch (e) {} },

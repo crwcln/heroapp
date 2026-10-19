@@ -198,8 +198,10 @@
         showToast('Boundary build catalog downloaded.', 'success');
     };
 
-    document.addEventListener('hero-auth-state', updateCard);
-    document.addEventListener('hero-location-data-ready', updateCard);
-    document.addEventListener('hero-score-saved', updateCard);
+    // These app events are dispatched on window by the auth and quiz modules.
+    // Listening on document left the challenge button disabled after data/auth loaded.
+    window.addEventListener('hero-auth-state', updateCard);
+    window.addEventListener('hero-location-data-ready', updateCard);
+    window.addEventListener('hero-score-saved', updateCard);
     document.addEventListener('DOMContentLoaded', updateCard);
 })();
