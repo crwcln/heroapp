@@ -1,5 +1,5 @@
 // edge-functions/api/auth.js  ->  POST /api/auth
-// Env vars (EdgeOne Pages project settings): ADMIN_PASSWORD, DEV_PASSWORD
+// Env vars (EdgeOne Pages project settings): ADMIN_PASSWORD, DEV_ACCESS (or legacy DEV_PASSWORD)
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -42,7 +42,7 @@ export async function onRequestPost(context) {
 
   const secrets = {
     admin: context.env.ADMIN_PASSWORD,
-    dev: context.env.DEV_PASSWORD,
+    dev: context.env.DEV_ACCESS || context.env.DEV_PASSWORD,
   };
   if (!Object.prototype.hasOwnProperty.call(secrets, target)) {
     return json({ ok: false, error: 'bad_target' }, 400);

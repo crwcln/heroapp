@@ -55,7 +55,7 @@
         try { var _launchDeadline = Date.parse(SITE.launchAt); if (Date.now() < _launchDeadline && sessionStorage.getItem('mq_devUnlocked') !== '1') document.documentElement.classList.add('launch-locked'); } catch (_) { document.documentElement.classList.add('launch-locked'); }
     </script>
     <script src="js/21-runtime-bugs.js"></script>
-    <script>try{var _t=localStorage.getItem('theme');if(_t!=='light')document.documentElement.classList.add('dark');if(!localStorage.getItem('hero_intro_'+SITE.intro)&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&window.top===window.self){document.documentElement.classList.add('intro-first');setTimeout(function(){document.documentElement.classList.remove('intro-first')},120000);}}catch(e){}</script>
+    <script>try{var _t=localStorage.getItem('theme');if(_t!=='light')document.documentElement.classList.add('dark');var _launchStillLocked=Date.now()<Date.parse(SITE.launchAt)&&sessionStorage.getItem('mq_devUnlocked')!=='1';if(!_launchStillLocked&&!localStorage.getItem('hero_intro_'+SITE.intro)&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&window.top===window.self){document.documentElement.classList.add('intro-first');setTimeout(function(){document.documentElement.classList.remove('intro-first')},120000);}}catch(e){}</script>
     <script>
         // Phone detection: phone user-agent / UA-Client-Hints, or a narrow viewport. Tablets and desktops keep the desktop layout.
         (function () {
@@ -90,7 +90,7 @@
                 <div class="launch-unit"><b id="launch-minutes">00</b><span>Minutes</span></div>
                 <div class="launch-unit"><b id="launch-seconds">00</b><span>Seconds</span></div>
             </div>
-            <p class="launch-date">October 20 · 6:00 PM Eastern Time</p>
+            <p class="launch-date">October 20 · 6:00 PM EST (UTC−5)</p>
             <form class="launch-form" onsubmit="event.preventDefault();unlockLaunchGate()">
                 <input id="launch-password" type="password" placeholder="Early access password" autocomplete="current-password" aria-label="Early access password">
                 <button id="launch-enter" type="submit">Enter early</button>

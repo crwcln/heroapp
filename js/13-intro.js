@@ -50,6 +50,7 @@ document.getElementById('version-badge').textContent = 'HERO v' + SITE.version;
 document.getElementById('version-badge').textContent = 'HERO v' + SITE.version;
 { const pw = document.getElementById('admin-password'); if (pw && !pw._enterBound) { pw._enterBound = true; pw.addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); }); } }
 (function introAuto() {
+    if (document.documentElement.classList.contains('launch-locked')) return;
     const row = [...document.querySelectorAll('#settings-view .st-row')].find(r => r.textContent.includes('Replay the tutorial'));
     if (row) row.insertAdjacentHTML('afterend', '<div class="st-row" style="margin-top:10px"><div class="font-bold text-sm">Replay the intro film</div><button class="cm-btn ghost" onclick="introPlay()">Replay</button></div>');
     if (document.documentElement.classList.contains('intro-first')) return introPlay();   // first visit: straight in, no loader

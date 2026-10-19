@@ -32,7 +32,7 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Yes | Steward/admin sign-in and signing server-side admin sessions |
-| `DEV_PASSWORD` | Yes | Unlocks development mode controls |
+| `DEV_ACCESS` | Yes for early access | Unlocks the launch countdown and development mode controls; `DEV_PASSWORD` remains supported as a legacy fallback |
 | `FIREBASE_CLIENT_EMAIL` | Yes for secure admin sign-in | Firebase service-account email |
 | `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure admin sign-in | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
 | `DEPLOY_WEBHOOK_URL` | Yes for redeploy | EdgeOne build/deploy webhook URL |

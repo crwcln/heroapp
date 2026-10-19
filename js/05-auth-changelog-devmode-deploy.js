@@ -1,6 +1,6 @@
 // ================= SERVER AUTH =================
         let adminToken = null, lastAuthToken = null, lastAuthErr = '';
-        const authFailMsg = () => lastAuthErr === 'not_configured' ? 'The login server has no password set. Add ADMIN_PASSWORD / DEV_PASSWORD in EdgeOne env vars, then redeploy.' : lastAuthErr === '404' ? 'Add edge-functions/api/auth.js and redeploy.' : 'Could not reach the login server.';
+        const authFailMsg = () => lastAuthErr === 'not_configured' ? 'The login server has no password set. Add ADMIN_PASSWORD / DEV_ACCESS in EdgeOne env vars, then redeploy.' : lastAuthErr === '404' ? 'Add edge-functions/api/auth.js and redeploy.' : 'Could not reach the login server.';
         async function checkPassword(target, password) {
             try {
                 const r = await fetch('/api/auth', {
