@@ -215,7 +215,8 @@
         // ================= DATA & STATE =================
         let customLocations = JSON.parse(localStorage.getItem(QUIZZES[yearMode].custom)) || [];
         let map = null, tileLayer = null, mapStyleIndex = 0;
-        let activeQuizData = [], quizStats = {}, points = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
+        let activeQuizData = [], quizStats = {}, points = 0, hintPenalty = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
+        function updateScoreDisplay() { const el = document.getElementById('q-score'); if (el) el.innerText = Math.max(0, points - hintPenalty).toLocaleString(); }
 
         function switchView(viewId) {
             if (window.__heroCanAccessApp === false && !['auth-view'].includes(viewId)) {
@@ -249,6 +250,7 @@
                     if (doc.exists) {
                         const data = doc.data();
                         store[key] = { locs: data.locations || [], title: data.title || QUIZZES[key].defTitle, msg: data.message || '' };
+                        window.dispatchEvent(new CustomEvent('hero-location-data-ready', { detail: { yearMode: key, count: store[key].locs.length } }));
                     }
                     if (key === yearMode) applyMode();
                 });
@@ -299,7 +301,8 @@
                     name: a.name, 
                     category: a.category || 'Imported',
                     lat: parseFloat(a.lat), 
-                    lng: parseFloat(a.lng) 
+                    lng: parseFloat(a.lng),
+                    ...(Number.isFinite(Number(a.year)) ? { year: Number(a.year) } : {})
                 }));
 
                 if (type === 'admin') { 
@@ -368,7 +371,7 @@
             customLocations.forEach((loc, idx) => {
                 const item = document.createElement('div');
                 item.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700';
-                item.innerHTML = `<div><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}</div></div>
+                item.innerHTML = `<div><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}${Number.isFinite(Number(loc.year)) ? ` · ${Number(loc.year) < 0 ? `${Math.abs(Number(loc.year))} BCE` : `${loc.year} CE`}` : ''}</div></div>
                     <button onclick="removeUserLoc(${idx})" class="text-rose-500 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
                 listEl.appendChild(item);
             });
@@ -409,6 +412,8 @@
         async function geocodeAndAddPlace() {
             const name = document.getElementById('place-name-input').value.trim();
             const cat = document.getElementById('place-category-input').value.trim() || 'Custom';
+            const yearValue = document.getElementById('place-year-input').value.trim();
+            const historicalYear = yearValue === '' ? null : Number(yearValue);
             const btnLoader = document.getElementById('add-loader');
             
             if (!name) return showToast("Enter a place name.", "error");
@@ -418,9 +423,10 @@
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`);
                 const data = await response.json();
                 if (data && data.length > 0) {
-                    globalLocations.push({ id: 'loc_' + Date.now(), name: data[0].name || name, category: cat, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+                    globalLocations.push({ id: 'loc_' + Date.now(), name: data[0].name || name, category: cat, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), ...(Number.isFinite(historicalYear) ? { year: historicalYear } : {}) });
                     renderAdminList();
                     document.getElementById('place-name-input').value = '';
+                    document.getElementById('place-year-input').value = '';
                     showToast(`Added ${data[0].name || name} successfully.`, "success");
                 } else showToast("Location not found.", "error");
             } catch (e) { showToast("Error during search.", "error"); } 
@@ -523,8 +529,8 @@
             activeQuizData = mode === 'default' ? globalLocations : customLocations;
             if (activeQuizData.length === 0) return showToast("No locations to play!", "error");
 
-            points = 0; solvedCount = 0; secondsElapsed = 0; quizStats = {};
-            activeQuizData.forEach(loc => quizStats[loc.id] = { name: loc.name, mistakes: 0, solved: false });
+            points = 0; hintPenalty = 0; solvedCount = 0; secondsElapsed = 0; quizStats = {};
+            activeQuizData.forEach(loc => quizStats[loc.id] = { name: loc.name, mistakes: 0, solved: false, hintsUsed: [], hintPenalty: 0 });
 
             document.getElementById('q-score').innerText = '0';
             document.getElementById('q-solved').innerText = '0';
@@ -665,6 +671,36 @@
                 feedback.className = 'text-xs font-bold hidden text-center rounded-lg p-2';
                 popupWrap.appendChild(feedback);
 
+                const hintPanel = document.createElement('div');
+                hintPanel.className = 'quiz-hints';
+                const hintMessage = document.createElement('div');
+                hintMessage.className = 'quiz-hint-message';
+                hintMessage.setAttribute('aria-live', 'polite');
+                const regionHintButton = document.createElement('button');
+                regionHintButton.type = 'button'; regionHintButton.className = 'quiz-hint-button';
+                regionHintButton.textContent = 'Region hint −100 pts';
+                const letterHintButton = document.createElement('button');
+                letterHintButton.type = 'button'; letterHintButton.className = 'quiz-hint-button';
+                letterHintButton.textContent = 'First letter −200 pts';
+                const useHint = (kind) => {
+                    const stat = quizStats[loc.id]; if (!stat || stat.solved) return;
+                    const field = kind === 'region' ? 'region' : 'letter';
+                    if (!stat.hintsUsed.includes(field)) {
+                        const cost = field === 'region' ? 100 : 200;
+                        stat.hintsUsed.push(field); stat.hintPenalty += cost; hintPenalty += cost; updateScoreDisplay();
+                    }
+                    const value = field === 'region'
+                        ? (typeof window.__heroRegionHint === 'function' ? window.__heroRegionHint(loc) : '')
+                        : String(loc.name || '').trim().charAt(0).toLocaleUpperCase();
+                    hintMessage.textContent = field === 'region'
+                        ? (value ? `Region: ${value}` : 'Region: use the map’s position clue.')
+                        : `Starts with: ${value || '—'}`;
+                };
+                regionHintButton.onclick = (event) => { event.stopPropagation(); useHint('region'); };
+                letterHintButton.onclick = (event) => { event.stopPropagation(); useHint('letter'); };
+                hintPanel.append(hintMessage, regionHintButton, letterHintButton);
+                popupWrap.appendChild(hintPanel);
+
                 btn.onclick = () => {
                     const selectedId = input.dataset.selectedId;
                     if (!selectedId) return;
@@ -675,7 +711,7 @@
                         solvedCount++; quizStats[loc.id].solved = true;
 
                         marker.setIcon(solvedIcon);
-                        document.getElementById('q-score').innerText = points.toLocaleString();
+                        updateScoreDisplay();
                         document.getElementById('q-solved').innerText = solvedCount;
                         
                         marker.closePopup();
@@ -704,7 +740,7 @@
         function endQuizEarly() {
             clearInterval(timerInterval);
             const tb = Math.max(0, 10000 - (secondsElapsed * 10));
-            finalScore = points + tb;
+            finalScore = Math.max(0, points + tb - hintPenalty);
             document.getElementById('sum-final-score').innerText = finalScore.toLocaleString();
             switchView('summary-view');
             fireConfetti();
@@ -716,7 +752,7 @@
             localStorage.setItem('mq_playerName', name);
             db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb).add({
                 userId, name, score: finalScore, time: secondsElapsed, tour: QUIZZES[yearMode].label,
-                perfect: activeQuizData.length > 0 && solvedCount === activeQuizData.length && Object.values(quizStats).every(q => q.solved && q.mistakes === 0),
+                perfect: activeQuizData.length > 0 && solvedCount === activeQuizData.length && Object.values(quizStats).every(q => q.solved && q.mistakes === 0 && q.hintsUsed.length === 0),
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 showToast("Score saved!", "success");

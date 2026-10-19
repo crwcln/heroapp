@@ -313,15 +313,20 @@
         try {
             const memberDoc = await memberRef(user.uid).get();
             const photo = memberDoc.exists ? memberDoc.data().photoURL : '';
-            const [y1, y2, flappy] = await Promise.all([
+            const [y1, y2, flappy, dailyProgressDoc] = await Promise.all([
                 dataCol().collection('leaderboard').where('userId', '==', user.uid).get(),
                 dataCol().collection('leaderboardTwoYear').where('userId', '==', user.uid).get(),
                 dataCol().collection('flappy').where('userId', '==', user.uid).get(),
+                dataCol().collection('dailyChallengeProgress').doc(user.uid).get(),
             ]);
             const quizRows = [...y1.docs.map((d) => ({ ...d.data(), tour: '1 Year' })), ...y2.docs.map((d) => ({ ...d.data(), tour: '2 Year' }))];
             const scores = quizRows.map((r) => Number(r.score) || 0);
             const best = scores.length ? Math.max(...scores) : 0;
             const flappyBest = flappy.docs.reduce((n, d) => Math.max(n, Number(d.data().score) || 0), 0);
+            const dailyProgress = dailyProgressDoc.exists ? dailyProgressDoc.data() : {};
+            const today = new Date().toISOString().slice(0, 10);
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            const dailyStreak = dailyProgress.lastCompletedDay === today || dailyProgress.lastCompletedDay === yesterday ? (Number(dailyProgress.currentStreak) || 0) : 0;
             const perfect = quizRows.some((r) => r.perfect === true);
 
             const achievements = [];
@@ -331,6 +336,8 @@
             if (best >= 1000) achievements.push(['Thousand Point Club', 'Scored at least 1,000 in one journey.']);
             if (best >= 5000) achievements.push(['Atlas Keeper', 'Scored at least 5,000 in one journey.']);
             if (flappyBest >= 10) achievements.push(['Skybound', 'Scored at least 10 in Flappy Bird.']);
+            if (dailyProgress.lastCompletedDay) achievements.push(['Daily Explorer', 'Completed a shared Daily Challenge.']);
+            if (Number(dailyProgress.longestStreak) >= 7) achievements.push(['Seven Day Streak', 'Completed a Daily Challenge seven days in a row.']);
 
             const recent = [...quizRows].sort((a, b) => (Number((b.timestamp || b.ts || {}).seconds) || 0) - (Number((a.timestamp || a.ts || {}).seconds) || 0)).slice(0, 8);
 
@@ -343,6 +350,7 @@
                     <div class="an-kpi"><small>Journeys</small><strong>${quizRows.length}</strong></div>
                     <div class="an-kpi"><small>Best score</small><strong>${best.toLocaleString()}</strong></div>
                     <div class="an-kpi"><small>Flappy best</small><strong>${flappyBest || '\u2014'}</strong></div>
+                    <div class="an-kpi"><small>Daily streak</small><strong>${dailyStreak} day${dailyStreak === 1 ? '' : 's'}</strong><small>Best: ${Number(dailyProgress.longestStreak) || 0} days</small></div>
                 </div>
                 <section class="member-achievements"><h3>Achievements &amp; badges</h3><div class="member-badges">${achievements.length ? '' : '<p class="text-xs text-slate-500">Play a journey and save your score to start earning badges.</p>'}</div></section>
                 <section class="member-recent"><h3>Recent scores</h3><div class="member-score-list">${recent.length ? '' : '<p class="text-xs text-slate-500">No scores saved yet.</p>'}</div></section>

@@ -35,6 +35,7 @@
             document.getElementById('admin-setup-title').innerText = q.setupTitle;
 
             renderAdminList();
+            window.dispatchEvent(new CustomEvent('hero-location-data-ready', { detail: { yearMode, count: s.locs.length } }));
         }
 
         function setYearMode(k) {
