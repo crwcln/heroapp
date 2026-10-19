@@ -1,6 +1,12 @@
 // ================= SERVER AUTH =================
-        let adminToken = null, lastAuthToken = null, lastAuthErr = '';
-        const authFailMsg = () => lastAuthErr === 'not_configured' ? 'The login server has no password set. Add ADMIN_PASSWORD / DEV_ACCESS in EdgeOne env vars, then redeploy.' : lastAuthErr === '404' ? 'Add edge-functions/api/auth.js and redeploy.' : 'Could not reach the login server.';
+        let adminToken = null, lastAuthToken = null, lastAuthErr = '', lastDevAuthErr = '';
+        const authFailMsg = (target = 'admin') => {
+            const err = target === 'dev' ? lastDevAuthErr : lastAuthErr;
+            if (err === 'not_configured') return target === 'dev' ? 'Early access is not configured. Set DEV_ACCESS in EdgeOne environment variables and redeploy.' : 'The login server has no admin password. Add ADMIN_PASSWORD in EdgeOne environment variables and redeploy.';
+            if (err === '404') return 'The /api/auth endpoint is missing from this deployment. Deploy edge-functions/api/auth.js and try again.';
+            if (err === 'network') return 'Could not reach /api/auth. Check the site connection and deployment.';
+            return `Early access check failed (${err || 'unknown error'}). Check the EdgeOne deployment.`;
+        };
         async function checkPassword(target, password) {
             try {
                 const r = await fetch('/api/auth', {
@@ -8,12 +14,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ target, password })
                 });
-                if (r.status === 401) { if (target === 'admin') lastAuthErr = ''; return false; }
-                if (!r.ok) { const er = await r.json().catch(() => ({})); const msg = er.error || String(r.status); if (target === 'admin') lastAuthErr = msg; return null; }
+                if (r.status === 401) { if (target === 'admin') lastAuthErr = ''; else lastDevAuthErr = ''; return false; }
+                if (!r.ok) { const er = await r.json().catch(() => ({})); const msg = er.error || String(r.status); if (target === 'admin') lastAuthErr = msg; else lastDevAuthErr = msg; return null; }
                 const d = await r.json();
                 if (target === 'admin') { lastAuthToken = d.token || null; lastAuthErr = ''; }
+                else lastDevAuthErr = '';
                 return d.ok === true;
-            } catch (err) { if (target === 'admin') lastAuthErr = 'network'; return null; }
+            } catch (err) { if (target === 'admin') lastAuthErr = 'network'; else lastDevAuthErr = 'network'; return null; }
         }
 
         // ================= PUBLIC LAUNCH GATE =================
@@ -50,7 +57,7 @@
                 openLaunchGate();
                 return;
             }
-            message.textContent = ok === false ? 'That password did not work. Try again.' : 'Early access could not be checked. Please try again.';
+            message.textContent = ok === false ? 'That password did not work. Try again.' : authFailMsg('dev');
             input.value = ''; input.focus();
             const card = document.querySelector('.launch-card');
             if (card && !matchMedia('(prefers-reduced-motion: reduce)').matches) { card.animate([{ transform:'translateX(0)' },{ transform:'translateX(-8px)' },{ transform:'translateX(7px)' },{ transform:'translateX(0)' }], { duration:300 }); }
@@ -304,7 +311,7 @@
                 input.value = '';
                 applyDevScreen();
             } else if (ok === false) { showToast('Incorrect password.', 'error'); badInput(input); }
-            else showToast(authFailMsg(), 'error');
+            else showToast(authFailMsg('dev'), 'error');
         }
         const unlockDevScreen = () => devLogin('dev-password');
         const unlockDevCard = () => devLogin('dev-card-password');
