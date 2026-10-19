@@ -402,9 +402,9 @@
             return;
         }
         const user = latest.user;
-        if (latest.isAdmin) { closeDialog(); return; }   // stewards manage their own session via the Stewards' Gate, not this dialog
+        // Stewards can use the same account settings dialog as other authorized users.
         if (!user || user.isAnonymous) { mode = 'signin'; renderGate(); return; }
-        if (user.email && !user.emailVerified) { renderVerifyPending(user); return; }
+        if (user.email && !user.emailVerified && !latest.isAdmin) { renderVerifyPending(user); return; }
         if (latest.authorized) { renderAccount(user); return; }
         renderGate();
     }

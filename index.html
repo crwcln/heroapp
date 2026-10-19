@@ -399,6 +399,10 @@
                 <div class="st-row" style="flex-wrap:wrap"><div><div class="font-bold text-sm">Cloaked tab title</div><div class="text-xs text-slate-500 font-medium">Used by the "Open Blank" button.</div></div>
                     <div style="display:flex;gap:8px;flex:1 1 240px;justify-content:flex-end"><input id="cloak-title" class="fb-input" style="max-width:220px" maxlength="40" placeholder="Home" oninput="setPref('cloak', this.value)"><button class="cm-btn go" onclick="openInAboutBlank()">Open</button></div></div>
             </div>
+            <div class="st-sec"><h3>Site repair</h3>
+                <div class="st-row" style="flex-wrap:wrap"><div><div class="font-bold text-sm">Refresh site files</div><div class="text-xs text-slate-500 font-medium">Reload Hero with a fresh page URL and clear saved site caches. Your account and study progress stay saved.</div></div>
+                    <button class="cm-btn ghost" type="button" onclick="heroRefreshSite()"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh Hero</button></div>
+            </div>
         </div>
     </div>
     <div id="ai-view" class="view-section hidden relative z-10"><div class="ai-shell glass-panel" id="ai-shell"></div></div>
@@ -742,6 +746,19 @@
     <button id="sherpa-fab" aria-label="Ask Clio" onclick="sherpaToggle()"><i data-lucide="bot"></i><span class="fab-tip">Ask Clio</span></button>
     <div id="sherpa-panel" class="glass-panel"></div>
     <canvas id="confetti-canvas" class="hidden"></canvas>
+    <script>
+        window.heroRefreshSite = async function () {
+            const button = document.querySelector('#settings-view button[onclick="heroRefreshSite()"]');
+            if (button) { button.disabled = true; button.textContent = 'Refreshing…'; }
+            try {
+                if ('caches' in window) await Promise.all((await caches.keys()).map((key) => caches.delete(key)));
+                if ('serviceWorker' in navigator) await Promise.all((await navigator.serviceWorker.getRegistrations()).map((worker) => worker.unregister()));
+            } catch (error) { console.warn('Could not clear every saved site cache:', error); }
+            const url = new URL(location.href);
+            url.searchParams.set('hero-refresh', String(Date.now()));
+            location.replace(url.href);
+        };
+    </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="js/03-year-mode.js"></script>
     <script src="js/04-app-core.js"></script>
@@ -760,7 +777,7 @@
     <script src="js/17-features.js"></script>
     <script src="js/18-bulk-select.js"></script>
     <script src="js/19-announcements.js"></script>
-    <script src="js/20-user-identity.js?v=20261019-account-dialog-refresh"></script>
+    <script src="js/20-user-identity.js?v=20261019-admin-account-dialog"></script>
     <script src="js/23-daily-challenge.js"></script>
     <script src="js/22-manoj-cursor.js"></script>
 </body>
