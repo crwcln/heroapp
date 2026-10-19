@@ -22,5 +22,9 @@ html.dark .ann-toolbar { border-color: #475569; }
 .ann-body ul, .ann-body ol, .ann-preview ul, .ann-preview ol { margin: .5em 0; padding-left: 1.5em; list-style: revert; }
 .ann-body blockquote, .ann-preview blockquote { margin: .6em 0; padding-left: .8em; border-left: 3px solid var(--brand-500); }
 .an-admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(98,114,139,.08); font-size: 12px; font-weight: 700; }
+.an-admin-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
+.an-admin-actions button { display: inline-grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; }
+.an-admin-actions .an-admin-edit { color: var(--brand-600); }
+.an-admin-actions button:hover { background: rgba(var(--brand-rgb),.12); }
 .an-admin-row button { color: #e11d48; }
 #custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: rgba(var(--brand-rgb),.08); }

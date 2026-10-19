@@ -1,7 +1,7 @@
 // ===== ANNOUNCEMENTS =====
 // Posting one here fills the "Got it" popup, the minimized banner, and the Announcements page.
 const annCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('announcements');
-let annList = [], annUnsub = null;
+let annList = [], annUnsub = null, editingAnnouncementId = null;
 function annFmtDate(ts) { const d = ts && ts.toDate ? ts.toDate() : new Date(); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
 function sanitizeAnnouncementHtml(input) {
     const source = document.createElement('template'); source.innerHTML = String(input || '');
@@ -29,7 +29,7 @@ function renderAnnouncementBody(element, announcement) {
 }
 function startAnnouncements() {
     if (annUnsub || !window.__heroCanAccessApp) return;
-    annUnsub = annCol().orderBy('createdAt', 'desc').limit(30).onSnapshot(s => {
+    annUnsub = annCol().orderBy('createdAt', 'desc').onSnapshot(s => {
         annList = s.docs.map(d => ({ id: d.id, ...d.data() }));
         renderAnnList(); renderAnnAdmin(); maybeShowAnnPopup();
     }, e => { console.error('announcements', e); if (e.code === 'permission-denied') { annUnsub(); annUnsub = null; } });
@@ -51,19 +51,55 @@ function renderAnnAdmin() {
     box.innerHTML = '';
     annList.forEach(a => { const row = document.createElement('div'); row.className = 'an-admin-row';
         const span = document.createElement('span'); span.className = 'truncate'; span.textContent = `${a.title} \u00b7 ${annFmtDate(a.createdAt)}`;
-        const btn = document.createElement('button'); btn.innerHTML = '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i>'; btn.onclick = () => deleteAnnouncement(a.id);
-        row.append(span, btn); box.appendChild(row); });
+        const actions = document.createElement('div'); actions.className = 'an-admin-actions';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'an-admin-edit'; edit.title = 'Edit announcement'; edit.setAttribute('aria-label', `Edit ${a.title || 'announcement'}`); edit.innerHTML = '<i data-lucide="pencil" class="w-3.5 h-3.5"></i>'; edit.onclick = () => editAnnouncement(a.id);
+        const btn = document.createElement('button'); btn.type = 'button'; btn.title = 'Delete announcement'; btn.setAttribute('aria-label', `Delete ${a.title || 'announcement'}`); btn.innerHTML = '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i>'; btn.onclick = () => deleteAnnouncement(a.id);
+        actions.append(edit, btn); row.append(span, actions); box.appendChild(row); });
     lucide.createIcons();
 }
+function setAnnouncementEditMode(id) {
+    const submit = document.querySelector('[onclick="postAnnouncement()"]');
+    if (!submit) return;
+    let cancel = document.getElementById('ann-cancel-edit');
+    if (!cancel) {
+        cancel = document.createElement('button'); cancel.id = 'ann-cancel-edit'; cancel.type = 'button'; cancel.className = 'cm-btn ghost'; cancel.textContent = 'Cancel edit'; cancel.onclick = cancelAnnouncementEdit;
+        submit.parentElement.appendChild(cancel);
+    }
+    editingAnnouncementId = id || null;
+    submit.innerHTML = id ? '<i data-lucide="save"></i> Save changes' : '<i data-lucide="send"></i> Post globally';
+    cancel.classList.toggle('hidden', !id);
+    if (window.lucide) lucide.createIcons();
+}
+function editAnnouncement(id) {
+    const announcement = annList.find(item => item.id === id);
+    if (!announcement) return showToast('That announcement is no longer available.', 'error');
+    const title = document.getElementById('ann-title'), editor = document.getElementById('ann-body'), tags = document.getElementById('ann-tags');
+    if (!title || !editor || !tags) return;
+    title.value = announcement.title || '';
+    const safeBody = document.createElement('div'); safeBody.append(sanitizeAnnouncementHtml(announcement.bodyHtml || announcement.body || '')); editor.innerHTML = safeBody.innerHTML;
+    tags.value = (announcement.tags || []).join(', ');
+    setAnnouncementEditMode(id);
+    const preview = document.getElementById('ann-preview-wrap'); if (preview) preview.classList.add('hidden');
+    document.getElementById('admin-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    editor.focus();
+}
+function cancelAnnouncementEdit() {
+    document.getElementById('ann-title').value = ''; document.getElementById('ann-body').innerHTML = ''; document.getElementById('ann-tags').value = '';
+    setAnnouncementEditMode(null);
+}
+window.editAnnouncement = editAnnouncement;
 async function postAnnouncement() {
-    const title = document.getElementById('ann-title').value.trim(), editor = document.getElementById('ann-body'), bodyHtml = editor.innerHTML.trim(), body = editor.innerText.trim();
+    const title = document.getElementById('ann-title').value.trim(), editor = document.getElementById('ann-body'), clean = document.createElement('div');
+    clean.append(sanitizeAnnouncementHtml(editor.innerHTML));
+    const bodyHtml = clean.innerHTML.trim(), body = editor.innerText.trim();
     const tags = document.getElementById('ann-tags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 4);
     if (!title || !body) return showToast('Add a title and a message.', 'error');
     try {
-        if (!title || !body) return showToast('Add a title and a message.', 'error');
-        await annCol().add({ title, body, bodyHtml, tags, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (editingAnnouncementId) await annCol().doc(editingAnnouncementId).update({ title, body, bodyHtml, tags, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        else await annCol().add({ title, body, bodyHtml, tags, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         document.getElementById('ann-title').value = ''; editor.innerHTML = ''; document.getElementById('ann-tags').value = '';
-        showToast('Announcement posted.', 'success');
+        const wasEditing = !!editingAnnouncementId; setAnnouncementEditMode(null);
+        showToast(wasEditing ? 'Announcement updated.' : 'Announcement posted.', 'success');
     } catch (e) { showToast(`Could not post (${e.code || 'error'}).`, 'error'); }
 }
 window.toggleAnnouncementPreview = function () {

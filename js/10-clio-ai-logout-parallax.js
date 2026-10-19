@@ -1,7 +1,40 @@
 // ================= SHERPA (Gemini via /api/chat) =================
         const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0, streamText: null };
         const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
-        const shFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^\s*[-*] /gm, '\u2022 ').replace(/\n/g, '<br>');
+        const shFmt = t => {
+            const source = document.createElement('template');
+            source.innerHTML = String(t || '')
+                .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
+                .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/gm, '$1<em>$2</em>')
+                .replace(/__([^_\n]+)__/g, '<u>$1</u>')
+                .replace(/~~(.+?)~~/gs, '<del>$1</del>')
+                .replace(/^\s*[-*] /gm, '\u2022 ')
+                .replace(/\n/g, '<br>');
+            const tags = new Set(['P','BR','B','STRONG','I','EM','U','S','DEL','SPAN','UL','OL','LI','BLOCKQUOTE','CODE','PRE','SMALL','MARK','SUB','SUP','H3','H4']);
+            const colors = new Set(['black','white','red','green','blue','orange','purple','teal','gold','gray','grey','navy','crimson','indigo','tomato','salmon','skyblue','lime','coral']);
+            const fonts = new Map([['spectral', 'Spectral, Georgia, serif'], ['georgia', 'Georgia, serif'], ['serif', 'serif'], ['nunito', 'Nunito, sans-serif'], ['fraunces', 'Fraunces, Georgia, serif'], ['jetbrains mono', 'JetBrains Mono, monospace'], ['monospace', 'monospace'], ['sans-serif', 'sans-serif']]);
+            const safeColor = value => /^#[\da-f]{3,8}$/i.test(value) || /^(?:rgba?|hsla?)\([\d\s.,%/+-]+\)$/i.test(value) || colors.has(value.toLowerCase()) || (typeof CSS !== 'undefined' && CSS.supports('color', value));
+            const clean = node => {
+                if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue || '');
+                if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment();
+                if (!tags.has(node.tagName)) { const fragment = document.createDocumentFragment(); [...node.childNodes].forEach(child => fragment.append(clean(child))); return fragment; }
+                const out = document.createElement(node.tagName.toLowerCase());
+                if (node.tagName === 'SPAN' || node.tagName === 'MARK') {
+                    for (const declaration of String(node.getAttribute('style') || '').split(';')) {
+                        const colon = declaration.indexOf(':'); if (colon < 0) continue;
+                        const key = declaration.slice(0, colon).trim().toLowerCase(), value = declaration.slice(colon + 1).trim();
+                        if (key === 'color' && safeColor(value)) out.style.color = value;
+                        if (key === 'background-color' && safeColor(value)) out.style.backgroundColor = value;
+                        if (key === 'font-family') { const family = value.replace(/["']/g, '').split(',')[0].trim().toLowerCase(); if (fonts.has(family)) out.style.fontFamily = fonts.get(family); }
+                        if (key === 'font-size' && /^(1[2-9]|2[0-8])px$/.test(value)) out.style.fontSize = value;
+                    }
+                }
+                [...node.childNodes].forEach(child => out.append(clean(child)));
+                return out;
+            };
+            const result = document.createElement('div'); [...source.content.childNodes].forEach(node => result.append(clean(node)));
+            return result.innerHTML;
+        };
         function shUI(k, full) {
             return `<div class="sh-head"><div class="sh-av"><i data-lucide="bot"></i></div><div><h3>Clio</h3><small>Muse of history, guide to the map</small></div><div class="sh-sp"></div>
                 <button class="sh-ib" title="New chat" onclick="shClear()"><i data-lucide="rotate-ccw"></i></button>
@@ -98,8 +131,17 @@
             try {
                 let idToken = '';
                 try { idToken = auth && auth.currentUser ? await auth.currentUser.getIdToken() : ''; } catch (e) { /* sendable without it; server will reply 'signed_out' */ }
-                const r = await fetch('/api/chat', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, idToken ? { Authorization: 'Bearer ' + idToken } : {}),
-                    body: JSON.stringify({ messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: (window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}`, stream: true }) });
+                const headers = Object.assign({ 'Content-Type': 'application/json' }, idToken ? { Authorization: 'Bearer ' + idToken } : {});
+                const requestData = { messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: (window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}` };
+                const sendChat = stream => fetch('/api/chat', { method: 'POST', headers, body: JSON.stringify({ ...requestData, stream }) });
+                let r;
+                try { r = await sendChat(true); }
+                catch (requestError) {
+                    // Some edge proxies reset long-lived SSE responses. Retry once
+                    // as a regular JSON request before telling the player it failed.
+                    if (!(requestError instanceof TypeError)) throw requestError;
+                    r = await sendChat(false);
+                }
                 const isStream = r.ok && (r.headers.get('content-type') || '').includes('text/event-stream');
                 if (!isStream) {
                     const d = await r.json().catch(() => ({}));
@@ -110,21 +152,33 @@
                     sh.streamText = ''; shRender();
                     const reader = r.body.getReader(), decoder = new TextDecoder();
                     let buf = '', streamErr = null;
-                    outer: while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buf += decoder.decode(value, { stream: true });
-                        const events = buf.split('\n\n'); buf = events.pop() || '';
-                        for (const evt of events) {
-                            const line = evt.split('\n').find(l => l.startsWith('data: ')); if (!line) continue;
-                            let payload; try { payload = JSON.parse(line.slice(6)); } catch (e2) { continue; }
-                            if (payload.error) { streamErr = payload.error; break outer; }
-                            if (payload.t) shAppendStreamDelta(payload.t);
-                            if (payload.done) break outer;
+                    let readError = null;
+                    try {
+                        outer: while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buf += decoder.decode(value, { stream: true });
+                            const events = buf.split('\n\n'); buf = events.pop() || '';
+                            for (const evt of events) {
+                                const line = evt.split('\n').find(l => l.startsWith('data: ')); if (!line) continue;
+                                let payload; try { payload = JSON.parse(line.slice(6)); } catch (e2) { continue; }
+                                if (payload.error) { streamErr = payload.error; break outer; }
+                                if (payload.t) shAppendStreamDelta(payload.t);
+                                if (payload.done) break outer;
+                            }
                         }
-                    }
+                    } catch (error) { readError = error; }
+                    if (readError && !sh.streamText) {
+                        // The stream reset before delivering any content; retry on
+                        // the same authenticated request without SSE.
+                        sh.streamText = null;
+                        const fallback = await sendChat(false), fallbackData = await fallback.json().catch(() => ({}));
+                        if (!fallback.ok) { const err = new Error(fallbackData.error || fallback.status); err.d = fallbackData; throw err; }
+                        sh.msgs.push({ r: 'model', t: fallbackData.reply || '' });
+                    } else if (readError) throw readError;
                     if (streamErr) { sh.streamText = null; const err = new Error(streamErr); throw err; }
-                    sh.msgs.push({ r: 'model', t: sh.streamText || '' }); sh.streamText = null;
+                    if (!readError) sh.msgs.push({ r: 'model', t: sh.streamText || '' });
+                    sh.streamText = null;
                 }
             } catch (e) {
                 sh.streamText = null;
