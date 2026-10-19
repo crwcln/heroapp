@@ -32,3 +32,21 @@ html.intro-first, html.intro-first body { background: #0a0b1a !important; }
 html.intro-first body > *:not(#intro) { visibility: hidden !important; }
 .in-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 2; }
 .in-sound { position: absolute; top: 18px; left: 18px; z-index: 7; padding: 9px 18px; border-radius: 999px; border: 1px solid rgba(236,233,255,.35); background: rgba(5,6,15,.55); color: #ece9ff; font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+
+/* One-time welcome shown after a new visitor's intro film. */
+.hero-welcome-backdrop { position: fixed; inset: 0; z-index: 10020; display: grid; place-items: center; padding: 18px; background: rgba(4,7,18,.72); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: fadeUp .28s ease both; }
+.hero-welcome-card { position: relative; width: min(740px, 100%); max-height: min(90dvh, 850px); overflow: auto; padding: clamp(24px, 4vw, 40px); border: 1px solid var(--line); border-radius: 24px; color: inherit; background: var(--field); box-shadow: 0 28px 100px rgba(0,0,0,.42); }
+.hero-welcome-card::before { z-index: 0; }
+.hero-welcome-card > :not(.hero-welcome-close) { position: relative; z-index: 1; }
+.hero-welcome-close { position: absolute; z-index: 2; top: 13px; right: 16px; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--bg-a); color: inherit; font-size: 27px; line-height: 1; cursor: pointer; }
+.hero-welcome-kicker { margin-bottom: 9px; color: var(--brand-500); font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+.hero-welcome-card h2 { max-width: 580px; margin: 0 40px 8px 0; color: inherit; font-size: clamp(25px, 4vw, 36px); line-height: 1.12; }
+.hero-welcome-intro { max-width: 650px; margin: 0 0 21px; color: var(--ink-500); font-size: 14px; line-height: 1.6; }
+.hero-welcome-features { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.hero-welcome-features article { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: color-mix(in srgb, var(--field) 82%, var(--bg-a)); }
+.hero-welcome-features article > svg { flex: 0 0 20px; width: 20px; height: 20px; margin-top: 2px; color: var(--brand-500); }
+.hero-welcome-features h3 { margin: 0 0 4px; font-size: 16px; }
+.hero-welcome-features p { margin: 0; color: var(--ink-500); font-size: 12px; line-height: 1.5; }
+.hero-welcome-help { margin: 18px 0 0; padding: 12px 14px; border-left: 3px solid var(--brand-500); border-radius: 0 10px 10px 0; background: var(--bg-a); color: inherit; font-size: 13px; line-height: 1.5; }
+.hero-welcome-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+@media (max-width: 560px) { .hero-welcome-backdrop { padding: 10px; } .hero-welcome-card { max-height: 92dvh; padding: 27px 18px 18px; border-radius: 19px; } .hero-welcome-features { grid-template-columns: 1fr; gap: 8px; } .hero-welcome-features article { padding: 11px 12px; } .hero-welcome-features p { font-size: 12px; } .hero-welcome-actions > button { flex: 1 1 auto; } }

@@ -15,13 +15,53 @@ const INTRO_SCENES = [
  { d: 4200, h: 'Set forth', p: 'Hall of Heroes \u00b7 Clio \u00b7 The Chronicle \u00b7 Your own charts', b: () => `<div class="in-go">Set Forth</div>` }
 ];
 let introTimer = null;
-function introEnd() {
+function introEnd(showWelcome = false) {
     clearTimeout(introTimer); document.documentElement.classList.remove('intro-first'); const el = document.getElementById('intro'); if (!el) return;
     window.dispatchEvent(new CustomEvent('hero-intro-state', { detail: { playing: false } }));
-    el.classList.add('out'); setTimeout(() => { el.remove(); if (window.tutMaybe) tutMaybe(); }, 950);
+    el.classList.add('out'); setTimeout(() => {
+        el.remove();
+        if (showWelcome && !localStorage.getItem('hero_welcome_seen')) showWelcomeCard();
+        else if (window.tutMaybe) tutMaybe();
+    }, 950);
 }
-function introPlay() {
+function showWelcomeCard() {
+    if (document.getElementById('hero-welcome')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'hero-welcome'; overlay.className = 'hero-welcome-backdrop';
+    overlay.innerHTML = `<section class="hero-welcome-card glass-panel" role="dialog" aria-modal="true" aria-labelledby="hero-welcome-title" aria-describedby="hero-welcome-intro">
+        <button type="button" class="hero-welcome-close" aria-label="Close welcome">&times;</button>
+        <div class="hero-welcome-kicker">WELCOME TO HERO</div>
+        <h2 id="hero-welcome-title">A better way to make places stick.</h2>
+        <p id="hero-welcome-intro" class="hero-welcome-intro">The original Map Quiz Pro was a simple map quiz. Hero builds on it with more ways to explore, practice, and remember the places that matter.</p>
+        <div class="hero-welcome-features">
+          <article><i data-lucide="map-pin"></i><div><h3>Explore the map</h3><p>Name places or find them on the map. Countries, regions, rivers, seas, and historical empires can light up as you learn.</p></div></article>
+          <article><i data-lucide="repeat-2"></i><div><h3>Practice that adapts</h3><p>Choose a one-year or two-year tour, try the shared Daily Challenge, and revisit places you have missed. Hints can help you get unstuck for a score cost.</p></div></article>
+          <article><i data-lucide="sparkles"></i><div><h3>Learn your way</h3><p>Ask Clio for an explanation or memory trick. Pick a colorway and font, and tune the site's sound and display in Settings.</p></div></article>
+          <article><i data-lucide="trophy"></i><div><h3>See your progress</h3><p>Compare scores on the Hall of Heroes, build a Daily Challenge streak, and make private charts from places you choose.</p></div></article>
+        </div>
+        <p class="hero-welcome-help">Found a bug or something confusing? Open <strong>Send a Word</strong> from the navigation and tell us what happened.</p>
+        <div class="hero-welcome-actions"><button type="button" class="cm-btn ghost" data-welcome-feedback>Report an issue</button><button type="button" class="cm-btn go" data-welcome-close>Start exploring</button></div>
+    </section>`;
+    document.body.appendChild(overlay);
+    if (window.lucide) lucide.createIcons();
+    const finish = (feedback = false) => {
+        localStorage.setItem('hero_welcome_seen', '1');
+        if (overlay._welcomeKeyHandler) document.removeEventListener('keydown', overlay._welcomeKeyHandler);
+        overlay.remove();
+        if (feedback) switchView('feedback-view');
+        else if (window.tutMaybe) tutMaybe();
+    };
+    overlay.querySelector('.hero-welcome-close').onclick = () => finish();
+    overlay.querySelector('[data-welcome-close]').onclick = () => finish();
+    overlay.querySelector('[data-welcome-feedback]').onclick = () => finish(true);
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) finish(); });
+    overlay._welcomeKeyHandler = (event) => { if (event.key === 'Escape') finish(); };
+    document.addEventListener('keydown', overlay._welcomeKeyHandler);
+    overlay.querySelector('.hero-welcome-close').focus();
+}
+function introPlay(options = {}) {
     if (document.getElementById('intro')) return;
+    const welcomeAfter = !!options.welcome && !localStorage.getItem('hero_welcome_seen');
     localStorage.setItem(introKey(), '1');
     window.dispatchEvent(new CustomEvent('hero-intro-state', { detail: { playing: true } }));
     const el = document.createElement('div'); el.id = 'intro';
@@ -29,7 +69,7 @@ function introPlay() {
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('on'));                    // site fades to white
     const show = i => {
-        if (i >= INTRO_SCENES.length) return introEnd();
+        if (i >= INTRO_SCENES.length) return introEnd(welcomeAfter);
         const s = INTRO_SCENES[i];
         el.querySelector('.in-stage').innerHTML = s.b();
         el.querySelector('.in-cap').innerHTML = `<h2></h2><p></p>`; el.querySelector('.in-cap h2').textContent = s.h; el.querySelector('.in-cap p').textContent = s.p;
@@ -39,7 +79,7 @@ function introPlay() {
         el.classList.add('film');
         if (SITE.introVideo) {   // your own MP4 (see js/00-site-config.js); falls back to the built-in film if it can't load
             const v = document.createElement('video'); v.className = 'in-video'; v.src = SITE.introVideo; v.muted = false; v.autoplay = true; v.playsInline = true;
-            v.onended = introEnd; v.onerror = () => { v.remove(); snd.remove(); show(0); };
+            v.onended = () => introEnd(welcomeAfter); v.onerror = () => { v.remove(); snd.remove(); show(0); };
             const snd = document.createElement('button'); snd.className = 'in-sound'; snd.textContent = 'Sound off'; snd.setAttribute('aria-label', 'Mute intro sound'); snd.onclick = () => { v.muted = !v.muted; snd.textContent = v.muted ? 'Sound on' : 'Sound off'; snd.setAttribute('aria-label', v.muted ? 'Enable intro sound' : 'Mute intro sound'); if (!v.muted) v.play().catch(() => {}); };
             el.append(v, snd); v.play().catch(() => { v.muted = true; snd.textContent = 'Tap for sound'; snd.setAttribute('aria-label', 'Enable intro sound'); }); return;
         }
@@ -53,9 +93,9 @@ document.getElementById('version-badge').textContent = 'HERO v' + SITE.version;
     if (document.documentElement.classList.contains('launch-locked')) return;
     const row = [...document.querySelectorAll('#settings-view .st-row')].find(r => r.textContent.includes('Replay the tutorial'));
     if (row) row.insertAdjacentHTML('afterend', '<div class="st-row" style="margin-top:10px"><div class="font-bold text-sm">Replay the intro film</div><button class="cm-btn ghost" onclick="introPlay()">Replay</button></div>');
-    if (document.documentElement.classList.contains('intro-first')) return introPlay();   // first visit: straight in, no loader
+    if (document.documentElement.classList.contains('intro-first')) return introPlay({ welcome: true });   // first visit: straight in, no loader
     if (localStorage.getItem(introKey()) || matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('in-frame')) return;
-    const c = document.getElementById('site-cover'), go = () => setTimeout(() => { if (document.getElementById('dev-screen').classList.contains('hidden')) introPlay(); }, 500);
+    const c = document.getElementById('site-cover'), go = () => setTimeout(() => { if (document.getElementById('dev-screen').classList.contains('hidden')) introPlay({ welcome: true }); }, 500);
     if (!c || c.classList.contains('hidden')) go();
     else new MutationObserver((m, o) => { if (c.classList.contains('hidden')) { o.disconnect(); go(); } }).observe(c, { attributes: true, attributeFilter: ['class'] });
 })();
