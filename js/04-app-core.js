@@ -111,8 +111,15 @@
         async function applyFirebaseUser(user) {
             let allowed = false, isAdmin = false;
             if (user) {
-                try { isAdmin = (await user.getIdTokenResult()).claims.admin === true; }
-                catch (e) { console.warn('Could not read account claims:', e); }
+                // getIdTokenResult() can fall back to a silent network refresh of the token when it's near
+                // expiry. On a slow or flaky connection (mobile data) that refresh can take a long time or
+                // hang outright, which used to leave sign-in stuck on "checking" indefinitely. A short race
+                // against a timeout means a slow network degrades to "not admin yet" instead of hanging.
+                try {
+                    const claimsPromise = user.getIdTokenResult();
+                    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 4000));
+                    isAdmin = (await Promise.race([claimsPromise, timeout])).claims.admin === true;
+                } catch (e) { console.warn('Could not read account claims (continuing without admin claim):', e); }
                 allowed = isAdmin || (!user.isAnonymous && user.emailVerified === true);
             }
             userId = allowed ? user.uid : null;
