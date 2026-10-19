@@ -71,7 +71,7 @@
         btn.setAttribute('aria-label', 'Profile and account');
         btn.innerHTML = '<i data-lucide="user-round" class="w-4 h-4"></i><span class="hidden sm:inline">Profile</span>';
         btn.onclick = () => {
-            if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') {
+            if (latest.authorized && latest.user && !latest.user.isAnonymous) {
                 profileOpenPending = false;
                 switchView('profile-view');
             } else {
@@ -413,8 +413,8 @@
         latest = e.detail || { user: null, authorized: false, isAdmin: false };
         ensureNavButton();
         render();
-        if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') startKnownProfiles(); else stopKnownProfiles();
-        if (profileOpenPending && latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') {
+        if (latest.authorized && latest.user && !latest.user.isAnonymous) startKnownProfiles(); else stopKnownProfiles();
+        if (profileOpenPending && latest.authorized && latest.user && !latest.user.isAnonymous) {
             profileOpenPending = false;
             closeDialog();
             switchView('profile-view');
