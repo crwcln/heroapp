@@ -219,15 +219,16 @@
     async function deleteOwnedAccountData(user) {
         const data = dataCol(), uid = user.uid;
         const own = (collection) => data.collection(collection).where('userId', '==', uid).get();
-        const [scores1, scores2, flappy, feedback, bugs, presence, devices, dailyScores, member, progress] = await Promise.all([
+        const [scores1, scores2, flappy, feedback, bugs, presence, devices, dailyScores, member, progress, stats] = await Promise.all([
             own('leaderboard'), own('leaderboardTwoYear'), own('flappy'), own('feedback'), own('runtimeBugs'), own('presence'), own('deviceProfiles'),
-            db.collectionGroup('scores').where('userId', '==', uid).get(), memberRef(uid).get(), data.collection('dailyChallengeProgress').doc(uid).get()
+            db.collectionGroup('scores').where('userId', '==', uid).get(), memberRef(uid).get(), data.collection('dailyChallengeProgress').doc(uid).get(), data.collection('memberStats').doc(uid).get()
         ]);
         const refs = [
             ...scores1.docs, ...scores2.docs, ...flappy.docs, ...bugs.docs, ...presence.docs, ...devices.docs, ...dailyScores.docs
         ].map((doc) => doc.ref);
         if (member.exists) refs.push(member.ref);
         if (progress.exists) refs.push(progress.ref);
+        if (stats.exists) refs.push(stats.ref);
         for (const report of feedback.docs) {
             const files = await report.ref.collection('files').get();
             files.docs.forEach((file) => refs.push(file.ref));
@@ -368,6 +369,7 @@
                     await user.delete();
                     localStorage.removeItem('hero_member_name');
                     localStorage.removeItem('mq_playerName');
+                    ['hero_miss_default', 'hero_miss_twoyear', `hero_miss_default_account_${user.uid}`, `hero_miss_twoyear_account_${user.uid}`].forEach((key) => localStorage.removeItem(key));
                     closeDialog();
                     await auth.signOut().catch(() => {});
                     showToast('Your Hero account and personal data have been deleted.', 'success');
@@ -411,17 +413,22 @@
         try {
             const memberDoc = await memberRef(user.uid).get();
             const photo = memberDoc.exists ? memberDoc.data().photoURL : '';
-            const [y1, y2, flappy, dailyProgressDoc] = await Promise.all([
+            const [y1, y2, flappy, dailyProgressDoc, memberStatsDoc] = await Promise.all([
                 dataCol().collection('leaderboard').where('userId', '==', user.uid).get(),
                 dataCol().collection('leaderboardTwoYear').where('userId', '==', user.uid).get(),
                 dataCol().collection('flappy').where('userId', '==', user.uid).get(),
                 dataCol().collection('dailyChallengeProgress').doc(user.uid).get().catch(() => null),
+                dataCol().collection('memberStats').doc(user.uid).get().catch(() => null),
             ]);
             const quizRows = [...y1.docs.map((d) => ({ ...d.data(), tour: '1 Year' })), ...y2.docs.map((d) => ({ ...d.data(), tour: '2 Year' }))];
             const scores = quizRows.map((r) => Number(r.score) || 0);
             const best = scores.length ? Math.max(...scores) : 0;
             const flappyBest = flappy.docs.reduce((n, d) => Math.max(n, Number(d.data().score) || 0), 0);
             const dailyProgress = dailyProgressDoc && dailyProgressDoc.exists ? dailyProgressDoc.data() : {};
+            const memberStats = memberStatsDoc && memberStatsDoc.exists ? memberStatsDoc.data() : {};
+            const weakSpotCount = new Set([
+                ...Object.keys(memberStats.missesOneYear || {}), ...Object.keys(memberStats.missesTwoYear || {})
+            ]).size;
             const today = new Date().toISOString().slice(0, 10);
             const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
             const dailyStreak = dailyProgress.lastCompletedDay === today || dailyProgress.lastCompletedDay === yesterday ? (Number(dailyProgress.currentStreak) || 0) : 0;
@@ -449,6 +456,7 @@
                     <div class="an-kpi"><small>Best score</small><strong>${best.toLocaleString()}</strong></div>
                     <div class="an-kpi"><small>Flappy best</small><strong>${flappyBest || '\u2014'}</strong></div>
                     <div class="an-kpi"><small>Daily streak</small><strong>${dailyStreak} day${dailyStreak === 1 ? '' : 's'}</strong><small>Best: ${Number(dailyProgress.longestStreak) || 0} days</small></div>
+                    <div class="an-kpi"><small>Places to revisit</small><strong>${weakSpotCount}</strong></div>
                 </div>
                 <section class="member-achievements"><h3>Achievements &amp; badges</h3><div class="member-badges">${achievements.length ? '' : '<p class="text-xs text-slate-500">Play a journey and save your score to start earning badges.</p>'}</div></section>
                 <section class="member-recent"><h3>Recent scores</h3><div class="member-score-list">${recent.length ? '' : '<p class="text-xs text-slate-500">No scores saved yet.</p>'}</div></section>

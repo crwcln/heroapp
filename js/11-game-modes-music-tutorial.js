@@ -1,8 +1,80 @@
 // ================= GAME MODES + WEAK SPOTS =================
         let gameMode = localStorage.getItem('hero_gm') === 'find' ? 'find' : 'identify', findQueue = [];
-        const missKey = () => 'hero_miss_' + yearMode;
-        const getMiss = () => { try { return JSON.parse(localStorage.getItem(missKey())) || {}; } catch (e) { return {}; } };
-        function recordMiss(name) { const m = getMiss(); m[name] = { n: ((m[name] && m[name].n) || 0) + 1, t: Date.now() }; localStorage.setItem(missKey(), JSON.stringify(m)); missBadge(); }
+        let missAccountUid = '', missSyncUnsub = null, missSyncBusy = false;
+        const missModes = ['default', 'twoyear'];
+        const missKey = (mode = yearMode, uid = missAccountUid) => uid ? `hero_miss_${mode}_account_${uid}` : 'hero_miss_' + mode;
+        const readMiss = (mode, uid) => { try { return JSON.parse(localStorage.getItem(missKey(mode, uid))) || {}; } catch (e) { return {}; } };
+        const writeMiss = (mode, value, uid = missAccountUid) => localStorage.setItem(missKey(mode, uid), JSON.stringify(value || {}));
+        const getMiss = () => readMiss(yearMode, missAccountUid);
+        const mergeMiss = (...maps) => {
+            const merged = {};
+            maps.forEach(map => Object.entries(map || {}).forEach(([name, stat]) => {
+                const n = Math.max(Number(merged[name]?.n) || 0, Number(stat?.n) || 0);
+                const t = Math.max(Number(merged[name]?.t) || 0, Number(stat?.t) || 0);
+                if (n > 0) merged[name] = { n, t };
+            }));
+            return merged;
+        };
+        const sameMiss = (a, b) => JSON.stringify(Object.entries(a || {}).sort(([x], [y]) => x.localeCompare(y))) === JSON.stringify(Object.entries(b || {}).sort(([x], [y]) => x.localeCompare(y)));
+        const missDoc = uid => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('memberStats').doc(uid);
+        function reconcileMisses(uid, cloud = {}) {
+            if (!uid || uid !== missAccountUid || missSyncBusy || !window.__heroCanAccessApp) return;
+            const importingLegacy = localStorage.getItem('hero_miss_legacy_imported') !== '1';
+            const local = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(readMiss(mode, uid), importingLegacy ? readMiss(mode, '') : {})]));
+            const fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' };
+            const merged = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(cloud[fields[mode]], local[mode])]));
+            missModes.forEach(mode => writeMiss(mode, merged[mode], uid));
+            const changed = importingLegacy || !cloud.userId || missModes.some(mode => !sameMiss(merged[mode], cloud[fields[mode]]));
+            if (!changed) return;
+            missSyncBusy = true;
+            db.runTransaction(async transaction => {
+                const ref = missDoc(uid), snapshot = await transaction.get(ref), current = snapshot.exists ? snapshot.data() : {};
+                const next = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(current[fields[mode]], merged[mode])]));
+                transaction.set(ref, {
+                    userId: uid, missesOneYear: next.default, missesTwoYear: next.twoyear,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                return next;
+            }).then(next => {
+                if (uid !== missAccountUid) return;
+                missModes.forEach(mode => writeMiss(mode, next[mode], uid));
+                localStorage.setItem('hero_miss_legacy_imported', '1');
+                missBadge(); renderReview();
+            }).catch(error => console.warn('Could not sync weak spots to the Hero account:', error)).finally(() => { missSyncBusy = false; });
+        }
+        function syncMissAccount(event) {
+            const detail = event?.detail || {};
+            const uid = detail.authorized && detail.user && !detail.user.isAnonymous ? detail.user.uid : '';
+            if (uid === missAccountUid) return;
+            if (missSyncUnsub) missSyncUnsub();
+            missSyncUnsub = null; missAccountUid = uid; missSyncBusy = false;
+            missBadge(); renderReview();
+            if (!uid || !window.__heroCanAccessApp) return;
+            missSyncUnsub = missDoc(uid).onSnapshot(snapshot => {
+                if (uid !== missAccountUid) return;
+                reconcileMisses(uid, snapshot.exists ? snapshot.data() : {});
+            }, error => console.warn('Could not load account weak spots:', error));
+        }
+        window.addEventListener('hero-auth-state', syncMissAccount);
+        function recordMiss(name) {
+            const mode = yearMode, uid = missAccountUid, local = getMiss();
+            local[name] = { n: ((local[name] && local[name].n) || 0) + 1, t: Date.now() };
+            writeMiss(mode, local, uid); missBadge();
+            if (!uid || !window.__heroCanAccessApp) return;
+            const fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' }, ref = missDoc(uid);
+            db.runTransaction(async transaction => {
+                const snapshot = await transaction.get(ref), data = snapshot.exists ? snapshot.data() : {};
+                const next = { ...data[fields[mode]] }, previous = next[name] || {};
+                next[name] = { n: Math.max((Number(previous.n) || 0) + 1, Number(local[name].n) || 0), t: Math.max(Number(previous.t) || 0, Number(local[name].t) || 0) };
+                transaction.set(ref, {
+                    userId: uid, missesOneYear: mode === 'default' ? next : (data.missesOneYear || {}),
+                    missesTwoYear: mode === 'twoyear' ? next : (data.missesTwoYear || {}),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                return next;
+            }).then(next => { if (uid === missAccountUid) writeMiss(mode, next, uid); })
+                .catch(error => console.warn('Could not save a weak spot to the Hero account:', error));
+        }
         const topMissed = () => Object.entries(getMiss()).sort((a, b) => b[1].n - a[1].n || b[1].t - a[1].t).slice(0, 12);
         function missBadge() { const n = Object.keys(getMiss()).length; document.getElementById('miss-count').textContent = n ? `(${n})` : ''; }
         function setGameMode(m) { gameMode = m; localStorage.setItem('hero_gm', m); document.querySelectorAll('#mode-pick [data-gm]').forEach(b => b.classList.toggle('on', b.dataset.gm === m)); showToast(m === 'find' ? 'Find the Land: you get a name, tap its marker.' : 'Identify: tap a marker, then name it.', 'info'); }
@@ -12,7 +84,25 @@
             const max = rows[0][1].n;
             rows.forEach(([name, v]) => { const r = document.createElement('div'); r.className = 'rv-row'; r.innerHTML = `<span style="min-width:120px"></span><div class="bar"><i style="width:${Math.round(v.n / max * 100)}%"></i></div><span>${v.n}\u00d7</span>`; r.firstChild.textContent = name; list.appendChild(r); });
         }
-        async function clearMisses() { if (!(await customConfirm({ title: 'Clear weak spots?', message: 'This forgets your missed places for this quiz on this device.', confirmText: 'Clear', danger: true }))) return; localStorage.removeItem(missKey()); renderReview(); missBadge(); }
+        async function clearMisses() {
+            const uid = missAccountUid, message = uid ? 'This clears the missed places for this tour from your Hero account on all devices.' : 'This forgets your missed places for this quiz on this device.';
+            if (!(await customConfirm({ title: 'Clear weak spots?', message, confirmText: 'Clear', danger: true }))) return;
+            if (uid && window.__heroCanAccessApp) {
+                const mode = yearMode, fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' }, ref = missDoc(uid);
+                try {
+                    await db.runTransaction(async transaction => {
+                        const snapshot = await transaction.get(ref), data = snapshot.exists ? snapshot.data() : {};
+                        transaction.set(ref, {
+                            userId: uid, missesOneYear: mode === 'default' ? {} : (data.missesOneYear || {}),
+                            missesTwoYear: mode === 'twoyear' ? {} : (data.missesTwoYear || {}),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    });
+                    localStorage.removeItem(missKey(mode, uid));
+                } catch (error) { showToast(`Could not clear account weak spots (${error.code || 'error'}).`, 'error'); return; }
+            } else localStorage.removeItem(missKey(yearMode, ''));
+            renderReview(); missBadge();
+        }
         function findClick(marker, loc) {
             const t = findQueue[0]; if (!t || marker._done) return;
             if (loc.id === t.id) {

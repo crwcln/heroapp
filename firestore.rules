@@ -88,6 +88,22 @@
           allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
         }
 
+        // Per-account weak spots replace the old device-only missed-place history.
+        match /memberStats/{memberId} {
+          function ownsStats() { return signedIn() && request.auth.uid == memberId; }
+          function validMisses(field) { return request.resource.data[field] is map && request.resource.data[field].keys().size() <= 1000; }
+          allow get: if isAdmin() || ownsStats();
+          allow list: if isAdmin();
+          allow create, update: if ownsStats()
+            && request.resource.data.keys().hasOnly(['userId', 'missesOneYear', 'missesTwoYear', 'updatedAt'])
+            && request.resource.data.keys().hasAll(['userId', 'missesOneYear', 'missesTwoYear', 'updatedAt'])
+            && request.resource.data.userId == request.auth.uid
+            && validMisses('missesOneYear')
+            && validMisses('missesTwoYear')
+            && request.resource.data.updatedAt is timestamp;
+          allow delete: if isAdmin() || ownsStats();
+        }
+
         // Anonymous usage analytics: visitors write only their own presence + daily counters; only admin reads
         match /presence/{presenceId} {
           allow create: if signedIn()
