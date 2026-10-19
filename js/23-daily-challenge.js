@@ -40,13 +40,13 @@
             if (!doc.exists || window.__heroCanAccessApp !== true) return;
             const data = doc.data(), day = dateKey();
             const streak = data.lastCompletedDay === day || data.lastCompletedDay === previousDay(day) ? (Number(data.currentStreak) || 0) : 0;
-            status.textContent = `${day} UTC · ${count} places · ${streak} day ${streak === 1 ? 'streak' : 'streak'}.`;
+            status.textContent = `${day} UTC - ${count} places - ${streak}-day streak.`;
         }).catch(() => {});
     }
 
     window.startDailyChallenge = function () {
         const day = dateKey();
-        selectedForDay = challengeFor((store.default && store.default.locs) || [], day);
+        selectedForDay = challengeFor((store.default && store.default.locs) || [], day).map(loc => ({ ...loc, tour: 'default' }));
         if (selectedForDay.length < 5) return showToast('The daily challenge needs at least five 1 Year locations.', 'error');
         activeDay = day;
         gameMode = 'identify';
@@ -155,8 +155,7 @@
         const button = document.getElementById('submit-score-btn');
         const complete = solvedCount === activeQuizData.length;
         button.disabled = !complete;
-        button.classList.toggle('opacity-50', !complete);
-        button.classList.toggle('cursor-not-allowed', !complete);
+        button.classList.toggle('daily-score-incomplete', !complete);
         button.title = complete ? '' : 'Complete every daily place to qualify.';
         button.innerHTML = complete
             ? '<i data-lucide="upload" class="w-4 h-4"></i> Save daily score'
@@ -172,7 +171,7 @@
         const sectionLabel = document.querySelector('#submit-score-section > p');
         if (activeDay) {
             submitButton.disabled = false;
-            submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            submitButton.classList.remove('daily-score-incomplete');
             submitButton.title = '';
             submitButton.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Save daily score';
             sectionLabel.textContent = 'Add your score to today’s Daily Challenge leaderboard.';

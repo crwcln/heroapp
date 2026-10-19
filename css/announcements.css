@@ -5,6 +5,22 @@
 html.dark .ann-tag { color: var(--brand-300); }
 .ann-title { font-weight: 800; font-size: 16px; } .ann-date { font-size: 11px; font-weight: 700; color: var(--ink-500); margin-top: 2px; }
 .ann-body { padding: 14px 18px; font-size: 14px; color: var(--ink-500); font-weight: 500; white-space: pre-wrap; }
+.ann-body a, .ann-preview a, #global-msg-text a { color: var(--brand-600); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.ann-body img, .ann-preview img, #global-msg-text img { display: block; max-width: 100%; max-height: 420px; height: auto; object-fit: contain; border-radius: 12px; margin: 10px 0; }
+.ann-editor-wrap { overflow: hidden; border: 1px solid #cbd5e1; border-radius: 12px; background: #f8fafc; }
+html.dark .ann-editor-wrap { border-color: #475569; background: #0f172a; }
+.ann-toolbar { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px; border-bottom: 1px solid #cbd5e1; }
+html.dark .ann-toolbar { border-color: #475569; }
+.ann-toolbar button { min-height: 34px; min-width: 36px; padding: 5px 9px; border: 1px solid transparent; border-radius: 7px; color: var(--ink-800); font-size: 13px; font-weight: 700; }
+.ann-toolbar button:hover, .ann-toolbar button:focus-visible { border-color: var(--line); background: rgba(var(--brand-rgb),.12); }
+.ann-toolbar span { width: 1px; margin: 4px; background: #cbd5e1; }
+.ann-editor { min-height: 150px; max-height: 420px; overflow: auto; padding: 12px; outline: none; color: var(--ink-800); font-size: 14px; }
+.ann-editor:empty::before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; }
+.ann-editor img { max-width: 100%; max-height: 220px; border-radius: 8px; }
+.ann-preview { min-height: 56px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); color: var(--ink-500); overflow-wrap: anywhere; }
+.ann-body p, .ann-preview p { margin: .35em 0; }
+.ann-body ul, .ann-body ol, .ann-preview ul, .ann-preview ol { margin: .5em 0; padding-left: 1.5em; list-style: revert; }
+.ann-body blockquote, .ann-preview blockquote { margin: .6em 0; padding-left: .8em; border-left: 3px solid var(--brand-500); }
 .an-admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(98,114,139,.08); font-size: 12px; font-weight: 700; }
 .an-admin-row button { color: #e11d48; }
 #custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: rgba(var(--brand-rgb),.08); }

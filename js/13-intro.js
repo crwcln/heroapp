@@ -17,18 +17,16 @@ const INTRO_SCENES = [
 let introTimer = null;
 function introEnd() {
     clearTimeout(introTimer); document.documentElement.classList.remove('intro-first'); const el = document.getElementById('intro'); if (!el) return;
+    window.dispatchEvent(new CustomEvent('hero-intro-state', { detail: { playing: false } }));
     el.classList.add('out'); setTimeout(() => { el.remove(); if (window.tutMaybe) tutMaybe(); }, 950);
 }
 function introPlay() {
     if (document.getElementById('intro')) return;
     localStorage.setItem(introKey(), '1');
+    window.dispatchEvent(new CustomEvent('hero-intro-state', { detail: { playing: true } }));
     const el = document.createElement('div'); el.id = 'intro';
-    el.innerHTML = '<div class="in-stage"></div><div class="in-cap"></div><div class="in-bar"><i></i></div><button class="in-skip">Skip</button><div class="in-white"></div>';
+    el.innerHTML = '<div class="in-stage"></div><div class="in-cap"></div><div class="in-white"></div>';
     document.body.appendChild(el);
-    const total = INTRO_SCENES.reduce((a, s) => a + s.d, 0), bar = el.querySelector('.in-bar i');
-    el.querySelector('.in-skip').onclick = introEnd;
-    const onKey = e => { if (!document.getElementById('intro')) return document.removeEventListener('keydown', onKey); if (e.key === 'Escape') introEnd(); };
-    document.addEventListener('keydown', onKey);
     requestAnimationFrame(() => el.classList.add('on'));                    // site fades to white
     const show = i => {
         if (i >= INTRO_SCENES.length) return introEnd();
@@ -40,13 +38,12 @@ function introPlay() {
     setTimeout(() => {
         el.classList.add('film');
         if (SITE.introVideo) {   // your own MP4 (see js/00-site-config.js); falls back to the built-in film if it can't load
-            const v = document.createElement('video'); v.className = 'in-video'; v.src = SITE.introVideo; v.muted = true; v.autoplay = true; v.playsInline = true;
-            v.onended = introEnd; v.onerror = () => { v.remove(); snd.remove(); bar.style.transition = `width ${total}ms linear`; bar.style.width = '100%'; show(0); };
-            v.ontimeupdate = () => { if (v.duration) bar.style.width = (v.currentTime / v.duration * 100) + '%'; };
-            const snd = document.createElement('button'); snd.className = 'in-sound'; snd.textContent = 'Sound on'; snd.onclick = () => { v.muted = !v.muted; snd.textContent = v.muted ? 'Sound on' : 'Sound off'; };
-            el.append(v, snd); v.play().catch(() => {}); return;
+            const v = document.createElement('video'); v.className = 'in-video'; v.src = SITE.introVideo; v.muted = false; v.autoplay = true; v.playsInline = true;
+            v.onended = introEnd; v.onerror = () => { v.remove(); snd.remove(); show(0); };
+            const snd = document.createElement('button'); snd.className = 'in-sound'; snd.textContent = 'Sound off'; snd.setAttribute('aria-label', 'Mute intro sound'); snd.onclick = () => { v.muted = !v.muted; snd.textContent = v.muted ? 'Sound on' : 'Sound off'; snd.setAttribute('aria-label', v.muted ? 'Enable intro sound' : 'Mute intro sound'); if (!v.muted) v.play().catch(() => {}); };
+            el.append(v, snd); v.play().catch(() => { v.muted = true; snd.textContent = 'Tap for sound'; snd.setAttribute('aria-label', 'Enable intro sound'); }); return;
         }
-        bar.style.transition = `width ${total}ms linear`; bar.style.width = '100%'; show(0);
+        show(0);
     }, 1500);   // hold white, then reveal the night sky
 }
 document.getElementById('version-badge').textContent = 'HERO v' + SITE.version;

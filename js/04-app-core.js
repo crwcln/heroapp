@@ -302,7 +302,7 @@
                     category: a.category || 'Imported',
                     lat: parseFloat(a.lat), 
                     lng: parseFloat(a.lng),
-                    ...(Number.isFinite(Number(a.year)) ? { year: Number(a.year) } : {})
+                    ...(a.year != null && a.year !== '' && Number.isInteger(Number(a.year)) ? { year: Number(a.year) } : {})
                 }));
 
                 if (type === 'admin') { 
@@ -417,13 +417,14 @@
             const btnLoader = document.getElementById('add-loader');
             
             if (!name) return showToast("Enter a place name.", "error");
+            if (yearValue !== '' && (!Number.isInteger(historicalYear) || historicalYear < -5000 || historicalYear > 2100)) return showToast('Enter a whole year from 5000 BCE through 2100 CE.', 'error');
             btnLoader.classList.remove('hidden');
 
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`);
                 const data = await response.json();
                 if (data && data.length > 0) {
-                    globalLocations.push({ id: 'loc_' + Date.now(), name: data[0].name || name, category: cat, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), ...(Number.isFinite(historicalYear) ? { year: historicalYear } : {}) });
+                    globalLocations.push({ id: 'loc_' + Date.now(), name: data[0].name || name, category: cat, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), ...(Number.isInteger(historicalYear) ? { year: historicalYear } : {}) });
                     renderAdminList();
                     document.getElementById('place-name-input').value = '';
                     document.getElementById('place-year-input').value = '';
@@ -449,9 +450,10 @@
             globalLocations.forEach((loc, idx) => {
                 const item = document.createElement('div');
                 item.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700';
-                item.innerHTML = `<div class="min-w-0"><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}${Number.isFinite(Number(loc.year)) ? ` | ${Number(loc.year) < 0 ? `${Math.abs(Number(loc.year))} BCE` : `${loc.year} CE`}` : ''}</div></div>`;
+                const hasYear = loc.year != null && loc.year !== '' && Number.isInteger(Number(loc.year));
+                item.innerHTML = `<div class="min-w-0"><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}${hasYear ? ` | ${Number(loc.year) < 0 ? `${Math.abs(Number(loc.year))} BCE` : `${loc.year} CE`}` : ''}</div></div>`;
                 const actions = document.createElement('div'); actions.className = 'flex items-center gap-2 shrink-0';
-                const year = document.createElement('input'); year.type = 'number'; year.min = '-5000'; year.max = '2100'; year.step = '1'; year.value = Number.isFinite(Number(loc.year)) ? String(loc.year) : '';
+                const year = document.createElement('input'); year.type = 'number'; year.min = '-5000'; year.max = '2100'; year.step = '1'; year.value = hasYear ? String(loc.year) : '';
                 year.placeholder = 'Year'; year.title = 'Historical year (use a negative number for BCE)'; year.setAttribute('aria-label', `Historical year for ${loc.name}`);
                 year.className = 'w-24 p-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 dark:text-white';
                 year.onchange = () => { const value = year.value.trim(); if (value === '') delete loc.year; else if (Number.isInteger(Number(value))) loc.year = Number(value); else return showToast('Enter a whole historical year.', 'error'); renderAdminList(); };
@@ -684,26 +686,33 @@
                 hintMessage.setAttribute('aria-live', 'polite');
                 const regionHintButton = document.createElement('button');
                 regionHintButton.type = 'button'; regionHintButton.className = 'quiz-hint-button';
-                regionHintButton.textContent = 'Region hint −100 pts';
+                regionHintButton.textContent = 'Region hint -100 pts';
                 const letterHintButton = document.createElement('button');
                 letterHintButton.type = 'button'; letterHintButton.className = 'quiz-hint-button';
-                letterHintButton.textContent = 'First letter −200 pts';
-                const useHint = (kind) => {
+                letterHintButton.textContent = 'First letter -200 pts';
+                const useHint = async (kind) => {
                     const stat = quizStats[loc.id]; if (!stat || stat.solved) return;
                     const field = kind === 'region' ? 'region' : 'letter';
                     if (!stat.hintsUsed.includes(field)) {
                         const cost = field === 'region' ? 100 : 200;
                         stat.hintsUsed.push(field); stat.hintPenalty += cost; hintPenalty += cost; updateScoreDisplay();
                     }
+                    if (field === 'region') regionHintButton.textContent = 'Region hint revealed';
+                    else letterHintButton.textContent = 'First letter revealed';
                     const value = field === 'region'
-                        ? (typeof window.__heroRegionHint === 'function' ? window.__heroRegionHint(loc) : '')
+                        ? (typeof window.__heroRegionHint === 'function' ? await window.__heroRegionHint(loc) : '')
                         : String(loc.name || '').trim().charAt(0).toLocaleUpperCase();
                     hintMessage.textContent = field === 'region'
-                        ? (value ? `Region: ${value}` : 'Region: use the map’s position clue.')
-                        : `Starts with: ${value || '—'}`;
+                        ? (value ? `Region: ${value}` : 'Region hint unavailable; use the map position.')
+                        : `Starts with: ${value || '?'}`;
                 };
                 regionHintButton.onclick = (event) => { event.stopPropagation(); useHint('region'); };
                 letterHintButton.onclick = (event) => { event.stopPropagation(); useHint('letter'); };
+                const syncHintButtons = () => {
+                    const stat = quizStats[loc.id]; if (!stat) return;
+                    regionHintButton.textContent = stat.hintsUsed.includes('region') ? 'Region hint revealed' : 'Region hint -100 pts';
+                    letterHintButton.textContent = stat.hintsUsed.includes('letter') ? 'First letter revealed' : 'First letter -200 pts';
+                };
                 hintPanel.append(hintMessage, regionHintButton, letterHintButton);
                 popupWrap.appendChild(hintPanel);
 
@@ -738,7 +747,7 @@
                 if (gameMode !== 'find') marker.bindPopup(popupWrap, { minWidth: 220, offset: [0, -10], autoPanPaddingTopLeft: [10, 90] });
                 
                 // Auto focus input when dot is clicked
-                marker.on('popupopen', () => { setTimeout(() => { input.focus(); }, 50); mobileCenterMarker(marker); });
+                marker.on('popupopen', () => { syncHintButtons(); setTimeout(() => { input.focus(); }, 50); mobileCenterMarker(marker); });
             });
         }
 

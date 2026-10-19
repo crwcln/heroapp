@@ -55,6 +55,7 @@
         // ================= AMBIENT MUSIC (generated, no audio files) =================
         if (prefs.music === undefined) { prefs.music = 'on'; prefs.vol = 35; }
         const mus = { ctx: null, master: null, bus: null, i: 0, timer: null };
+        let introMusicMuted = !!document.getElementById('intro');
         const CHORDS = [[110, 164.8, 220, 261.6, 329.6], [87.3, 130.8, 174.6, 220, 329.6], [130.8, 196, 246.9, 329.6, 392], [98, 146.8, 196, 246.9, 293.7]];
         function musicNote(f, t, dur) {
             const o = mus.ctx.createOscillator(), g = mus.ctx.createGain();
@@ -64,7 +65,7 @@
         }
         function musicChord() { const t = mus.ctx.currentTime; CHORDS[mus.i++ % 4].forEach((f, k) => musicNote(f, t + k * .6, 9)); if (Math.random() < .7) musicNote(CHORDS[mus.i % 4][4] * 2, t + 3 + Math.random() * 3, 5); }
         function musicSync() {
-            const on = prefs.music !== 'off', vol = (prefs.vol == null ? 35 : prefs.vol) / 100 * .22;
+            const on = prefs.music !== 'off' && !introMusicMuted, vol = (prefs.vol == null ? 35 : prefs.vol) / 100 * .22;
             if (on && !mus.ctx && mus.armed) {
                 const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
                 mus.ctx = new C(); mus.master = mus.ctx.createGain(); mus.master.gain.value = 0; mus.master.connect(mus.ctx.destination);
@@ -77,6 +78,7 @@
             document.getElementById('sw-music').classList.toggle('on', on); document.getElementById('vol').value = prefs.vol == null ? 35 : prefs.vol; document.getElementById('vol').style.setProperty('--v', (prefs.vol == null ? 35 : prefs.vol) + '%');
         }
         const _ap = applyPrefs; applyPrefs = function () { _ap(); musicSync(); }; applyPrefs();
+        window.addEventListener('hero-intro-state', e => { introMusicMuted = !!e.detail?.playing; musicSync(); });
         ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (!mus.armed) { mus.armed = true; musicSync(); } }, { once: true }));
         document.addEventListener('visibilitychange', () => { if (!mus.ctx) return; document.hidden ? mus.ctx.suspend() : (prefs.music !== 'off' && mus.ctx.resume()); });
 

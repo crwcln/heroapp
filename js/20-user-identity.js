@@ -22,6 +22,7 @@
 
     let latest = { user: null, authorized: false, isAdmin: false };
     let mode = 'signin';                 // gate form: 'signin' | 'register'
+    let profileOpenPending = false;
     let dialog = null, body = null;
     let knownProfilesUnsub = null;
 
@@ -56,7 +57,7 @@
         body = dialog.querySelector('#hero-auth-body');
     }
     function openDialog() { ensureDialog(); dialog.classList.remove('hidden'); requestAnimationFrame(() => dialog.classList.add('open')); render(); }
-    function closeDialog() { if (!dialog) return; dialog.classList.remove('open'); setTimeout(() => dialog.classList.add('hidden'), 200); }
+    function closeDialog() { profileOpenPending = false; if (!dialog) return; dialog.classList.remove('open'); setTimeout(() => dialog.classList.add('hidden'), 200); }
     window.__heroOpenAccountDialog = openDialog;
     window.__heroShowAuthGate = openDialog;
 
@@ -70,8 +71,13 @@
         btn.setAttribute('aria-label', 'Profile and account');
         btn.innerHTML = '<i data-lucide="user-round" class="w-4 h-4"></i><span class="hidden sm:inline">Profile</span>';
         btn.onclick = () => {
-            if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') switchView('profile-view');
-            else openDialog();
+            if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') {
+                profileOpenPending = false;
+                switchView('profile-view');
+            } else {
+                profileOpenPending = true;
+                openDialog();
+            }
         };
         actions.insertBefore(btn, document.getElementById('nav-more') || document.getElementById('theme-btn') || null);
         if (window.lucide) lucide.createIcons();
@@ -317,13 +323,13 @@
                 dataCol().collection('leaderboard').where('userId', '==', user.uid).get(),
                 dataCol().collection('leaderboardTwoYear').where('userId', '==', user.uid).get(),
                 dataCol().collection('flappy').where('userId', '==', user.uid).get(),
-                dataCol().collection('dailyChallengeProgress').doc(user.uid).get(),
+                dataCol().collection('dailyChallengeProgress').doc(user.uid).get().catch(() => null),
             ]);
             const quizRows = [...y1.docs.map((d) => ({ ...d.data(), tour: '1 Year' })), ...y2.docs.map((d) => ({ ...d.data(), tour: '2 Year' }))];
             const scores = quizRows.map((r) => Number(r.score) || 0);
             const best = scores.length ? Math.max(...scores) : 0;
             const flappyBest = flappy.docs.reduce((n, d) => Math.max(n, Number(d.data().score) || 0), 0);
-            const dailyProgress = dailyProgressDoc.exists ? dailyProgressDoc.data() : {};
+            const dailyProgress = dailyProgressDoc && dailyProgressDoc.exists ? dailyProgressDoc.data() : {};
             const today = new Date().toISOString().slice(0, 10);
             const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
             const dailyStreak = dailyProgress.lastCompletedDay === today || dailyProgress.lastCompletedDay === yesterday ? (Number(dailyProgress.currentStreak) || 0) : 0;
@@ -408,6 +414,11 @@
         ensureNavButton();
         render();
         if (latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') startKnownProfiles(); else stopKnownProfiles();
+        if (profileOpenPending && latest.authorized && latest.user && !latest.user.isAnonymous && latest.user.uid !== 'admin') {
+            profileOpenPending = false;
+            closeDialog();
+            switchView('profile-view');
+        }
         if (latest.authorized && fbCurView === 'profile-view') renderProfilePage(latest.user);
         if (latest.authorized && dialog && !dialog.classList.contains('hidden')) setTimeout(closeDialog, 600);   // signed in while the gate was open: close it, let them see the app
     });

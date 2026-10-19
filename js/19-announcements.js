@@ -3,6 +3,30 @@
 const annCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('announcements');
 let annList = [], annUnsub = null;
 function annFmtDate(ts) { const d = ts && ts.toDate ? ts.toDate() : new Date(); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+function sanitizeAnnouncementHtml(input) {
+    const source = document.createElement('template'); source.innerHTML = String(input || '');
+    const allowed = new Set(['P','BR','STRONG','B','EM','I','U','S','DEL','UL','OL','LI','BLOCKQUOTE','A','IMG']);
+    const clean = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue || '');
+        if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment();
+        const tag = node.tagName;
+        if (!allowed.has(tag)) { const fragment = document.createDocumentFragment(); [...node.childNodes].forEach(child => fragment.append(clean(child))); return fragment; }
+        const out = document.createElement(tag.toLowerCase());
+        if (tag === 'A') {
+            try { const url = new URL(node.getAttribute('href') || '', location.href); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) return document.createTextNode(node.textContent || ''); out.href = url.href; out.target = '_blank'; out.rel = 'noopener noreferrer'; }
+            catch (_) { return document.createTextNode(node.textContent || ''); }
+        }
+        if (tag === 'IMG') {
+            try { const url = new URL(node.getAttribute('src') || '', location.href); if (url.protocol !== 'https:') return document.createDocumentFragment(); out.src = url.href; out.alt = String(node.getAttribute('alt') || '').slice(0, 200); out.loading = 'lazy'; }
+            catch (_) { return document.createDocumentFragment(); }
+        } else [...node.childNodes].forEach(child => out.append(clean(child)));
+        return out;
+    };
+    const result = document.createDocumentFragment(); [...source.content.childNodes].forEach(node => result.append(clean(node))); return result;
+}
+function renderAnnouncementBody(element, announcement) {
+    element.replaceChildren(sanitizeAnnouncementHtml(announcement.bodyHtml || announcement.body || ''));
+}
 function startAnnouncements() {
     if (annUnsub || !window.__heroCanAccessApp) return;
     annUnsub = annCol().orderBy('createdAt', 'desc').limit(30).onSnapshot(s => {
@@ -18,7 +42,7 @@ function renderAnnList() {
         const card = document.createElement('div'); card.className = 'ann-card';
         card.innerHTML = '<div class="ann-head"><div class="ann-tags"></div><div class="ann-title"></div><div class="ann-date"></div></div><div class="ann-body"></div>';
         const tagBox = card.querySelector('.ann-tags'); (a.tags || []).forEach(t => { const s = document.createElement('span'); s.className = 'ann-tag'; s.textContent = t; tagBox.appendChild(s); });
-        card.querySelector('.ann-title').textContent = a.title || 'Announcement'; card.querySelector('.ann-date').textContent = annFmtDate(a.createdAt); card.querySelector('.ann-body').textContent = a.body || '';
+        card.querySelector('.ann-title').textContent = a.title || 'Announcement'; card.querySelector('.ann-date').textContent = annFmtDate(a.createdAt); renderAnnouncementBody(card.querySelector('.ann-body'), a);
         box.appendChild(card);
     });
 }
@@ -32,15 +56,20 @@ function renderAnnAdmin() {
     lucide.createIcons();
 }
 async function postAnnouncement() {
-    const title = document.getElementById('ann-title').value.trim(), body = document.getElementById('ann-body').value.trim();
+    const title = document.getElementById('ann-title').value.trim(), editor = document.getElementById('ann-body'), bodyHtml = editor.innerHTML.trim(), body = editor.innerText.trim();
     const tags = document.getElementById('ann-tags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 4);
     if (!title || !body) return showToast('Add a title and a message.', 'error');
     try {
-        await annCol().add({ title, body, tags, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        document.getElementById('ann-title').value = ''; document.getElementById('ann-body').value = ''; document.getElementById('ann-tags').value = '';
+        if (!title || !body) return showToast('Add a title and a message.', 'error');
+        await annCol().add({ title, body, bodyHtml, tags, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        document.getElementById('ann-title').value = ''; editor.innerHTML = ''; document.getElementById('ann-tags').value = '';
         showToast('Announcement posted.', 'success');
     } catch (e) { showToast(`Could not post (${e.code || 'error'}).`, 'error'); }
 }
+window.toggleAnnouncementPreview = function () {
+    const wrap = document.getElementById('ann-preview-wrap'), visible = wrap.classList.toggle('hidden') === false;
+    if (visible) renderAnnouncementBody(document.getElementById('ann-preview'), { bodyHtml: document.getElementById('ann-body').innerHTML });
+};
 async function deleteAnnouncement(id) {
     if (!(await customConfirm({ title: 'Delete this announcement?', message: 'It disappears from the Announcements page immediately.', confirmText: 'Delete', danger: true }))) return;
     try { await annCol().doc(id).delete(); showToast('Deleted.', 'success'); } catch (e) { showToast(`Could not delete (${e.code || 'error'}).`, 'error'); }
@@ -52,7 +81,7 @@ function maybeShowAnnPopup() {
     if (badge) { badge.textContent = annList.length > 99 ? '99+' : String(annList.length); badge.classList.toggle('hidden', !annList.length); }
     if (!latest) { modal.classList.add('hidden'); mini.classList.add('hidden'); return; }
     document.getElementById('gm-title').textContent = latest.title; document.getElementById('gm-date').textContent = annFmtDate(latest.createdAt);
-    document.getElementById('global-msg-text').textContent = latest.body;
+    renderAnnouncementBody(document.getElementById('global-msg-text'), latest);
     const tagBox = document.getElementById('gm-tags'); tagBox.innerHTML = '';
     (latest.tags || []).forEach(t => { const s = document.createElement('span'); s.className = 'ann-tag'; s.style.cssText = 'background:rgba(255,255,255,.22);color:#fff'; s.textContent = t; tagBox.appendChild(s); });
     if (localStorage.getItem('hero_lastSeenAnn') !== latest.id) { modal.classList.remove('hidden'); mini.classList.add('hidden'); lucide.createIcons(); }

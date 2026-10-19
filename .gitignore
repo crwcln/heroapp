@@ -1,6 +1,7 @@
 # Local-only trailer project and dependency folders
 /hero-trailer/
 /node_modules/
+content/location-catalog.json
 
 # Local secrets and environment overrides (keep .env.example files trackable)
 .env

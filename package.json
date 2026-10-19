@@ -7,6 +7,7 @@
     "release:minor": "node scripts/bump-version.js minor && npm run build:css",
     "release:major": "node scripts/bump-version.js major && npm run build:css",
     "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o css/tailwind.css --minify",
+    "build:boundaries": "node scripts/build-boundaries.mjs",
     "setup:git-hooks": "node scripts/setup-git-hooks.js"
   },
   "devDependencies": {

@@ -3,44 +3,58 @@ const TILE_HOT = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
 // Esri World Imagery is satellite/aerial imagery; OSM remains available as a no-key street map layer.
 const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 // ===== MAP HIGHLIGHT + PREMIUM EXTRAS =====
-// Outlines the area behind a marker (country, continent, sea/ocean, river, region) using Natural Earth boundary data
-// loaded on demand from jsDelivr; places without a matching shape get an animated pulse ring instead.
-const HL_BASE = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/';
-const HL_FILES = { land: 'ne_50m_admin_0_countries.geojson', water: 'ne_50m_geography_marine_polys.geojson', river: 'ne_50m_rivers_lake_centerlines.geojson', lake: 'ne_50m_lakes.geojson', region: 'ne_50m_geography_regions_polys.geojson' };
-let hlIndex = {}, hlLoading = null, hlLayers = [], hlTok = 0;
-const hlNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(the|river|sea|ocean|gulf|bay|strait|empire|kingdom|mountains|mountain|desert|peninsula|lake|plateau|islands|island)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-const hlAdd = (k, type, f) => { const n = hlNorm(k); if (n) (hlIndex[n] = hlIndex[n] || []).push({ type, f }); };
+// Curated Natural Earth 10m and historical boundaries are built into one local GeoJSON file.
+// No map-boundary data is requested from a CDN while a player is using the site.
+let hlLocations = {}, hlFeatures = {}, hlLoading = null, hlLayers = [], hlTok = 0;
+const hlNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 function hlLoad() {
     if (hlLoading) return hlLoading;
-    hlLoading = Promise.all(Object.entries(HL_FILES).map(async ([type, file]) => {
-        try {
-            const j = await (await fetch(HL_BASE + file)).json();
-            j.features.forEach(f => {
-                const p = f.properties || {};
-                ['name', 'NAME', 'ADMIN', 'NAME_LONG', 'name_en', 'NAME_EN', 'name_alt', 'NAME_ALT', 'name_ar', 'name_es', 'name_fr', 'name_de', 'name_ru', 'name_zh', 'NAME_AR', 'NAME_ES', 'NAME_FR', 'NAME_DE', 'NAME_RU', 'NAME_ZH'].forEach(k => p[k] && String(p[k]).split(/[|;]/).forEach(n => hlAdd(n.trim(), type, f)));
-                if (type === 'land' && p.CONTINENT) { const key = '__c_' + hlNorm(p.CONTINENT); (hlIndex[key] = hlIndex[key] || []).push({ type: 'continent', f }); }
-            });
-        } catch (e) { /* offline or blocked: pulse rings are used instead */ }
-    }));
+    hlLoading = fetch('content/location-boundaries.geojson').then(response => {
+        if (!response.ok) throw new Error(`Boundary bundle unavailable (${response.status})`);
+        return response.json();
+    }).then(data => {
+        hlLocations = data.locations || {};
+        hlFeatures = Object.fromEntries((data.features || []).map(feature => [feature.id || feature.properties?.heroBoundaryId, feature]));
+    }).catch(error => {
+        console.warn('Hero boundary bundle could not load. Run npm run build:boundaries after exporting the quiz catalog.', error);
+        hlLocations = {}; hlFeatures = {};
+    });
     return hlLoading;
 }
-const hlKind = loc => { const t = (loc.name + ' ' + (loc.category || '')).toLowerCase();
-    return /river|sea|ocean|gulf|bay|strait|lake|canal|channel|current/.test(t) ? 'water' : /empire|kingdom|dynasty|caliphate|republic/.test(t) ? 'empire' : /route|road|trade|silk/.test(t) ? 'route' : 'land'; };
+const hlLocationEntry = loc => {
+    if (!loc || !loc.id) return null;
+    return hlLocations[`${loc.tour || yearMode}:${loc.id}`] || hlLocations[loc.id] || null;
+};
+const hlKind = loc => {
+    const t = (loc.name + ' ' + (loc.category || '')).toLowerCase();
+    return loc.year != null && loc.year !== '' && Number.isInteger(Number(loc.year)) ? 'empire' : /empire|kingdom|dynasty|caliphate|sultanate|ancient|historic/.test(t) ? 'empire' : /route|road|trade|silk/.test(t) ? 'route' : /river|stream/.test(t) ? 'river' : /lake|reservoir/.test(t) ? 'lake' : /sea|ocean|gulf|bay|strait|canal|channel|current|marine/.test(t) ? 'water' : 'land';
+};
+function hlHintRegion(loc) {
+    const entry = hlLocationEntry(loc);
+    if (entry?.hintRegion) return entry.hintRegion;
+    const feature = entry?.featureIds?.map(id => hlFeatures[id]).find(Boolean), p = feature?.properties || {};
+    const local = p.NAME_1 || p.name_1 || p.ADM1_NAME || '';
+    const country = p.ADM0_NAME || p.NAME_0 || p.ADMIN || '';
+    if (local && country && hlNorm(local) !== hlNorm(country)) return `${local}, ${country}`;
+    const region = loc.region || loc.continent || loc.country || p.CONTINENT || p.REGION_UN || p.REGION_WB || p.REGION || p.ADM0_NAME || p.ADMIN || p.NAME_0;
+    if (region) return String(region);
+    const lat = Number(loc.lat), lng = Number(loc.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return `${lat >= 0 ? 'Northern' : 'Southern'} ${lng >= 0 ? 'Eastern' : 'Western'} Hemisphere`;
+    return '';
+}
+window.__heroRegionHint = async loc => { await hlLoad(); return hlHintRegion(loc); };
 function hlClear() { hlTok++; if (hlLayers.length) { try { hlLayers.forEach(layer => map.removeLayer(layer)); } catch (e) { /* map already gone */ } hlLayers = []; } }
 function hlShow(loc) {
-    window.__focusLoc = { name: loc.name, category: loc.category || '' };   // Clio reads this so "tell me more about it" knows what "it" is
+    window.__focusLoc = { name: loc.name, category: loc.category || '' };
     hlClear(); const my = hlTok;
     hlLoad().then(() => {
         if (my !== hlTok || typeof map === 'undefined' || !map) return;
-        const n = hlNorm(loc.name); let ms = (hlIndex[n] || []).slice();
-        if (!ms.length && hlIndex['__c_' + n]) ms = hlIndex['__c_' + n].slice();
-        const pri = hlKind(loc) === 'water' ? ['river', 'lake', 'water', 'region', 'land', 'continent'] : ['land', 'continent', 'region', 'water', 'lake', 'river'];
-        ms.sort((a, b) => pri.indexOf(a.type) - pri.indexOf(b.type));
-        const top = ms.length ? ms[0].type : null, sel = ms.filter(m => m.type === top);
-        if (sel.length) {
-            const collection = { type: 'FeatureCollection', features: sel.map(m => m.f) };
-            // Stacked vector strokes keep borders readable over satellite and dark tiles.
-            ['hl-halo', 'hl-glow', 'hl-outline', 'hl hl-' + top].forEach(className => {
+        const entry = hlLocationEntry(loc);
+        const features = (entry?.featureIds || []).map(id => hlFeatures[id]).filter(Boolean);
+        if (features.length) {
+            const kind = entry.kind === 'historic' ? 'empire' : entry.kind || hlKind(loc);
+            const collection = { type: 'FeatureCollection', features };
+            ['hl-halo', 'hl-glow', 'hl-outline', 'hl hl-' + kind].forEach(className => {
                 const layer = L.geoJSON(collection, { style: () => ({ className }), interactive: false }).addTo(map);
                 hlLayers.push(layer);
             });

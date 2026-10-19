@@ -19,6 +19,41 @@
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
     <script src="js/02-firebase-config.js"></script>
     <script src="js/00-site-config.js"></script>
+    <style>
+        html.launch-locked, html.launch-locked body { background:#090d1c!important; color:#f5f3ea!important; overflow:hidden!important; }
+        html.launch-locked body > :not(#launch-gate) { visibility:hidden!important; }
+        #launch-gate { display:none; position:fixed; inset:0; z-index:2147483000; overflow:hidden; place-items:center; padding:24px; color:#f5f3ea; background:radial-gradient(ellipse at 50% 38%,#18234a 0%,#0c1229 42%,#070a14 100%); font-family:Spectral,Georgia,serif; }
+        html.launch-locked #launch-gate { display:grid; visibility:visible!important; }
+        #launch-gate:before,#launch-gate:after { content:""; position:absolute; width:min(74vw,760px); aspect-ratio:1; border:1px solid rgba(174,186,255,.12); border-radius:50%; animation:gate-orbit 38s linear infinite; pointer-events:none; }
+        #launch-gate:after { width:min(56vw,570px); border-color:rgba(255,190,111,.12); animation-duration:27s; animation-direction:reverse; }
+        @keyframes gate-orbit { to { transform:rotate(360deg); } }
+        .launch-card { position:relative; z-index:2; width:min(100%,650px); padding:clamp(26px,6vw,58px); border:1px solid rgba(184,191,255,.22); border-radius:30px; background:linear-gradient(145deg,rgba(20,27,55,.88),rgba(12,17,36,.82)); box-shadow:0 30px 100px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.06); text-align:center; backdrop-filter:blur(18px); transition:transform .18s ease; }
+        .launch-mark { width:68px;height:68px;margin:0 auto 22px;display:grid;place-items:center;border:1px solid rgba(255,190,111,.55);border-radius:22px;color:#ffc27d;font:700 40px/1 Spectral,Georgia,serif;box-shadow:0 0 45px rgba(255,180,84,.14);animation:launch-pulse 3s ease-in-out infinite; }
+        @keyframes launch-pulse { 50% { box-shadow:0 0 62px rgba(255,180,84,.3); transform:translateY(-3px); } }
+        .launch-eyebrow { color:#b7bbef; font:700 11px/1.4 system-ui,sans-serif; letter-spacing:.24em; text-transform:uppercase; }
+        .launch-card h1 { margin:10px 0 8px;color:#fff;font-size:clamp(34px,7vw,60px);font-weight:700;line-height:1.05; }
+        .launch-copy { color:#bfc3dc;font:500 15px/1.6 system-ui,sans-serif; }
+        .launch-countdown { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:30px 0 24px; }
+        .launch-unit { padding:14px 5px 12px;border:1px solid rgba(174,186,255,.15);border-radius:15px;background:rgba(255,255,255,.035); }
+        .launch-unit b { display:block;color:#fff;font:700 clamp(25px,6vw,42px)/1.1 ui-monospace,monospace;font-variant-numeric:tabular-nums; }
+        .launch-unit span { display:block;margin-top:7px;color:#aeb5d5;font:700 9px/1 system-ui,sans-serif;letter-spacing:.15em;text-transform:uppercase; }
+        .launch-date { color:#ffc27d;font:600 13px/1.4 system-ui,sans-serif;letter-spacing:.06em; }
+        .launch-form { display:flex;gap:8px;margin-top:24px; }
+        .launch-form input { min-width:0;flex:1;padding:13px 15px;border:1px solid rgba(184,191,255,.24);border-radius:12px;outline:none;background:rgba(5,8,20,.62);color:#fff;font:500 14px system-ui,sans-serif; }
+        .launch-form input:focus { border-color:#ffc27d;box-shadow:0 0 0 3px rgba(255,194,125,.13); }
+        .launch-form button { padding:0 18px;border:0;border-radius:12px;background:#ffc27d;color:#171729;font:800 13px system-ui,sans-serif;cursor:pointer;transition:transform .15s,background .15s; }
+        .launch-form button:hover { transform:translateY(-2px);background:#ffd29f; }
+        .launch-error { min-height:20px;margin-top:10px;color:#ff9da9;font:600 12px system-ui,sans-serif; }
+        .launch-stars { position:absolute;inset:0;pointer-events:none;overflow:hidden; }
+        .launch-star { position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 12px 2px rgba(190,199,255,.6);animation:star-drift var(--dur) linear infinite; }
+        @keyframes star-drift { from { transform:translate3d(0,20px,0);opacity:0 } 15%,80% {opacity:.8} to { transform:translate3d(var(--dx),-110vh,0);opacity:0 } }
+        #launch-gate.leaving { opacity:0;transform:scale(1.02);transition:opacity .55s,transform .55s; }
+        @media(max-width:480px) { #launch-gate{padding:14px}.launch-card{padding:26px 18px;border-radius:24px}.launch-countdown{gap:6px;margin:24px 0 18px}.launch-unit{padding:12px 2px}.launch-unit span{font-size:8px}.launch-form{flex-direction:column}.launch-form button{min-height:46px} }
+        @media(prefers-reduced-motion:reduce) { #launch-gate *,#launch-gate:before,#launch-gate:after { animation-duration:.01ms!important;animation-iteration-count:1!important; } }
+    </style>
+    <script>
+        try { var _launchDeadline = Date.parse(SITE.launchAt); if (Date.now() < _launchDeadline && sessionStorage.getItem('mq_devUnlocked') !== '1') document.documentElement.classList.add('launch-locked'); } catch (_) { document.documentElement.classList.add('launch-locked'); }
+    </script>
     <script src="js/21-runtime-bugs.js"></script>
     <script>try{var _t=localStorage.getItem('theme');if(_t!=='light')document.documentElement.classList.add('dark');if(!localStorage.getItem('hero_intro_'+SITE.intro)&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&window.top===window.self){document.documentElement.classList.add('intro-first');setTimeout(function(){document.documentElement.classList.remove('intro-first')},120000);}}catch(e){}</script>
     <script>
@@ -42,6 +77,27 @@
     <link rel="stylesheet" href="css/tailwind.css">
 </head>
 <body class="text-slate-800 dark:text-slate-200 transition-colors duration-300">
+    <section id="launch-gate" aria-labelledby="launch-title">
+        <div class="launch-stars" aria-hidden="true"></div>
+        <main class="launch-card">
+            <div class="launch-mark" aria-hidden="true">H</div>
+            <p class="launch-eyebrow">A new chapter begins</p>
+            <h1 id="launch-title">Hero is almost here.</h1>
+            <p class="launch-copy">The atlas opens soon. Until then, the stars are keeping your place.</p>
+            <div class="launch-countdown" aria-label="Countdown to launch">
+                <div class="launch-unit"><b id="launch-days">00</b><span>Days</span></div>
+                <div class="launch-unit"><b id="launch-hours">00</b><span>Hours</span></div>
+                <div class="launch-unit"><b id="launch-minutes">00</b><span>Minutes</span></div>
+                <div class="launch-unit"><b id="launch-seconds">00</b><span>Seconds</span></div>
+            </div>
+            <p class="launch-date">October 20 · 6:00 PM Eastern Time</p>
+            <form class="launch-form" onsubmit="event.preventDefault();unlockLaunchGate()">
+                <input id="launch-password" type="password" placeholder="Early access password" autocomplete="current-password" aria-label="Early access password">
+                <button id="launch-enter" type="submit">Enter early</button>
+            </form>
+            <p id="launch-error" class="launch-error" role="status" aria-live="polite"></p>
+        </main>
+    </section>
     <div id="site-cover"><div class="ld-glow"></div><div class="ld"><i class="ld-ripple"></i><i class="ld-ripple"></i><i class="ld-ripple"></i>
         <div class="ld-mark"><svg class="ld-ring" viewBox="0 0 120 120"><defs><linearGradient id="ldGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand-500)"/><stop offset="1" style="stop-color:var(--sec)"/></linearGradient></defs><circle class="trk" cx="60" cy="60" r="54"/><circle class="prg" cx="60" cy="60" r="54"/></svg>
         <svg class="ld-logo" viewBox="0 0 64 64" fill="currentColor"><rect class="badge" x="4" y="4" width="56" height="56" rx="14"/><text class="glyph" x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="Spectral,Georgia,serif" font-weight="700" font-size="30">H</text></svg></div>

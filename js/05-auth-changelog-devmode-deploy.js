@@ -16,6 +16,66 @@
             } catch (err) { if (target === 'admin') lastAuthErr = 'network'; return null; }
         }
 
+        // ================= PUBLIC LAUNCH GATE =================
+        const launchDeadline = Date.parse(SITE.launchAt);
+        let launchClock = null, launchBusy = false;
+        function openLaunchGate() {
+            const gate = document.getElementById('launch-gate');
+            if (!gate || !document.documentElement.classList.contains('launch-locked')) return;
+            document.documentElement.classList.remove('launch-locked');
+            clearInterval(launchClock); launchClock = null;
+            gate.classList.add('leaving');
+            setTimeout(() => gate.remove(), 600);
+        }
+        function updateLaunchClock() {
+            const remaining = Math.max(0, launchDeadline - Date.now());
+            const seconds = Math.floor(remaining / 1000);
+            const write = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = String(value).padStart(2, '0'); };
+            write('launch-days', Math.floor(seconds / 86400));
+            write('launch-hours', Math.floor(seconds % 86400 / 3600));
+            write('launch-minutes', Math.floor(seconds % 3600 / 60));
+            write('launch-seconds', seconds % 60);
+            if (!remaining) openLaunchGate();
+        }
+        window.unlockLaunchGate = async function () {
+            if (launchBusy) return;
+            const input = document.getElementById('launch-password'), button = document.getElementById('launch-enter'), message = document.getElementById('launch-error');
+            const password = input.value;
+            if (!password) { message.textContent = 'Enter your early access password.'; input.focus(); return; }
+            launchBusy = true; button.disabled = true; button.textContent = 'Checking…'; message.textContent = '';
+            const ok = await checkPassword('dev', password);
+            launchBusy = false; button.disabled = false; button.textContent = 'Enter early';
+            if (ok === true) {
+                sessionStorage.setItem('mq_devUnlocked', '1');
+                openLaunchGate();
+                return;
+            }
+            message.textContent = ok === false ? 'That password did not work. Try again.' : 'Early access could not be checked. Please try again.';
+            input.value = ''; input.focus();
+            const card = document.querySelector('.launch-card');
+            if (card && !matchMedia('(prefers-reduced-motion: reduce)').matches) { card.animate([{ transform:'translateX(0)' },{ transform:'translateX(-8px)' },{ transform:'translateX(7px)' },{ transform:'translateX(0)' }], { duration:300 }); }
+        };
+        function initLaunchGate() {
+            const gate = document.getElementById('launch-gate');
+            if (!gate || !document.documentElement.classList.contains('launch-locked')) return;
+            const stars = gate.querySelector('.launch-stars');
+            for (let i = 0; i < 56; i++) {
+                const star = document.createElement('i'); star.className = 'launch-star';
+                star.style.left = `${Math.random() * 100}%`; star.style.top = `${Math.random() * 110}%`;
+                star.style.setProperty('--dur', `${9 + Math.random() * 20}s`); star.style.setProperty('--dx', `${Math.round(Math.random() * 100 - 50)}px`);
+                star.style.animationDelay = `${-Math.random() * 25}s`; stars.appendChild(star);
+            }
+            const card = gate.querySelector('.launch-card');
+            gate.addEventListener('pointermove', event => {
+                if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                const rect = gate.getBoundingClientRect(), x = (event.clientX - rect.left) / rect.width - .5, y = (event.clientY - rect.top) / rect.height - .5;
+                card.style.transform = `perspective(900px) rotateY(${x * 3}deg) rotateX(${-y * 3}deg)`;
+            });
+            gate.addEventListener('pointerleave', () => { card.style.transform = ''; });
+            updateLaunchClock(); launchClock = setInterval(updateLaunchClock, 1000);
+        }
+        initLaunchGate();
+
         // ================= CHANGELOG =================
         let clEntries = [], clEditing = null, clDirty = false, clChecked = false;
         const gs = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('globalSettings');
