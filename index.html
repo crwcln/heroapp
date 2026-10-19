@@ -71,7 +71,7 @@
         })();
     </script>
     <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/premium.css">
+    <link rel="stylesheet" href="css/premium.css?v=20261019-account-daily-tour-motion">
     <link rel="stylesheet" href="css/night.css">
     <link rel="stylesheet" href="css/intro.css">
     <link rel="stylesheet" href="css/secret.css">
@@ -188,7 +188,7 @@
             <p class="text-slate-500 dark:text-slate-400 mb-12 text-lg max-w-xl mx-auto font-medium"><span id="tagline">Studying, Redefined.</span><br>Pin down the places that shaped history. Beat the clock, build a streak, earn your place on the board.</p>
             <figure id="qotd" class="qotd"><blockquote id="qotd-t"></blockquote><figcaption id="qotd-a"></figcaption></figure>
             <section id="daily-challenge-card" class="daily-challenge-card" aria-labelledby="daily-challenge-title">
-                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>One shared set of places each day. Keep your streak alive.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
+                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>Each UTC day, Hero picks up to 7 places from the regular 1 Year tour. Everyone gets the same round, with a separate leaderboard and profile streak.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
                 <div class="daily-challenge-actions"><button id="daily-challenge-start" class="cm-btn go" type="button" onclick="startDailyChallenge()" disabled>Start today's challenge</button><button type="button" class="cm-btn ghost" onclick="openDailyLeaderboard()">Daily leaderboard</button></div>
             </section>
             <div id="mode-pick" class="flex justify-center gap-2 mb-6 flex-wrap"><button class="st-chip" data-gm="identify" onclick="setGameMode('identify')">Name the Place</button><button class="st-chip" data-gm="find" onclick="setGameMode('find')">Find the Land</button><button class="st-chip" onclick="switchView('review-view')">Revisit the Forgotten <span id="miss-count"></span></button><label class="st-chip cb-wrap" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rand-locs" class="cb-native" onchange="localStorage.setItem('hero_rand', this.checked ? '1' : '')"><span class="cb-box" aria-hidden="true"></span> Random order</label></div>
@@ -760,7 +760,7 @@
         };
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/03-year-mode.js"></script>
+    <script src="js/03-year-mode.js?v=20261019-tour-motion"></script>
     <script src="js/04-app-core.js"></script>
     <script src="js/05-auth-changelog-devmode-deploy.js"></script>
     <script src="js/06-feedback-form.js"></script>
@@ -777,7 +777,7 @@
     <script src="js/17-features.js"></script>
     <script src="js/18-bulk-select.js"></script>
     <script src="js/19-announcements.js"></script>
-    <script src="js/20-user-identity.js?v=20261019-admin-account-dialog"></script>
+    <script src="js/20-user-identity.js?v=20261019-account-delete"></script>
     <script src="js/23-daily-challenge.js"></script>
     <script src="js/22-manoj-cursor.js"></script>
 </body>

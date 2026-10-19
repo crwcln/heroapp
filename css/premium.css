@@ -454,11 +454,23 @@ html.dark .acct-ico { color: var(--brand-300); }
 .bulk-select-toolbar > button { padding: 7px 14px !important; font-size: 12px !important; border-radius: 10px; font-weight: 700; }
 
 /* ===== year-switch transition ===== */
-.year-swap-out { animation: yearOut .16s ease both; }
-.year-swap-in { animation: yearIn .28s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes yearOut { to { opacity: 0; transform: translateY(-4px) scale(.99); } }
-@keyframes yearIn { from { opacity: 0; transform: translateY(4px) scale(.99); } to { opacity: 1; transform: none; } }
+.year-swap-out { animation: yearOut .19s ease both; }
+.year-swap-in { animation: yearIn .4s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes yearOut { to { opacity: 0; filter: blur(4px); transform: perspective(900px) rotateX(-2deg) translateY(-8px) scale(.985); } }
+@keyframes yearIn { from { opacity: 0; filter: blur(4px); transform: perspective(900px) rotateX(2deg) translateY(10px) scale(.985); } to { opacity: 1; filter: blur(0); transform: none; } }
 html[data-motion=off] .year-swap-out, html[data-motion=off] .year-swap-in { animation: none; }
+
+.acct-delete-zone { margin-top:18px; padding:18px; border:1px solid rgba(244,63,94,.22); border-radius:15px; background:rgba(244,63,94,.045); }
+.acct-delete-zone h3 { margin:0; font-size:14px; font-weight:850; color:#be123c; }
+.dark .acct-delete-zone h3 { color:#fda4af; }
+.acct-delete-zone > p,.acct-delete-note { margin:5px 0 12px; color:var(--ink-500); font-size:12px; line-height:1.55; }
+.acct-delete-open { border:1px solid rgba(244,63,94,.35); border-radius:10px; padding:9px 13px; background:rgba(244,63,94,.1); color:#be123c; font-size:12px; font-weight:800; cursor:pointer; }
+.dark .acct-delete-open { color:#fda4af; }
+.acct-delete-panel { margin-top:12px; padding-top:12px; border-top:1px solid rgba(244,63,94,.18); }
+.acct-delete-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+.acct-delete-confirm { border:0; border-radius:10px; padding:10px 14px; background:#be123c; color:#fff; font-size:12px; font-weight:850; cursor:pointer; }
+.acct-delete-confirm:disabled { opacity:.45; cursor:not-allowed; }
+.acct-delete-confirm:not(:disabled):hover,.acct-delete-open:hover { filter:brightness(1.08); }
 
 /* ===== verification-pending state: unmistakably "one step left", never reads as signed out ===== */
 .hero-verify-card { text-align: center; padding: 8px 4px 4px; }

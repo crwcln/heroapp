@@ -34,7 +34,8 @@
             && request.resource.data.time is number && request.resource.data.time >= 0
             && (!('tour' in request.resource.data) || request.resource.data.tour in ['1 Year', '2 Year'])
             && (!('perfect' in request.resource.data) || request.resource.data.perfect is bool);
-          allow delete: if isAdmin() && board in ['leaderboard', 'leaderboardTwoYear'];
+          allow delete: if board in ['leaderboard', 'leaderboardTwoYear']
+            && (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid));
         }
 
         // A separate date-scoped board keeps each shared Daily Challenge independent.
@@ -68,7 +69,7 @@
             && request.resource.data.solved == request.resource.data.locations
             && (request.resource.data.score > resource.data.score
               || (request.resource.data.score == resource.data.score && request.resource.data.time < resource.data.time));
-          allow delete: if isAdmin();
+          allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
         }
 
         // Profile streaks are private to their owner and updated with each completed daily round.
@@ -84,7 +85,7 @@
             && request.resource.data.longestStreak is number && request.resource.data.longestStreak >= request.resource.data.currentStreak && request.resource.data.longestStreak <= 10000
             && request.resource.data.lastCompletedDay is string
             && request.resource.data.lastCompletedDay.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
-          allow delete: if isAdmin();
+          allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
         }
 
         // Anonymous usage analytics: visitors write only their own presence + daily counters; only admin reads
@@ -98,7 +99,7 @@
             && request.resource.data.userId == request.auth.uid
             && presenceId.matches('.*__[A-Za-z0-9]{20}')
             && request.resource.data.keys().hasOnly(['userId', 'deviceId', 'lastSeen', 'device', 'os', 'browser', 'view', 'mode', 'theme', 'vw', 'vh']);
-          allow read: if isAdmin();
+          allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
           allow delete: if isAdmin() || (signedIn() && (presenceId == request.auth.uid || resource.data.userId == request.auth.uid));
         }
 
@@ -119,7 +120,7 @@
               || (request.resource.data.photoURL is string
                 && request.resource.data.photoURL.size() <= 150000
                 && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'))));
-          allow delete: if isAdmin();
+          allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
         }
 
         // A verified user may link a name/email to the random id stored by this browser.
@@ -135,8 +136,8 @@
             && request.resource.data.name is string
             && request.resource.data.name.size() >= 2
             && request.resource.data.name.size() <= 40;
-          allow read: if isAdmin();
-          allow delete: if isAdmin();
+          allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+          allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
         }
 
         // Browser-captured uncaught exceptions and unhandled promise rejections.
@@ -152,7 +153,7 @@
             && request.resource.data.page is string && request.resource.data.page.size() <= 200
             && request.resource.data.appVersion is string && request.resource.data.appVersion.size() <= 30
             && request.resource.data.status == 'new';
-          allow read, delete: if isAdmin();
+          allow read, delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
           allow update: if isAdmin()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt'])
             && request.resource.data.status in ['new', 'resolved'];
@@ -177,7 +178,7 @@
           allow create: if signedIn() && request.resource.data.keys().hasOnly(['name', 'score', 'userId', 'ts'])
             && request.resource.data.userId == request.auth.uid && request.resource.data.name is string && request.resource.data.name.size() <= 15
             && request.resource.data.score is number && request.resource.data.score >= 1 && request.resource.data.score <= 500;
-          allow delete: if isAdmin();
+          allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
         }
 
         // Announcements: anyone signed in can read; only admin can post or delete
@@ -196,7 +197,7 @@
             && request.resource.data.title is string && request.resource.data.title.size() <= 120
             && request.resource.data.description is string && request.resource.data.description.size() <= 2000
             && request.resource.data.attachments.size() <= 5;
-          allow read, delete: if isAdmin();
+          allow read, delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
           allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
 
           // Attachments (photos/videos) are stored as base64 chunks: visitors can only create, admin reads/deletes
@@ -206,7 +207,7 @@
               && request.resource.data.userId == request.auth.uid
               && request.resource.data.data is string && request.resource.data.data.size() <= 760000
               && (request.resource.data.type.matches('image/.*') || request.resource.data.type.matches('video/.*'));
-            allow read, delete: if isAdmin();
+            allow read, delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
           }
         }
       }

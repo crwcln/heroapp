@@ -197,6 +197,47 @@
         document.getElementById('hv-signout').onclick = () => auth.signOut();
     }
 
+    async function reauthenticateForDeletion(user, password) {
+        const providers = (user.providerData || []).map((item) => item.providerId);
+        if (providers.includes('password')) {
+            if (!password) throw new Error('Enter your current password to confirm account deletion.');
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
+            await user.reauthenticateWithCredential(credential);
+            return;
+        }
+        const providerId = providers.find((id) => ['google.com', 'facebook.com', 'github.com', 'apple.com', 'microsoft.com'].includes(id));
+        if (!providerId) throw new Error('This sign-in provider cannot reverify here. Sign out, sign back in, then retry account deletion.');
+        const provider = providerId === 'google.com' ? new firebase.auth.GoogleAuthProvider()
+            : providerId === 'facebook.com' ? new firebase.auth.FacebookAuthProvider()
+                : new firebase.auth.OAuthProvider(providerId);
+        await user.reauthenticateWithPopup(provider);
+    }
+
+    async function deleteOwnedAccountData(user) {
+        const data = dataCol(), uid = user.uid;
+        const own = (collection) => data.collection(collection).where('userId', '==', uid).get();
+        const [scores1, scores2, flappy, feedback, bugs, presence, devices, dailyScores, member, progress] = await Promise.all([
+            own('leaderboard'), own('leaderboardTwoYear'), own('flappy'), own('feedback'), own('runtimeBugs'), own('presence'), own('deviceProfiles'),
+            db.collectionGroup('scores').where('userId', '==', uid).get(), memberRef(uid).get(), data.collection('dailyChallengeProgress').doc(uid).get()
+        ]);
+        const refs = [
+            ...scores1.docs, ...scores2.docs, ...flappy.docs, ...bugs.docs, ...presence.docs, ...devices.docs, ...dailyScores.docs
+        ].map((doc) => doc.ref);
+        if (member.exists) refs.push(member.ref);
+        if (progress.exists) refs.push(progress.ref);
+        for (const report of feedback.docs) {
+            const files = await report.ref.collection('files').get();
+            files.docs.forEach((file) => refs.push(file.ref));
+            refs.push(report.ref);
+        }
+        const unique = [...new Map(refs.map((ref) => [ref.path, ref])).values()];
+        for (let start = 0; start < unique.length; start += 400) {
+            const batch = db.batch();
+            unique.slice(start, start + 400).forEach((ref) => batch.delete(ref));
+            await batch.commit();
+        }
+    }
+
     // ---------------- signed-in account dialog ----------------
     function renderAccount(user) {
         body.innerHTML = `
@@ -235,6 +276,18 @@
             </section>
             <section class="acct-card acct-card-danger">
                 <button type="button" id="ha-signout" class="cm-btn ghost w-full"><i data-lucide="log-out" class="w-4 h-4"></i> Sign out</button>
+                ${user.uid === 'admin' ? '<p class="acct-delete-note">This shared steward session is not a personal Hero account.</p>' : `
+                    <div class="acct-delete-zone">
+                        <h3>Delete account</h3>
+                        <p>Permanently delete your Hero sign-in, profile, quiz scores, Daily Challenge scores and streak, feedback reports, and attachments.</p>
+                        <button type="button" id="ha-delete-open" class="acct-delete-open">Delete my account</button>
+                        <div id="ha-delete-panel" class="acct-delete-panel hidden">
+                            <label class="acct-label" for="ha-delete-word">Type DELETE to confirm</label>
+                            <input id="ha-delete-word" class="acct-input" autocomplete="off" spellcheck="false">
+                            ${(user.providerData || []).some((item) => item.providerId === 'password') ? '<label class="acct-label" for="ha-delete-password">Current password</label><input id="ha-delete-password" class="acct-input" type="password" autocomplete="current-password">' : '<p class="acct-delete-note">You will confirm with your sign-in provider before deletion.</p>'}
+                            <div class="acct-delete-actions"><button type="button" id="ha-delete-cancel" class="cm-btn ghost">Cancel</button><button type="button" id="ha-delete-confirm" class="acct-delete-confirm" disabled>Delete permanently</button></div>
+                        </div>
+                    </div>`}
             </section>
         `;
         if (window.lucide) lucide.createIcons();
@@ -293,6 +346,42 @@
         };
 
         document.getElementById('ha-signout').onclick = () => auth.signOut();
+
+        if (user.uid !== 'admin') {
+            const panel = document.getElementById('ha-delete-panel');
+            const word = document.getElementById('ha-delete-word');
+            const confirmButton = document.getElementById('ha-delete-confirm');
+            document.getElementById('ha-delete-open').onclick = () => { panel.classList.remove('hidden'); word.focus(); };
+            document.getElementById('ha-delete-cancel').onclick = () => { panel.classList.add('hidden'); word.value = ''; confirmButton.disabled = true; };
+            word.oninput = () => { confirmButton.disabled = word.value.trim() !== 'DELETE'; };
+            confirmButton.onclick = async () => {
+                if (word.value.trim() !== 'DELETE') return;
+                confirmButton.disabled = true; confirmButton.textContent = 'Verifying account…';
+                try {
+                    const password = document.getElementById('ha-delete-password')?.value || '';
+                    await reauthenticateForDeletion(user, password);
+                    confirmButton.textContent = 'Deleting your data…';
+                    await deleteOwnedAccountData(user);
+                    await user.delete();
+                    localStorage.removeItem('hero_member_name');
+                    localStorage.removeItem('mq_playerName');
+                    closeDialog();
+                    await auth.signOut().catch(() => {});
+                    showToast('Your Hero account and personal data have been deleted.', 'success');
+                } catch (err) {
+                    console.error('Account deletion failed:', err);
+                    const message = err.code === 'permission-denied'
+                        ? 'Account deletion needs the updated Firestore rules. Publish firestore.rules, sign in again, then retry.'
+                        : err.code === 'auth/requires-recent-login'
+                            ? 'Please sign out and sign back in, then retry account deletion.'
+                            : err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'
+                                ? 'That password did not match this account.'
+                                : err.message || `Could not delete the account (${err.code || 'error'}).`;
+                    showToast(message, 'error');
+                    confirmButton.disabled = false; confirmButton.textContent = 'Delete permanently';
+                }
+            };
+        }
 
         loadRankSummary(user, document.getElementById('ha-rank'));
     }
