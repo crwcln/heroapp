@@ -130,8 +130,8 @@
             <p class="text-slate-500 dark:text-slate-400 mb-12 text-lg max-w-xl mx-auto font-medium"><span id="tagline">Studying, Redefined.</span><br>Pin down the places that shaped history. Beat the clock, build a streak, earn your place on the board.</p>
             <figure id="qotd" class="qotd"><blockquote id="qotd-t"></blockquote><figcaption id="qotd-a"></figcaption></figure>
             <section id="daily-challenge-card" class="daily-challenge-card" aria-labelledby="daily-challenge-title">
-                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>Seven places. One shared challenge. Keep your streak alive.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today’s challenge…</div></div>
-                <div class="daily-challenge-actions"><button id="daily-challenge-start" class="cm-btn go" type="button" onclick="startDailyChallenge()" disabled>Start today’s challenge</button><button type="button" class="cm-btn ghost" onclick="openDailyLeaderboard()">Daily leaderboard</button></div>
+                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>One shared set of places each day. Keep your streak alive.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
+                <div class="daily-challenge-actions"><button id="daily-challenge-start" class="cm-btn go" type="button" onclick="startDailyChallenge()" disabled>Start today's challenge</button><button type="button" class="cm-btn ghost" onclick="openDailyLeaderboard()">Daily leaderboard</button></div>
             </section>
             <div id="mode-pick" class="flex justify-center gap-2 mb-6 flex-wrap"><button class="st-chip" data-gm="identify" onclick="setGameMode('identify')">Name the Place</button><button class="st-chip" data-gm="find" onclick="setGameMode('find')">Find the Land</button><button class="st-chip" onclick="switchView('review-view')">Revisit the Forgotten <span id="miss-count"></span></button><label class="st-chip cb-wrap" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rand-locs" class="cb-native" onchange="localStorage.setItem('hero_rand', this.checked ? '1' : '')"><span class="cb-box" aria-hidden="true"></span> Random order</label></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -163,7 +163,7 @@
             <button onclick="switchView('home-view')" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-4 flex items-center gap-1">← Back to Hero</button>
                     <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-200 dark:border-slate-700/50">
                 <h2 class="text-3xl font-extrabold flex items-center gap-3 text-slate-900 dark:text-white">
-                    <i data-lucide="medal" class="text-amber-500 w-8 h-8"></i> Hall of Heroes
+                    <i data-lucide="medal" class="text-amber-500 w-8 h-8"></i> <span id="lb-title">Hall of Heroes</span>
                 </h2>
                 <div class="text-sm font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full" id="lb-rank-label">Hall of Heroes: Year One</div>
             </div>

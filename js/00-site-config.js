@@ -9,7 +9,7 @@ const SITE = {
 
   // Increase intro to replay the opening film for everyone. Optional: set a custom MP4 path.
   intro: 1,
-  introVideo: '', // Example: 'media/hero-intro.mp4'
+  introVideo: 'media/hero-trailer.mp4', // Example: 'media/hero-intro.mp4'
 
   // Turn features off here rather than removing their source files.
   features: {

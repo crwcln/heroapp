@@ -19,7 +19,7 @@
         const seen = new Set();
         const pool = locations.filter((loc) => {
             const name = String(loc.name || '').trim().toLocaleLowerCase();
-            if (!name || !Number.isFinite(Number(loc.lat)) || !Number.isFinite(Number(loc.lng)) || seen.has(name)) return false;
+            if (!name || loc.lat == null || loc.lat === '' || loc.lng == null || loc.lng === '' || !Number.isFinite(Number(loc.lat)) || !Number.isFinite(Number(loc.lng)) || seen.has(name)) return false;
             seen.add(name); return true;
         });
         return pool.sort((a, b) => hash(`${day}|${stableId(a)}`) - hash(`${day}|${stableId(b)}`) || stableId(a).localeCompare(stableId(b))).slice(0, Math.min(7, pool.length));
@@ -70,6 +70,8 @@
         const tourTab = document.getElementById('lb-tour-tab'), dailyTab = document.getElementById('lb-daily-tab');
         tourTab.classList.toggle('on', !daily); tourTab.setAttribute('aria-selected', String(!daily));
         dailyTab.classList.toggle('on', daily); dailyTab.setAttribute('aria-selected', String(daily));
+        document.getElementById('lb-title').textContent = daily ? 'Daily Challenge' : 'Hall of Heroes';
+        document.getElementById('lb-rank-label').textContent = daily ? 'Same places for everyone - UTC' : QUIZZES[yearMode].rankLabel;
         document.getElementById('leaderboard-list').classList.toggle('hidden', daily);
         document.getElementById('daily-leaderboard-panel').classList.toggle('hidden', !daily);
         if (daily) renderLeaderboard();
@@ -80,7 +82,7 @@
         const day = dateKey();
         const date = document.getElementById('daily-leaderboard-date');
         const list = document.getElementById('daily-leaderboard-list');
-        date.textContent = `Shared challenge · ${day} UTC`;
+        date.textContent = `Shared challenge - ${day} UTC`;
         list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Loading today’s standings…</p>';
         if (!db || !userId) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Sign in to see today’s standings.</p>'; return; }
         dailyCollection().doc(day).collection('scores').get().then((snapshot) => {
@@ -108,6 +110,7 @@
     window.submitScore = function () {
         if (!activeDay) return originalSubmitScore();
         if (!db || !userId) return showToast('Sign in with a verified account to save a daily score.', 'error');
+        if (solvedCount !== activeQuizData.length) return showToast('Finish every place to qualify for the daily leaderboard and streak.', 'error');
         const day = activeDay, uid = userId;
         const name = (document.getElementById('player-name').value.trim() || localStorage.getItem('hero_member_name') || auth.currentUser?.displayName || 'Hero').slice(0, 15);
         localStorage.setItem('mq_playerName', name);
@@ -121,7 +124,7 @@
             const existing = scoreDoc.exists ? scoreDoc.data() : null;
             const better = !existing || score > Number(existing.score) || (score === Number(existing.score) && time < Number(existing.time));
             if (better) transaction.set(scoreRef, {
-                userId: uid, name, score, time, day, hints: hintsUsed, locations: activeQuizData.length,
+                userId: uid, name, score, time, day, hints: hintsUsed, locations: activeQuizData.length, solved: solvedCount,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
             const progress = progressDoc.exists ? progressDoc.data() : {};
@@ -134,15 +137,31 @@
             }
             return better;
         }).then((better) => {
-            button.disabled = false; button.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Submit'; if (window.lucide) lucide.createIcons();
+            button.disabled = false; button.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Save daily score'; if (window.lucide) lucide.createIcons();
             showToast(better ? 'Daily score saved!' : 'You already have a better score for today.', better ? 'success' : 'info');
             window.dispatchEvent(new Event('hero-score-saved'));
             updateCard();
             setTimeout(() => { switchView('leaderboard-view'); window.setDailyLeaderboardTab('daily'); }, 700);
         }).catch((error) => {
-            button.disabled = false; button.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Submit'; if (window.lucide) lucide.createIcons();
+            button.disabled = false; button.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Save daily score'; if (window.lucide) lucide.createIcons();
             showToast(`Could not save daily score (${error.code || 'error'}).`, 'error');
         });
+    };
+
+    const originalEndQuizEarly = endQuizEarly;
+    window.endQuizEarly = function () {
+        originalEndQuizEarly();
+        if (!activeDay) return;
+        const button = document.getElementById('submit-score-btn');
+        const complete = solvedCount === activeQuizData.length;
+        button.disabled = !complete;
+        button.classList.toggle('opacity-50', !complete);
+        button.classList.toggle('cursor-not-allowed', !complete);
+        button.title = complete ? '' : 'Complete every daily place to qualify.';
+        button.innerHTML = complete
+            ? '<i data-lucide="upload" class="w-4 h-4"></i> Save daily score'
+            : '<i data-lucide="lock-keyhole" class="w-4 h-4"></i> Finish all places to qualify';
+        if (window.lucide) lucide.createIcons();
     };
 
     const originalStartQuiz = startQuiz;
@@ -152,6 +171,9 @@
         const submitButton = document.getElementById('submit-score-btn');
         const sectionLabel = document.querySelector('#submit-score-section > p');
         if (activeDay) {
+            submitButton.disabled = false;
+            submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            submitButton.title = '';
             submitButton.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Save daily score';
             sectionLabel.textContent = 'Add your score to today’s Daily Challenge leaderboard.';
         } else {

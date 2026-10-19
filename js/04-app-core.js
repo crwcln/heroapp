@@ -449,8 +449,14 @@
             globalLocations.forEach((loc, idx) => {
                 const item = document.createElement('div');
                 item.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700';
-                item.innerHTML = `<div><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}</div></div>
-                    <button onclick="removeAdminLoc(${idx})" class="text-rose-500 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+                item.innerHTML = `<div class="min-w-0"><div class="font-bold text-sm text-slate-800 dark:text-white">${loc.name}</div><div class="text-[10px] font-bold uppercase text-slate-500 mt-1">${loc.category}${Number.isFinite(Number(loc.year)) ? ` | ${Number(loc.year) < 0 ? `${Math.abs(Number(loc.year))} BCE` : `${loc.year} CE`}` : ''}</div></div>`;
+                const actions = document.createElement('div'); actions.className = 'flex items-center gap-2 shrink-0';
+                const year = document.createElement('input'); year.type = 'number'; year.min = '-5000'; year.max = '2100'; year.step = '1'; year.value = Number.isFinite(Number(loc.year)) ? String(loc.year) : '';
+                year.placeholder = 'Year'; year.title = 'Historical year (use a negative number for BCE)'; year.setAttribute('aria-label', `Historical year for ${loc.name}`);
+                year.className = 'w-24 p-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 dark:text-white';
+                year.onchange = () => { const value = year.value.trim(); if (value === '') delete loc.year; else if (Number.isInteger(Number(value))) loc.year = Number(value); else return showToast('Enter a whole historical year.', 'error'); renderAdminList(); };
+                const remove = document.createElement('button'); remove.className = 'text-rose-500 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors'; remove.setAttribute('aria-label', `Remove ${loc.name}`); remove.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>'; remove.onclick = () => removeAdminLoc(idx);
+                actions.append(year, remove); item.appendChild(actions);
                 listEl.appendChild(item);
             });
             lucide.createIcons();
