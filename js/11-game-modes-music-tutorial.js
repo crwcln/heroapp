@@ -108,7 +108,8 @@
             if (loc.id === t.id) {
                 const mk = quizStats[t.id].mistakes; points += mk === 0 ? 1000 : (mk === 1 ? 500 : 100); solvedCount++; quizStats[t.id].solved = true; marker._done = true;
                 marker.setIcon(L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] }));
-                document.getElementById('q-score').innerText = points.toLocaleString(); document.getElementById('q-solved').innerText = solvedCount;
+                document.getElementById('q-solved').innerText = solvedCount;
+                if (typeof updateScoreDisplay === 'function') updateScoreDisplay(); else document.getElementById('q-score').innerText = points.toLocaleString();
                 findQueue.shift(); findBanner();
                 if (!findQueue.length) setTimeout(endQuizEarly, 900);
             } else { quizStats[t.id].mistakes++; recordMiss(t.name); badInput(document.getElementById('find-banner')); showToast("Not that one. Try again!", 'error'); }

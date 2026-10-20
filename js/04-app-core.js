@@ -221,7 +221,15 @@
         let customLocations = JSON.parse(localStorage.getItem(QUIZZES[yearMode].custom)) || [];
         let map = null, tileLayer = null, mapStyleIndex = 0;
         let activeQuizData = [], quizStats = {}, points = 0, hintPenalty = 0, solvedCount = 0, timerInterval = null, secondsElapsed = 0;
-        function updateScoreDisplay() { const el = document.getElementById('q-score'); if (el) el.innerText = Math.max(0, points - hintPenalty).toLocaleString(); }
+        function updateScoreDisplay() {
+            const el = document.getElementById('q-score'); if (el) el.innerText = Math.max(0, points - hintPenalty).toLocaleString();
+            const total = activeQuizData.length || 0;
+            const percent = total ? Math.round((solvedCount / total) * 100) : 0;
+            const progress = document.querySelector('.quiz-progress');
+            const fill = document.getElementById('quiz-progress-fill');
+            if (progress) progress.setAttribute('aria-valuenow', String(percent));
+            if (fill) fill.style.width = percent + '%';
+        }
 
         function switchView(viewId) {
             if (window.__heroCanAccessApp === false && !['auth-view'].includes(viewId)) {
@@ -548,6 +556,7 @@
             document.getElementById('q-score').innerText = '0';
             document.getElementById('q-solved').innerText = '0';
             document.getElementById('q-total').innerText = activeQuizData.length;
+            updateScoreDisplay();
             
             switchView('quiz-view');
             initMap();

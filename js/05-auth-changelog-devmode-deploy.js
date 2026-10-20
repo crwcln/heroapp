@@ -29,10 +29,16 @@
         function openLaunchGate() {
             const gate = document.getElementById('launch-gate');
             if (!gate || !document.documentElement.classList.contains('launch-locked')) return;
-            document.documentElement.classList.remove('launch-locked');
             clearInterval(launchClock); launchClock = null;
-            gate.classList.add('leaving');
-            setTimeout(() => gate.remove(), 600);
+            gate.classList.add('unlocking');
+            gate.setAttribute('aria-hidden', 'true');
+            if (gate.contains(document.activeElement)) document.activeElement.blur();
+            document.documentElement.classList.remove('launch-locked');
+            requestAnimationFrame(() => {
+                gate.classList.remove('unlocking');
+                gate.classList.add('leaving');
+                setTimeout(() => gate.remove(), 850);
+            });
         }
         function updateLaunchClock() {
             const remaining = Math.max(0, launchDeadline - Date.now());

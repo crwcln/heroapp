@@ -26,6 +26,7 @@
         html.launch-locked #launch-gate { display:grid; visibility:visible!important; }
         #launch-gate:before,#launch-gate:after { content:""; position:absolute; width:min(74vw,760px); aspect-ratio:1; border:1px solid rgba(var(--brand-rgb,30,58,110),.14); border-radius:50%; animation:gate-orbit 38s linear infinite; pointer-events:none; }
         #launch-gate:after { width:min(56vw,570px); border-color:rgba(var(--sec-rgb,212,175,55),.17); animation-duration:27s; animation-direction:reverse; }
+        #launch-gate.unlocking { display:grid;visibility:visible!important;opacity:1;transform:none; }
         @keyframes gate-orbit { to { transform:rotate(360deg); } }
         .launch-card { position:relative; z-index:2; width:min(100%,650px); padding:clamp(26px,6vw,58px); border:1px solid var(--line); border-radius:24px; background:var(--field); box-shadow:0 30px 100px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.06); text-align:center; backdrop-filter:blur(18px); transition:transform .18s ease; }
         .launch-mark { width:68px;height:68px;margin:0 auto 22px;display:grid;place-items:center;border:1px solid rgba(var(--sec-rgb,212,175,55),.55);border-radius:20px;color:var(--sec);font-size:40px;font-weight:700;line-height:1;box-shadow:0 0 45px rgba(var(--brand-rgb,30,58,110),.14);animation:launch-pulse 3s ease-in-out infinite; }
@@ -49,9 +50,9 @@
         .launch-stars { position:absolute;inset:0;pointer-events:none;overflow:hidden; }
         .launch-star { position:absolute;width:3px;height:3px;border-radius:50%;background:var(--brand-300);box-shadow:0 0 12px 2px rgba(var(--brand-rgb,30,58,110),.6);animation:star-drift var(--dur) linear infinite; }
         @keyframes star-drift { from { transform:translate3d(0,20px,0);opacity:0 } 15%,80% {opacity:.8} to { transform:translate3d(var(--dx),-110vh,0);opacity:0 } }
-        #launch-gate.leaving { opacity:0;transform:scale(1.02);transition:opacity .55s,transform .55s; }
+        #launch-gate.leaving { display:grid;visibility:visible!important;opacity:0;transform:scale(1.02);pointer-events:none;transition:opacity .75s cubic-bezier(.22,1,.36,1),transform .75s cubic-bezier(.22,1,.36,1); }
         @media(max-width:480px) { #launch-gate{padding:14px}.launch-card{padding:26px 18px;border-radius:24px}.launch-countdown{gap:6px;margin:24px 0 18px}.launch-unit{padding:12px 2px}.launch-unit span{font-size:8px}.launch-form{flex-direction:column}.launch-form button{min-height:46px} }
-        @media(prefers-reduced-motion:reduce) { #launch-gate *,#launch-gate:before,#launch-gate:after { animation-duration:.01ms!important;animation-iteration-count:1!important; } }
+        @media(prefers-reduced-motion:reduce) { #launch-gate *,#launch-gate:before,#launch-gate:after { animation-duration:.01ms!important;animation-iteration-count:1!important; } #launch-gate.leaving { transition-duration:.01ms; } }
     </style>
     <script>
         try { var _launchDeadline = Date.parse(SITE.launchAt); if (Date.now() < _launchDeadline && sessionStorage.getItem('mq_devUnlocked') !== '1') document.documentElement.classList.add('launch-locked'); } catch (_) { document.documentElement.classList.add('launch-locked'); }
@@ -71,7 +72,7 @@
         })();
     </script>
     <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/premium.css?v=20261019-account-daily-tour-motion">
+    <link rel="stylesheet" href="css/premium.css?v=20261019-design-pass-1">
     <link rel="stylesheet" href="css/night.css">
     <link rel="stylesheet" href="css/intro.css?v=20261019-welcome-card">
     <link rel="stylesheet" href="css/secret.css">
@@ -662,6 +663,7 @@
                 </button>
             </div>
         </div>
+        <div class="quiz-progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="quiz-progress-fill"></span></div>
         <div id="map-container"></div>
     </div>
     <div id="summary-view" class="view-section hidden p-6 sm:p-12 items-center relative z-10">
