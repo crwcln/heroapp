@@ -1,8 +1,9 @@
 {
   "name": "hero",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.2.7",
   "scripts": {
+    "build": "node scripts/cache-bust-assets.mjs",
     "release:patch": "node scripts/bump-version.js patch && npm run build:css",
     "release:minor": "node scripts/bump-version.js minor && npm run build:css",
     "release:major": "node scripts/bump-version.js major && npm run build:css",

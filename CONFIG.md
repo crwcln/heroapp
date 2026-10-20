@@ -45,6 +45,8 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 
 The Steward redeploy action creates an empty Git commit with the message entered in the panel, advances the configured branch, and asks EdgeOne to build it. A successful webhook response means the build request was accepted; check EdgeOne **Build & Deploy** for the final build result.
 
+`edgeone.json` runs `npm run build` on each deployment. The build stamps every local JS/CSS URL with that file's content hash, while the HTML entry point is served with `no-store` so browsers receive the latest asset references. This is required because the site previously served JavaScript with a one-year immutable browser cache policy. After publishing this change, verify the EdgeOne deployment log includes `Stamped ... local assets` and that `/js/00-site-config.js` has a versioned `?v=` URL in the deployed HTML.
+
 ## Project layout
 
 - `index.html` contains page markup and loads the scripts in order.
