@@ -40,12 +40,17 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | `GITHUB_REPOSITORY` | Optional | Repository as `owner/name`; defaults to `crwcln/heroapp` |
 | `DEPLOY_BRANCH` | Optional | Branch to commit to; defaults to `main` |
 | `GEMINI_API_KEY` | Optional | Enables Clio AI |
+| `FIREBASE_WEB_PUSH_VAPID_KEY` | Yes for push notifications | Public Web Push certificate key from Firebase Console → Project settings → Cloud Messaging → Web Push certificates |
 | `GEMINI_MODEL` | Optional | Overrides the model preference list in `edge-functions/api/chat.js` |
 | `FLAPPY_TRIGGER`, `FLAPPY_BIRD_URL`, `FLAPPY_GRAVITY`, `FLAPPY_GAP` | Optional | Overrides for the Flappy Bird feature |
 
 The Steward redeploy action creates an empty Git commit with the message entered in the panel, advances the configured branch, and asks EdgeOne to build it. A successful webhook response means the build request was accepted; check EdgeOne **Build & Deploy** for the final build result.
 
 `edgeone.json` runs `npm run build` on each deployment. The build stamps every local JS/CSS URL with that file's content hash, while the HTML entry point is served with `no-store` so browsers receive the latest asset references. This is required because the site previously served JavaScript with a one-year immutable browser cache policy. After publishing this change, verify the EdgeOne deployment log includes `Stamped ... local assets` and that `/js/00-site-config.js` has a versioned `?v=` URL in the deployed HTML.
+
+Web push uses Firebase Cloud Messaging. Enable the Firebase Cloud Messaging API and Web Push certificates in the Firebase project, set `FIREBASE_WEB_PUSH_VAPID_KEY` to the displayed public key in EdgeOne, and publish the updated `firestore.rules`. The existing Firebase service account must be allowed to send Firebase Cloud Messaging messages. Users then opt in under Settings → Notifications. New announcements are sent to opted-in browsers; editing an announcement does not send a second alert.
+
+Account verification supports email/password plus Google sign-in. To let people avoid a quarantined Hero verification email, enable the Google provider under Firebase Authentication → Sign-in method and make sure the production website domain is listed under Authentication → Settings → Authorized domains. Existing unverified password accounts can choose **Verify with Google instead** and must connect the same email address as the Hero account. Firebase only treats Google as a trusted verifier for email domains Google verifies; if a school-managed domain is not accepted, use the email link or create a Hero account with an accessible personal email. A school Google Workspace may also block third-party sign-in until its administrator allows Hero.
 
 ## Project layout
 

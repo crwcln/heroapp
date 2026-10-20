@@ -94,12 +94,25 @@ async function postAnnouncement() {
     const bodyHtml = clean.innerHTML.trim(), body = editor.innerText.trim();
     const tags = document.getElementById('ann-tags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 4);
     if (!title || !body) return showToast('Add a title and a message.', 'error');
+    const wasEditing = !!editingAnnouncementId;
     try {
-        if (editingAnnouncementId) await annCol().doc(editingAnnouncementId).update({ title, body, bodyHtml, tags, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (wasEditing) await annCol().doc(editingAnnouncementId).update({ title, body, bodyHtml, tags, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
         else await annCol().add({ title, body, bodyHtml, tags, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         document.getElementById('ann-title').value = ''; editor.innerHTML = ''; document.getElementById('ann-tags').value = '';
-        const wasEditing = !!editingAnnouncementId; setAnnouncementEditMode(null);
-        showToast(wasEditing ? 'Announcement updated.' : 'Announcement posted.', 'success');
+        setAnnouncementEditMode(null);
+        if (wasEditing) return showToast('Announcement updated.', 'success');
+        if (window.__heroSendAnnouncementPush) {
+            try {
+                const delivery = await window.__heroSendAnnouncementPush(title, body);
+                const failed = Number(delivery.failed || 0);
+                showToast(delivery.sent
+                    ? `Announcement posted. Push sent to ${delivery.sent} device${delivery.sent === 1 ? '' : 's'}${failed ? `; ${failed} could not be reached` : ''}.`
+                    : 'Announcement posted. No devices have notifications enabled yet.', failed ? 'info' : 'success');
+            } catch (pushError) {
+                console.warn('Announcement saved, but push delivery failed:', pushError);
+                showToast(`Announcement posted, but push delivery failed: ${pushError.message}`, 'info');
+            }
+        } else showToast('Announcement posted.', 'success');
     } catch (e) { showToast(`Could not post (${e.code || 'error'}).`, 'error'); }
 }
 window.toggleAnnouncementPreview = function () {

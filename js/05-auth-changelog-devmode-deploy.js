@@ -1,5 +1,23 @@
 // ================= SERVER AUTH =================
         let adminToken = null, lastAuthToken = null, lastAuthErr = '', lastDevAuthErr = '';
+        window.__heroSendAnnouncementPush = async function (title, body) {
+            if (!adminToken) throw new Error('Steward session expired. Sign in again to send this announcement alert.');
+            const response = await fetch('/api/push-announcement', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: adminToken, title, body }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.ok) {
+                const errors = {
+                    push_sender_not_configured: 'Push sender is not configured. Check the Firebase service-account environment settings.',
+                    token_lookup_failed: 'Could not read notification subscriptions from Firestore.',
+                    push_send_failed: 'The push service could not send notifications.',
+                };
+                throw new Error(errors[result.error] || `Push delivery failed (HTTP ${response.status}).`);
+            }
+            return result;
+        };
         const authFailMsg = (target = 'admin') => {
             const err = target === 'dev' ? lastDevAuthErr : lastAuthErr;
             if (err === 'not_configured') return target === 'dev' ? 'Early access is not configured. Set DEV_ACCESS in EdgeOne environment variables and redeploy.' : 'The login server has no admin password. Add ADMIN_PASSWORD in EdgeOne environment variables and redeploy.';

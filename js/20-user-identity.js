@@ -104,10 +104,13 @@
                 ${register ? '<label class="hero-auth-label">Confirm password</label><input id="ha-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again" required>' : ''}
                 <button type="submit" id="ha-submit" class="hero-auth-submit">${register ? 'Create account' : 'Sign in'}</button>
             </form>
+            <div class="hero-auth-or"><span>or</span></div>
+            <button type="button" id="ha-google" class="hero-auth-google"><span aria-hidden="true">G</span> Continue with Google</button>
             <div class="hero-auth-links-primary"><button type="button" id="ha-toggle">${register ? 'Already have an account? Sign in' : "New to Hero? Create an account"}</button></div>
             ${register ? '' : '<div class="hero-auth-links"><button type="button" id="ha-forgot">Forgot password?</button></div>'}
         `;
         document.getElementById('ha-toggle').onclick = () => { mode = register ? 'signin' : 'register'; renderGate(); };
+        document.getElementById('ha-google').onclick = handleGoogleSignIn;
         if (!register) document.getElementById('ha-forgot').onclick = handleForgot;
         document.getElementById('ha-form').addEventListener('submit', handleGateSubmit);
         document.getElementById(register ? 'ha-name' : 'ha-email').focus();
@@ -144,6 +147,19 @@
         }
     }
 
+    async function handleGoogleSignIn() {
+        const button = document.getElementById('ha-google');
+        const email = (document.getElementById('ha-email')?.value || '').trim();
+        button.disabled = true; button.textContent = 'Opening Google…';
+        try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            if (email) provider.setCustomParameters({ login_hint: email, prompt: 'select_account' });
+            await auth.signInWithPopup(provider);
+        } catch (err) {
+            renderGate(gateErrorMessage(err));
+        }
+    }
+
     function gateErrorMessage(err) {
         const map = {
             'auth/email-already-in-use': 'An account already exists for that email. Try signing in instead.',
@@ -154,6 +170,12 @@
             'auth/invalid-credential': 'Incorrect email or password.',
             'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
             'auth/network-request-failed': 'Could not reach the sign-in server. Check your connection.',
+            'auth/operation-not-allowed': 'Google sign-in is not enabled for Hero yet. Ask a steward to enable Google in Firebase Authentication settings.',
+            'auth/unauthorized-domain': 'Google sign-in is not enabled for this website domain yet. Ask a steward to add it to Firebase authorized domains.',
+            'auth/popup-blocked': 'Your browser blocked the Google sign-in popup. Allow popups for Hero and try again.',
+            'auth/popup-closed-by-user': 'The Google sign-in window was closed before you finished.',
+            'auth/account-exists-with-different-credential': 'This email already has a Hero account using a password. Sign in with that password, then connect Google from the verification screen.',
+            'auth/credential-already-in-use': 'That Google account is already connected to another Hero account. Sign in to that account instead.',
         };
         return map[err.code] || (err.message || 'Something went wrong. Please try again.');
     }
@@ -175,14 +197,33 @@
             <div class="hero-verify-card">
                 <i data-lucide="mail-check" class="hero-verify-icon"></i>
                 <h3>Almost there</h3>
-                <p>You're signed in as <strong>${esc(user.email)}</strong>. Click the link we emailed you to verify this account &mdash; just once, future sign-ins won't ask again.</p>
+                <p>You're signed in as <strong>${esc(user.email)}</strong>. Verify with the email link, or connect the Google account for this same address below. Future sign-ins won't ask again.</p>
                 <div id="hv-status" class="hero-verify-status"></div>
+                <button type="button" id="hv-google" class="hero-auth-google"><span aria-hidden="true">G</span> Verify with Google instead</button>
                 <button type="button" id="hv-resend" class="hero-auth-submit">Resend verification email</button>
                 <button type="button" id="hv-check" class="hero-auth-secondary">I verified my email</button>
                 <div class="hero-auth-links"><button type="button" id="hv-signout">Sign in with a different account</button></div>
             </div>`;
         if (window.lucide) lucide.createIcons();
         const status = document.getElementById('hv-status');
+        document.getElementById('hv-google').onclick = async (e) => {
+            const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Connecting Google…';
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({ login_hint: user.email || '', prompt: 'select_account' });
+                const credential = await user.linkWithPopup(provider);
+                const googleEmail = (credential.user.providerData.find((item) => item.providerId === 'google.com') || {}).email || '';
+                if (!googleEmail || googleEmail.toLowerCase() !== String(user.email || '').toLowerCase()) {
+                    await credential.user.unlink('google.com').catch(() => {});
+                    throw new Error(`Choose the Google account that uses ${user.email}. Your Hero account email has not been changed.`);
+                }
+                await credential.user.reload();
+                if (credential.user.emailVerified && window.__heroApplyAuthUser) await window.__heroApplyAuthUser(auth.currentUser);
+                else status.textContent = 'Google connected, but Firebase still reports this email as unverified. Try signing out and back in, or use the email link.';
+            } catch (err) {
+                status.textContent = gateErrorMessage(err); status.classList.add('is-error');
+            } finally { btn.disabled = false; btn.innerHTML = '<span aria-hidden="true">G</span> Verify with Google instead'; }
+        };
         document.getElementById('hv-resend').onclick = async (e) => {
             const btn = e.currentTarget; btn.disabled = true;
             try { await user.sendEmailVerification(); status.textContent = 'Sent. Check your inbox (and spam folder).'; status.classList.remove('is-error'); }
@@ -219,12 +260,13 @@
     async function deleteOwnedAccountData(user) {
         const data = dataCol(), uid = user.uid;
         const own = (collection) => data.collection(collection).where('userId', '==', uid).get();
-        const [scores1, scores2, flappy, feedback, bugs, presence, devices, dailyScores, member, progress, stats] = await Promise.all([
+        const [scores1, scores2, flappy, feedback, bugs, presence, devices, dailyScores, member, progress, stats, pushTokens] = await Promise.all([
             own('leaderboard'), own('leaderboardTwoYear'), own('flappy'), own('feedback'), own('runtimeBugs'), own('presence'), own('deviceProfiles'),
-            db.collectionGroup('scores').where('userId', '==', uid).get(), memberRef(uid).get(), data.collection('dailyChallengeProgress').doc(uid).get(), data.collection('memberStats').doc(uid).get()
+            db.collectionGroup('scores').where('userId', '==', uid).get(), memberRef(uid).get(), data.collection('dailyChallengeProgress').doc(uid).get(), data.collection('memberStats').doc(uid).get(),
+            memberRef(uid).collection('pushTokens').get()
         ]);
         const refs = [
-            ...scores1.docs, ...scores2.docs, ...flappy.docs, ...bugs.docs, ...presence.docs, ...devices.docs, ...dailyScores.docs
+            ...scores1.docs, ...scores2.docs, ...flappy.docs, ...bugs.docs, ...presence.docs, ...devices.docs, ...dailyScores.docs, ...pushTokens.docs
         ].map((doc) => doc.ref);
         if (member.exists) refs.push(member.ref);
         if (progress.exists) refs.push(progress.ref);

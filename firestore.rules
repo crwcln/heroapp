@@ -137,6 +137,21 @@
                 && request.resource.data.photoURL.size() <= 150000
                 && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'))));
           allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
+
+          // Each account can register and remove only its own browser push tokens.
+          match /pushTokens/{tokenId} {
+            allow get, list: if isAdmin() || (signedIn() && request.auth.uid == memberId);
+            allow create, update: if signedIn()
+              && request.auth.uid == memberId
+              && request.resource.data.keys().hasOnly(['token', 'enabled', 'updatedAt'])
+              && request.resource.data.keys().hasAll(['token', 'enabled', 'updatedAt'])
+              && request.resource.data.token is string
+              && request.resource.data.token.size() >= 100
+              && request.resource.data.token.size() <= 4096
+              && request.resource.data.enabled == true
+              && request.resource.data.updatedAt is timestamp;
+            allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
+          }
         }
 
         // A verified user may link a name/email to the random id stored by this browser.
