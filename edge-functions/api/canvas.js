@@ -56,6 +56,8 @@ export async function onRequestPost(context) {
   }
 
   let upstream;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     upstream = await fetch(target.href, {
       method: 'GET',
@@ -64,13 +66,15 @@ export async function onRequestPost(context) {
         Accept: 'application/json',
       },
       redirect: 'manual',
-      signal: AbortSignal.timeout(15000),
+      signal: controller.signal,
     });
   } catch (error) {
-    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+    if (controller.signal.aborted || error?.name === 'TimeoutError' || error?.name === 'AbortError') {
       return json({ error: 'canvas_timeout' }, 504);
     }
     return json({ error: 'canvas_unreachable' }, 502);
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (upstream.status >= 300 && upstream.status < 400) {
