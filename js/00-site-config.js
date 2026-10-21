@@ -11,7 +11,7 @@ const SITE = {
   launchAt: '2026-10-21T23:00:00Z',
 
   // Increase intro to replay the opening film for everyone. Optional: set a custom MP4 path.
-  intro: 2,
+  intro: 3,
   introVideo: 'media/hero-trailer.mp4', // Example: 'media/hero-intro.mp4'
 
   // Turn features off here rather than removing their source files.
