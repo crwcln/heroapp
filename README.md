@@ -33,7 +33,7 @@ See [`CONFIG.md`](CONFIG.md) for the full environment variable list, including t
 - Run `npm run setup:git-hooks` once per clone. VS Code commits then get a `v<version>:` prefix from `SITE.version` in `js/00-site-config.js`; any message you type is kept after the prefix.
 - `npm run build:css` rebuilds `css/tailwind.css` from `tailwind.input.css` and `tailwind.config.js`.
 
-## Clio (AI chat) requires a signed-in verified account
+## Clio (AI chat) requires a signed-in account
 `/api/chat` now verifies the caller's Firebase ID token server-side before it will spend Gemini quota, so it
 can't be called anonymously from outside the site. In addition to `GEMINI_API_KEY`, set:
 
@@ -41,3 +41,9 @@ can't be called anonymously from outside the site. In addition to `GEMINI_API_KE
 
 It isn't a secret (Firebase web API keys are public by design), but the edge function needs its own copy
 since environment variables aren't readable from the browser bundle.
+
+Email verification is not required to use Hero. Shared Firestore features still require a non-anonymous Hero account.
+
+## Canvas dashboard
+Students can connect from the Canvas tab with their Canvas school URL and a personal access token. The dashboard calls the student's Canvas API directly from the browser. The token is held in `sessionStorage` for the current browser session and is never sent to Hero's server or stored in Firestore. Canvas schools can disable personal tokens or restrict API access from browser apps; a school-approved OAuth developer key is the right next step if those restrictions apply.
+Clio only receives a short Canvas summary when the student checks the Canvas sharing option in the chat.

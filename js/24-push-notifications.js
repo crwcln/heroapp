@@ -52,7 +52,7 @@
 
     async function enable() {
         const user = auth && auth.currentUser;
-        if (!user || user.isAnonymous || !user.emailVerified) throw new Error('Sign in with a verified Hero account before enabling notifications.');
+        if (!user || user.isAnonymous) throw new Error('Sign in to a Hero account before enabling notifications.');
         if (!('Notification' in window)) throw new Error('This browser does not support notifications.');
         const config = await getConfig();
         const serviceWorker = await registration();
@@ -103,7 +103,7 @@
             ? event.detail.user : null;
         if (!user) {
             currentUid = ''; enabled = false;
-            status('Sign in with a verified account to sync notifications across your devices.');
+            status('Sign in to sync notifications across your devices.');
             setButton('Enable notifications', true);
             return;
         }

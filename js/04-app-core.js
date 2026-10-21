@@ -116,16 +116,11 @@
                 // hang outright, which used to leave sign-in stuck on "checking" indefinitely. A short race
                 // against a timeout means a slow network degrades to "not admin yet" instead of hanging.
                 try {
-                    // Verification can happen in another tab. Refresh the token
-                    // before Firestore requests so its email_verified claim matches
-                    // the user's current Auth record.
-                    const claimsPromise = (user.emailVerified && !user.isAnonymous
-                        ? user.getIdToken(true)
-                        : Promise.resolve()).then(() => user.getIdTokenResult());
+                    const claimsPromise = user.getIdTokenResult();
                     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 4000));
                     isAdmin = (await Promise.race([claimsPromise, timeout])).claims.admin === true;
                 } catch (e) { console.warn('Could not read account claims (continuing without admin claim):', e); }
-                allowed = isAdmin || (!user.isAnonymous && user.emailVerified === true);
+                allowed = isAdmin || !user.isAnonymous;
             }
             userId = allowed ? user.uid : null;
             if (userId && activeDataUid !== userId) {
@@ -795,7 +790,7 @@
                 showToast("Score saved!", "success");
                 window.dispatchEvent(new Event('hero-score-saved'));
                 setTimeout(() => switchView('leaderboard-view'), 1000);
-            }).catch(e => showToast(`Could not save score (${e.code || 'error'}). Sign in with a verified account and retry.`, 'error'));
+            }).catch(e => showToast(`Could not save score (${e.code || 'error'}). Sign in to Hero and retry.`, 'error'));
         }
 
         function fireConfetti() {

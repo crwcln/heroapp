@@ -134,7 +134,6 @@
             if (register) {
                 const cred = await auth.createUserWithEmailAndPassword(email, password);
                 await cred.user.updateProfile({ displayName: name });
-                await cred.user.sendEmailVerification();
             } else {
                 await auth.signInWithEmailAndPassword(email, password);
             }
@@ -174,7 +173,7 @@
             'auth/unauthorized-domain': 'Google sign-in is not enabled for this website domain yet. Ask a steward to add it to Firebase authorized domains.',
             'auth/popup-blocked': 'Your browser blocked the Google sign-in popup. Allow popups for Hero and try again.',
             'auth/popup-closed-by-user': 'The Google sign-in window was closed before you finished.',
-            'auth/account-exists-with-different-credential': 'This email already has a Hero account using a password. Sign in with that password, then connect Google from the verification screen.',
+            'auth/account-exists-with-different-credential': 'This email already has a Hero account using a password. Sign in with that password first.',
             'auth/credential-already-in-use': 'That Google account is already connected to another Hero account. Sign in to that account instead.',
         };
         return map[err.code] || (err.message || 'Something went wrong. Please try again.');
@@ -189,83 +188,6 @@
             const sub = body.querySelector('.hero-auth-sub');
             if (sub) sub.textContent = `Password reset email sent to ${email}. Check your inbox.`;
         } catch (err) { renderGate(gateErrorMessage(err)); }
-    }
-
-    // ---------------- verify-pending ----------------
-    function renderVerifyPending(user) {
-        body.innerHTML = `
-            <div class="hero-verify-card">
-                <i data-lucide="mail-check" class="hero-verify-icon"></i>
-                <h3>Almost there</h3>
-                <p>You're signed in as <strong>${esc(user.email)}</strong>. Verify with the email link, or connect the Google account for this same address below. Future sign-ins won't ask again.</p>
-                <div id="hv-status" class="hero-verify-status"></div>
-                <button type="button" id="hv-google" class="hero-auth-google"><span aria-hidden="true">G</span> Verify with Google instead</button>
-                ${(user.providerData || []).some((item) => item.providerId === 'password') ? `
-                    <div class="hv-alt-email">
-                        <p>School filtering the message? Send the verification link to an address you can access.</p>
-                        <label class="hero-auth-label" for="hv-alt-address">Another email address</label>
-                        <input id="hv-alt-address" class="hero-auth-input" type="email" autocomplete="email" placeholder="you@example.com">
-                        <label class="hero-auth-label" for="hv-alt-password">Current Hero password</label>
-                        <input id="hv-alt-password" class="hero-auth-input" type="password" autocomplete="current-password" placeholder="Confirm it's you">
-                        <button type="button" id="hv-alt-send" class="hero-auth-secondary">Send link to this address</button>
-                    </div>` : ''}
-                <button type="button" id="hv-resend" class="hero-auth-submit">Resend verification email</button>
-                <button type="button" id="hv-check" class="hero-auth-secondary">I verified my email</button>
-                <div class="hero-auth-links"><button type="button" id="hv-signout">Sign in with a different account</button></div>
-            </div>`;
-        if (window.lucide) lucide.createIcons();
-        const status = document.getElementById('hv-status');
-        document.getElementById('hv-google').onclick = async (e) => {
-            const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Connecting Google…';
-            try {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                provider.setCustomParameters({ login_hint: user.email || '', prompt: 'select_account' });
-                const credential = await user.linkWithPopup(provider);
-                const googleEmail = (credential.user.providerData.find((item) => item.providerId === 'google.com') || {}).email || '';
-                if (!googleEmail || googleEmail.toLowerCase() !== String(user.email || '').toLowerCase()) {
-                    await credential.user.unlink('google.com').catch(() => {});
-                    throw new Error(`Choose the Google account that uses ${user.email}. Your Hero account email has not been changed.`);
-                }
-                await credential.user.reload();
-                if (credential.user.emailVerified && window.__heroApplyAuthUser) await window.__heroApplyAuthUser(auth.currentUser);
-                else status.textContent = 'Google connected, but Firebase still reports this email as unverified. Try signing out and back in, or use the email link.';
-            } catch (err) {
-                status.textContent = gateErrorMessage(err); status.classList.add('is-error');
-            } finally { btn.disabled = false; btn.innerHTML = '<span aria-hidden="true">G</span> Verify with Google instead'; }
-        };
-        const altSend = document.getElementById('hv-alt-send');
-        if (altSend) altSend.onclick = async () => {
-            const nextEmail = document.getElementById('hv-alt-address').value.trim();
-            const password = document.getElementById('hv-alt-password').value;
-            if (!/^\S+@\S+\.\S+$/.test(nextEmail)) { status.textContent = 'Enter a valid email address.'; status.classList.add('is-error'); return; }
-            if (nextEmail.toLowerCase() === String(user.email || '').toLowerCase()) { status.textContent = 'Enter a different address from the one being filtered.'; status.classList.add('is-error'); return; }
-            if (!password) { status.textContent = 'Enter your Hero password to confirm this change.'; status.classList.add('is-error'); return; }
-            altSend.disabled = true; altSend.textContent = 'Sending link…';
-            try {
-                const credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
-                await user.reauthenticateWithCredential(credential);
-                await user.verifyBeforeUpdateEmail(nextEmail, { url: `${location.origin}/`, handleCodeInApp: false });
-                status.textContent = `Sent a confirmation link to ${nextEmail}. Your Hero email changes only after you confirm it.`;
-                status.classList.remove('is-error');
-            } catch (err) {
-                status.textContent = gateErrorMessage(err); status.classList.add('is-error');
-            } finally { altSend.disabled = false; altSend.textContent = 'Send link to this address'; }
-        };
-        document.getElementById('hv-resend').onclick = async (e) => {
-            const btn = e.currentTarget; btn.disabled = true;
-            try { await user.sendEmailVerification(); status.textContent = 'Firebase accepted the request. Check your inbox, spam, and school quarantine; delivery can still take time.'; status.classList.remove('is-error'); }
-            catch (err) { status.textContent = gateErrorMessage(err); status.classList.add('is-error'); }
-            finally { btn.disabled = false; }
-        };
-        document.getElementById('hv-check').onclick = async (e) => {
-            const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Checking\u2026';
-            try {
-                await user.reload();
-                if (user.emailVerified) { if (window.__heroApplyAuthUser) await window.__heroApplyAuthUser(auth.currentUser); }
-                else { status.textContent = "Not verified yet. Click the link in the email first."; status.classList.add('is-error'); }
-            } finally { btn.disabled = false; btn.textContent = 'I verified my email'; }
-        };
-        document.getElementById('hv-signout').onclick = () => auth.signOut();
     }
 
     async function reauthenticateForDeletion(user, password) {
@@ -315,7 +237,7 @@
     function renderAccount(user) {
         body.innerHTML = `
             <section class="acct-card">
-                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Signed in and verified as <strong>${esc(user.email)}</strong></p></div></header>
+                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Signed in as <strong>${esc(user.email || 'Hero member')}</strong></p></div></header>
                 <div class="member-photo-edit">
                     <div class="member-photo-edit-preview" id="ha-photo-preview"></div>
                     <div>
@@ -573,7 +495,6 @@
         const user = latest.user;
         // Stewards can use the same account settings dialog as other authorized users.
         if (!user || user.isAnonymous) { mode = 'signin'; renderGate(); return; }
-        if (user.email && !user.emailVerified && !latest.isAdmin) { renderVerifyPending(user); return; }
         if (latest.authorized) { renderAccount(user); return; }
         renderGate();
     }

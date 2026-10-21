@@ -33,7 +33,7 @@
         if (!button || !status) return;
         const count = challengeFor((store.default && store.default.locs) || [], dateKey()).length;
         button.disabled = count < 5 || window.__heroCanAccessApp !== true;
-        if (window.__heroCanAccessApp !== true) { status.textContent = 'Sign in with a verified account to join the shared challenge.'; return; }
+        if (window.__heroCanAccessApp !== true) { status.textContent = 'Sign in to Hero to join the shared challenge.'; return; }
         if (count < 5) { status.textContent = 'The challenge needs at least five places in the 1 Year tour.'; return; }
         status.textContent = `${dateKey()} UTC · ${count} places · streaks are saved to your profile.`;
         currentProgressRef().get().then((doc) => {
@@ -109,7 +109,7 @@
     const originalSubmitScore = submitScore;
     window.submitScore = function () {
         if (!activeDay) return originalSubmitScore();
-        if (!db || !userId) return showToast('Sign in with a verified account to save a daily score.', 'error');
+        if (!db || !userId) return showToast('Sign in to Hero to save a daily score.', 'error');
         if (solvedCount !== activeQuizData.length) return showToast('Finish every place to qualify for the daily leaderboard and streak.', 'error');
         const day = activeDay, uid = userId;
         const name = (document.getElementById('player-name').value.trim() || localStorage.getItem('hero_member_name') || auth.currentUser?.displayName || 'Hero').slice(0, 15);
