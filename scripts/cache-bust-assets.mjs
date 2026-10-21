@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {createHash, randomUUID} from 'node:crypto';
 import {readFile, writeFile} from 'node:fs/promises';
 
 const htmlPath = new URL('../index.html', import.meta.url);
@@ -24,7 +24,8 @@ const normalizedHtml = html
   .replace(assetPattern, (_match, attribute, assetPath, quote) => `${attribute}${assetPath}${quote}`)
   .replace(buildMeta, (_match, prefix, suffix) => `${prefix}local${suffix}`);
 const assetManifest = [...hashedAssets].map(([path, hash]) => `${path}:${hash}`).join('\n');
-const buildId = createHash('sha256').update(`${normalizedHtml}\n${assetManifest}`).digest('hex').slice(0, 12);
+const contentHash = createHash('sha256').update(`${normalizedHtml}\n${assetManifest}`).digest('hex').slice(0, 12);
+const buildId = `${contentHash}-${randomUUID()}`;
 if (buildMeta.test(html)) {
   html = html.replace(buildMeta, (_match, prefix, suffix) => `${prefix}${buildId}${suffix}`);
 } else {

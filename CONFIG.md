@@ -44,10 +44,11 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | `FIREBASE_PROJECT_ID` | Optional | Firebase project ID for FCM; if omitted, the sender derives it from `FIREBASE_CLIENT_EMAIL` |
 | `GEMINI_MODEL` | Optional | Overrides the model preference list in `edge-functions/api/chat.js` |
 | `FLAPPY_TRIGGER`, `FLAPPY_BIRD_URL`, `FLAPPY_GRAVITY`, `FLAPPY_GAP` | Optional | Overrides for the Flappy Bird feature |
+| `CANVAS_ALLOWED_HOSTS` | Optional | Comma- or space-separated exact hostnames for custom Canvas domains; `*.instructure.com` is allowed by default |
 
 The Steward redeploy action creates an empty Git commit with the message entered in the panel, advances the configured branch, and asks EdgeOne to build it. A successful webhook response means the build request was accepted; check EdgeOne **Build & Deploy** for the final build result.
 
-`edgeone.json` runs `npm run build` on each deployment. The build stamps every local JS/CSS URL with that file's content hash, while the HTML entry point is served with `no-store` so browsers receive the latest asset references. This is required because the site previously served JavaScript with a one-year immutable browser cache policy. After publishing this change, verify the EdgeOne deployment log includes `Stamped ... local assets` and that `/js/00-site-config.js` has a versioned `?v=` URL in the deployed HTML.
+`edgeone.json` runs `npm run build` on each deployment. The build stamps every local JS/CSS URL with that file's content hash and gives each deployment a unique build ID. Open pages check the uncached HTML every 30 seconds and announce a new deployment before automatically reloading; users can choose **Not now** to stay on the current version. The HTML entry point is served with `no-store` so browsers receive the latest build ID and asset references. This is required because the site serves JavaScript with a one-year immutable browser cache policy. After publishing this change, verify the EdgeOne deployment log includes `Stamped ... local assets` and that `/js/00-site-config.js` has a versioned `?v=` URL in the deployed HTML.
 
 Web push uses Firebase Cloud Messaging HTTP v1. Set `FIREBASE_WEB_PUSH_VAPID_KEY` to the **public** Web Push certificate key from Firebase Console > Project settings > Cloud Messaging > Web Push certificates. Publish the updated `firestore.rules` so verified users can save their own browser tokens.
 

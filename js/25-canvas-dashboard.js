@@ -1,5 +1,5 @@
 // Canvas dashboard. Personal access tokens live in sessionStorage only and are
-// sent directly to the student's own Canvas origin; they are never sent to Hero.
+// forwarded through Hero's same-origin relay to the student's Canvas instance.
 (() => {
     const TOKEN_KEY = 'hero_canvas_token_session';
     const URL_KEY = 'hero_canvas_url_session';
@@ -17,10 +17,30 @@
         return u.origin;
     };
     const getJson = async (url, token) => {
-        const response = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
+        let response;
+        try {
+            response = await fetch('/api/canvas', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ url }),
+            });
+        } catch {
+            throw new Error("Couldn't reach Hero's Canvas relay. Check your connection and try again.");
+        }
+        const detail = response.ok ? null : await response.json().catch(() => ({}));
         if (!response.ok) {
-            const detail = await response.json().catch(() => ({}));
-            const error = new Error(response.status === 401 ? 'Canvas rejected this access token. Check that it is current and has not expired.' : response.status === 403 ? 'Canvas denied access. Your school may restrict API tokens or this data.' : `Canvas returned ${response.status}${detail.errors?.[0]?.message ? `: ${detail.errors[0].message}` : ''}.`);
+            const relayErrors = {
+                canvas_host_not_allowed: "This Canvas domain isn't configured for secure access. Ask the Hero administrator to add its hostname to CANVAS_ALLOWED_HOSTS in EdgeOne.",
+                canvas_redirect: 'Canvas redirected this address. Use the final school URL shown in your browser when signed in to Canvas.',
+                canvas_unreachable: "Hero couldn't reach your Canvas school. Check the school URL and try again.",
+                canvas_timeout: 'Canvas took too long to respond. Try again in a moment.',
+                invalid_canvas_response: 'Canvas returned an unexpected response. Check the school URL.',
+            };
+            const message = relayErrors[detail.error] ||
+                (response.status === 401 ? 'Canvas rejected this access token. Check that it is current and has not expired.' :
+                    response.status === 403 ? 'Canvas denied access. Your school may restrict API tokens or this data.' :
+                        `Canvas returned ${response.status}${detail.errors?.[0]?.message ? `: ${detail.errors[0].message}` : ''}.`);
+            const error = new Error(message);
             error.status = response.status; throw error;
         }
         return { data: await response.json(), next: response.headers.get('Link') };
@@ -42,14 +62,14 @@
             <div class="canvas-eyebrow"><span>YOUR ACADEMIC COMMAND DECK</span><i data-lucide="sparkles"></i></div>
             <h1>Make room for the work that matters.</h1>
             <p class="canvas-lede">Connect Canvas to bring your courses, grades, announcements, quizzes, and deadlines into one calm view.</p>
-            <div class="canvas-security"><i data-lucide="shield-check"></i><span>Your token stays in this browser tab session and is sent only to your Canvas school. Hero never stores it.</span></div>
+            <div class="canvas-security"><i data-lucide="shield-check"></i><span>Your token stays in this browser tab session and is briefly forwarded by Hero’s secure relay to your Canvas school. Hero does not save it to your account or Firestore.</span></div>
             ${error ? `<div class="canvas-error" role="alert">${esc(error)}</div>` : ''}
             <form id="canvas-connect-form" class="canvas-form">
                 <label>Canvas school URL<input id="canvas-url" type="url" required placeholder="https://school.instructure.com" autocomplete="url" value="${esc(sessionStorage.getItem(URL_KEY) || '')}"><small>Use the same address where you open Canvas.</small></label>
                 <label>Canvas access token<input id="canvas-token" type="password" required placeholder="Paste your Canvas token" autocomplete="off" spellcheck="false"><small>Create a personal access token in Canvas Account → Settings. Treat it like your password.</small></label>
                 <button class="canvas-primary" type="submit"><i data-lucide="arrow-up-right"></i> Open my dashboard</button>
             </form>
-            <p class="canvas-footnote">If your school disables personal access tokens, ask its Canvas administrator about an approved integration. Canvas can also limit API access in the browser.</p>
+            <p class="canvas-footnote">If your school uses a custom Canvas domain, the Hero administrator may need to allowlist it. Schools can also disable personal access tokens or restrict API access.</p>
         </section>`;
         lucide.createIcons();
         document.getElementById('canvas-connect-form').onsubmit = async (event) => {
@@ -95,7 +115,7 @@
             renderDashboard(snapshot);
         } catch (e) {
             if (e.status === 401) { sessionStorage.removeItem(TOKEN_KEY); form(e.message); }
-            else root().innerHTML = `<section class="canvas-connect"><div class="canvas-eyebrow">CANVAS CONNECTION</div><h1>We couldn’t load your dashboard.</h1><div class="canvas-error" role="alert">${esc(e.message || 'Canvas request failed.')}</div><p class="canvas-lede">Some schools block browser requests to Canvas or restrict API access. Check your school URL and token, or ask your Canvas administrator whether personal access tokens and API access are enabled.</p><button class="canvas-secondary" onclick="heroCanvasDisconnect()">Return to secure setup</button></section>`;
+            else root().innerHTML = `<section class="canvas-connect"><div class="canvas-eyebrow">CANVAS CONNECTION</div><h1>We couldn’t load your dashboard.</h1><div class="canvas-error" role="alert">${esc(e.message || 'Canvas request failed.')}</div><p class="canvas-lede">Check that your school URL is correct and that the token is current and has access to this data. If your school uses a custom Canvas domain, ask the Hero administrator to allowlist it.</p><button class="canvas-secondary" onclick="heroCanvasDisconnect()">Return to secure setup</button></section>`;
         } finally { loading = false; }
     };
     const renderDashboard = (data) => {
