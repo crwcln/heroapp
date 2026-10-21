@@ -48,8 +48,12 @@
             Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site', 'visit-admin-count': 'site' })
                 .forEach(([id, t]) => { document.getElementById(id).closest('[class*="rounded-2xl"]').dataset.atab = t; });
             const an = document.createElement('div');
-            an.dataset.atab = 'analytics'; an.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
-            an.innerHTML = '<div id="an-kpis" class="an-grid"></div><div class="an-box"><div class="an-box-head"><h4>Sessions, last 14 days</h4><button id="an-refresh" type="button" class="an-refresh" onclick="refreshAnalyticsAdmin()"><i data-lucide="refresh-cw"></i><span>Refresh</span></button></div><div id="an-chart" class="an-chart"></div></div><div id="an-split" class="an-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div><div class="an-box"><h4>Live sessions</h4><div id="an-live" class="an-scroll"></div></div>';
+            an.dataset.atab = 'analytics'; an.className = 'an-dashboard bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
+            an.innerHTML = `<header class="an-hero"><div><span class="an-eyebrow">STEWARD VIEW</span><h3>Analytics</h3><p>Understand visits, quiz activity, and who is exploring Hero right now.</p></div><div class="an-live-badge"><i class="an-dot"></i> Live overview</div></header>
+                <div id="an-kpis" class="an-grid an-kpi-grid"></div>
+                <section class="an-box an-chart-box"><div class="an-box-head"><div><h4>Traffic over time</h4><p id="an-chart-caption">Daily sessions, UTC</p></div><div class="an-chart-actions"><div class="an-range" role="group" aria-label="Chart range"><button type="button" data-days="7" onclick="setAnalyticsRange(7)">7 days</button><button type="button" data-days="14" onclick="setAnalyticsRange(14)">14 days</button></div><button id="an-refresh" type="button" class="an-refresh" onclick="refreshAnalyticsAdmin()"><i data-lucide="refresh-cw"></i><span>Refresh</span></button></div></div><div id="an-chart" class="an-chart"></div></section>
+                <div class="an-insights-grid"><div id="an-split" class="an-breakdowns"></div><section id="an-funnel" class="an-box"></section></div>
+                <section class="an-box an-live-box"><div class="an-box-head"><div><h4>Live sessions</h4><p>Visitors active in the last 75 seconds</p></div><span id="an-live-count" class="an-count-pill">0 online</span></div><div id="an-live" class="an-scroll"></div></section>`;
             panel.appendChild(an);
             const global = document.createElement('section');
             global.dataset.atab = 'global'; global.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
@@ -77,7 +81,7 @@
         }
 
         // ================= ADMIN ANALYTICS (live) =================
-        let anPresence = [], anDays = [], anUnsubs = [], anTimer = null, anErr = '';
+        let anPresence = [], anDays = [], anUnsubs = [], anTimer = null, anErr = '', anRange = 14;
         async function anFail(e) {
             console.error(e); let why = '';
             try {
@@ -108,6 +112,10 @@
                 if (label) label.textContent = 'Refresh';
             }, 1200);
         };
+        window.setAnalyticsRange = function (days) {
+            anRange = days === 7 ? 7 : 14;
+            anRender();
+        };
         function stopAnalyticsAdmin() { anUnsubs.forEach(u => u()); anUnsubs = []; clearInterval(anTimer); anPresence = []; anDays = []; }
         window.addEventListener('hero-profiles-updated', () => anRender());
         const anLabel = k => ({ ios:'iOS', osx:'macOS', mac:'macOS', chromeos:'Chrome OS', twoyear:'2 Year', default:'1 Year' }[k] || String(k).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
@@ -119,7 +127,7 @@
                 return `<div class="an-bar" style="--bar-delay:${Math.min(i, 8) * 45}ms" title="${esc(anLabel(key))}: ${n.toLocaleString()}"><span>${esc(anLabel(key))}</span><div class="an-bar-track" role="meter" aria-label="${esc(anLabel(key))}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${n}"><i style="--bar-width:${width}%"></i></div><b>${n.toLocaleString()}</b></div>`;
             }).join('') : '<p class="fb-hint">No data yet</p>';
         };
-        const anSum = (p) => { const o = {}; anDays.forEach(d => Object.keys(d).forEach(k => { if (k.startsWith(p) && typeof d[k] === 'number') o[k.slice(p.length)] = (o[k.slice(p.length)] || 0) + d[k]; })); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
+        const anSum = (p, source = anDays) => { const o = {}; source.forEach(d => Object.keys(d).forEach(k => { if (k.startsWith(p) && typeof d[k] === 'number') o[k.slice(p.length)] = (o[k.slice(p.length)] || 0) + d[k]; })); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
         const anCount = (arr, key) => { const o = {}; arr.forEach(p => { o[p[key]] = (o[p[key]] || 0) + 1; }); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
         function anRender() {
             const panel = document.getElementById('admin-panel');
@@ -129,13 +137,30 @@
             const now = Date.now();
             const live = anPresence.filter(p => p.lastSeen && p.lastSeen.toMillis && now - p.lastSeen.toMillis() < 75000);
             const today = anDays.find(d => d.day === anDay()) || {};
-            const tot = k => anDays.reduce((a, d) => a + (d[k] || 0), 0), started = tot('started'), done = tot('completed');
-            const kpi = (label, val, dot) => `<div class="an-kpi"><small>${dot ? '<i class="an-dot"></i>' : ''}${label}</small><strong>${val}</strong></div>`;
-            document.getElementById('an-kpis').innerHTML = kpi('Live now', live.length, true) + kpi('Sessions today', today.sessions || 0) + kpi('Sessions, 14 days', tot('sessions')) + kpi('Quizzes finished', started ? Math.round(done / started * 100) + '%' : '\u2013');
-            const days = [...anDays].reverse(), max = Math.max(1, ...days.map(d => d.sessions || 0)), w = 34;
-            document.getElementById('an-chart').innerHTML = days.length ? `<svg viewBox="0 0 ${days.length * w} 92" width="100%" style="max-height:170px"><defs><linearGradient id="anGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand-500)"/><stop offset="1" stop-color="var(--sec)"/></linearGradient></defs>${days.map((d, i) => { const h = Math.max(2, Math.round((d.sessions || 0) / max * 62)); return `<rect x="${i * w + 6}" y="${72 - h}" width="${w - 12}" height="${h}" rx="5"><title>${esc(d.day)}: ${d.sessions || 0}</title></rect><text x="${i * w + w / 2}" y="86" text-anchor="middle">${esc(d.day.slice(5))}</text>`; }).join('')}</svg>` : '<p class="fb-hint">No data yet</p>';
-            document.getElementById('an-split').innerHTML = [['Devices (14d)', anSum('d_')], ['Operating systems (14d)', anSum('o_')], ['Browsers (14d)', anSum('b_')], ['Pages live now', anCount(live, 'view')], ['Year mode (quizzes, 14d)', anSum('m_')]].map(([t, e]) => `<div class="an-box"><h4>${t}</h4>${anBars(e)}</div>`).join('');
+            const rangeStart = new Date(); rangeStart.setUTCDate(rangeStart.getUTCDate() - (anRange - 1));
+            const rangeStartKey = rangeStart.toISOString().slice(0, 10);
+            const period = anDays.filter(d => d.day >= rangeStartKey);
+            const tot = (key, source = period) => source.reduce((a, d) => a + (d[key] || 0), 0);
+            const started = tot('started'), done = tot('completed'), quit = tot('quit'), completion = started ? Math.round(done / started * 100) : 0;
+            const kpi = (label, val, note, liveDot = false) => `<div class="an-kpi"><small>${liveDot ? '<i class="an-dot"></i>' : ''}${label}</small><strong>${val}</strong><span>${note}</span></div>`;
+            document.getElementById('an-kpis').innerHTML = kpi('Live now', live.length, 'Active in the last 75 seconds', true)
+                + kpi('Sessions today', (today.sessions || 0).toLocaleString(), 'Since midnight UTC')
+                + kpi(`Sessions · ${anRange} days`, tot('sessions').toLocaleString(), `${period.length} days with recorded data`)
+                + kpi('Quiz completion', `${completion}%`, `${done.toLocaleString()} finished of ${started.toLocaleString()} started`);
+            const chartDays = Array.from({ length: anRange }, (_, i) => {
+                const date = new Date(); date.setUTCHours(0, 0, 0, 0); date.setUTCDate(date.getUTCDate() - (anRange - i - 1));
+                const day = date.toISOString().slice(0, 10);
+                return anDays.find(item => item.day === day) || { day, sessions: 0 };
+            });
+            document.querySelectorAll('.an-range button').forEach(button => button.classList.toggle('on', Number(button.dataset.days) === anRange));
+            const max = Math.max(1, ...chartDays.map(d => d.sessions || 0)), w = 48, chartH = 118;
+            document.getElementById('an-chart-caption').textContent = `Daily sessions · ${chartDays[0].day} to ${chartDays[chartDays.length - 1].day} (UTC)`;
+            document.getElementById('an-chart').innerHTML = `<svg class="an-chart-svg" viewBox="0 0 ${chartDays.length * w} ${chartH}" role="img" aria-label="Sessions per day over the last ${anRange} days" preserveAspectRatio="none"><defs><linearGradient id="anGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand-500)"/><stop offset="1" stop-color="var(--sec)" stop-opacity=".55"/></linearGradient></defs>${[0.25, 0.5, 0.75].map(y => `<line class="an-chart-gridline" x1="0" x2="${chartDays.length * w}" y1="${y * 82}" y2="${y * 82}"/>`).join('')}${chartDays.map((d, i) => { const h = Math.round((d.sessions || 0) / max * 66); const x = i * w + 8; return `<rect x="${x}" y="${82 - h}" width="${w - 16}" height="${h}" rx="6"><title>${esc(d.day)}: ${(d.sessions || 0).toLocaleString()} sessions</title></rect><text x="${i * w + w / 2}" y="106" text-anchor="middle">${esc(d.day.slice(5))}</text>`; }).join('')}</svg>`;
+            document.getElementById('an-split').innerHTML = [['Devices', anSum('d_', period)], ['Operating systems', anSum('o_', period)], ['Browsers', anSum('b_', period)], ['Tour mode', anSum('m_', period)]].map(([t, e]) => `<section class="an-box"><h4>${t}<small>Last ${anRange} days</small></h4>${anBars(e)}</section>`).join('');
+            const maxQuiz = Math.max(started, done, quit, 1);
+            document.getElementById('an-funnel').innerHTML = `<h4>Quiz activity<small>Last ${anRange} days</small></h4><p class="an-funnel-note">See how sessions turn into completed journeys.</p><div class="an-funnel-row"><span>Started</span><div><i style="--bar-width:${Math.max(2, Math.round(started / maxQuiz * 100))}%"></i></div><b>${started.toLocaleString()}</b></div><div class="an-funnel-row"><span>Completed</span><div><i style="--bar-width:${Math.max(done ? 2 : 0, Math.round(done / maxQuiz * 100))}%"></i></div><b>${done.toLocaleString()}</b></div><div class="an-funnel-row"><span>Left early</span><div><i class="is-quiet" style="--bar-width:${Math.max(quit ? 2 : 0, Math.round(quit / maxQuiz * 100))}%"></i></div><b>${quit.toLocaleString()}</b></div><div class="an-funnel-foot">Completion rate <strong>${completion}%</strong></div>`;
             const profiles = window.__heroDeviceProfiles || {};
-            document.getElementById('an-live').innerHTML = live.length ? `<table class="an-table"><tr><th>Visitor</th><th>Device</th><th>OS</th><th>Browser</th><th>Current page</th><th>Mode</th><th>Viewport</th><th>Seen</th></tr>${live.slice(0, 30).map(p => { const profile = profiles[p.deviceId]; return `<tr><td>${profile ? esc(profile.name) : 'Guest'}</td><td>${esc(p.device)}</td><td>${esc(p.os)}</td><td>${esc(p.browser)}</td><td>${esc(String(p.view).replace('-view', ''))}</td><td>${p.mode === 'twoyear' ? '2 Year' : '1 Year'}</td><td>${esc(p.vw)}\u00d7${esc(p.vh)}</td><td>${Math.max(0, Math.round((now - p.lastSeen.toMillis()) / 1000))}s ago</td></tr>`; }).join('')}</table>` : '<p class="fb-hint">Nobody online right now.</p>';
+            document.getElementById('an-live-count').textContent = `${live.length} online`;
+            document.getElementById('an-live').innerHTML = live.length ? `<table class="an-table"><thead><tr><th>Visitor</th><th>Device</th><th>Current page</th><th>Tour</th><th>Active</th></tr></thead><tbody>${live.slice(0, 30).map(p => { const profile = profiles[p.deviceId]; return `<tr><td><span class="an-visitor-dot"></span>${profile ? esc(profile.name) : 'Guest'}</td><td>${esc(anLabel(p.device))}</td><td>${esc(String(p.view || 'Home').replace('-view', '').replace(/[-_]/g, ' '))}</td><td>${p.mode === 'twoyear' ? '2 Year' : '1 Year'}</td><td>${Math.max(0, Math.round((now - p.lastSeen.toMillis()) / 1000))}s ago</td></tr>`; }).join('')}</tbody></table>` : '<p class="an-empty-live">Nobody online right now. Live visitors appear here while they explore.</p>';
         }
         initAdminTabs();
