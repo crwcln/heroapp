@@ -41,6 +41,7 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | `DEPLOY_BRANCH` | Optional | Branch to commit to; defaults to `main` |
 | `GEMINI_API_KEY` | Optional | Enables Clio AI |
 | `FIREBASE_WEB_PUSH_VAPID_KEY` | Yes for push notifications | Public Web Push certificate key from Firebase Console → Project settings → Cloud Messaging → Web Push certificates |
+| `FIREBASE_PROJECT_ID` | Optional | Firebase project ID for FCM; if omitted, the sender derives it from `FIREBASE_CLIENT_EMAIL` |
 | `GEMINI_MODEL` | Optional | Overrides the model preference list in `edge-functions/api/chat.js` |
 | `FLAPPY_TRIGGER`, `FLAPPY_BIRD_URL`, `FLAPPY_GRAVITY`, `FLAPPY_GAP` | Optional | Overrides for the Flappy Bird feature |
 
@@ -48,7 +49,13 @@ The Steward redeploy action creates an empty Git commit with the message entered
 
 `edgeone.json` runs `npm run build` on each deployment. The build stamps every local JS/CSS URL with that file's content hash, while the HTML entry point is served with `no-store` so browsers receive the latest asset references. This is required because the site previously served JavaScript with a one-year immutable browser cache policy. After publishing this change, verify the EdgeOne deployment log includes `Stamped ... local assets` and that `/js/00-site-config.js` has a versioned `?v=` URL in the deployed HTML.
 
-Web push uses Firebase Cloud Messaging. Enable the Firebase Cloud Messaging API and Web Push certificates in the Firebase project, set `FIREBASE_WEB_PUSH_VAPID_KEY` to the displayed public key in EdgeOne, and publish the updated `firestore.rules`. The existing Firebase service account must be allowed to send Firebase Cloud Messaging messages. Users then opt in under Settings → Notifications. New announcements are sent to opted-in browsers; editing an announcement does not send a second alert.
+Web push uses Firebase Cloud Messaging HTTP v1. Set `FIREBASE_WEB_PUSH_VAPID_KEY` to the **public** Web Push certificate key from Firebase Console > Project settings > Cloud Messaging > Web Push certificates. Publish the updated `firestore.rules` so verified users can save their own browser tokens.
+
+To authorize the sender, open Google Cloud Console for the Firebase project used in `js/02-firebase-config.js` (currently `heroapp-cc053`), then go to **IAM & Admin > IAM > Grant access**. Add the service-account email stored in EdgeOne as `FIREBASE_CLIENT_EMAIL` (the `client_email` field in its JSON key). Grant **Firebase Cloud Messaging API Admin** (`roles/firebasecloudmessaging.admin`). This role includes `cloudmessaging.messages.create`; do not grant Owner.
+
+The announcement endpoint also queries opted-in tokens in Firestore. Grant the same account **Cloud Datastore Viewer** (`roles/datastore.viewer`) so it can read the token documents. Expired-token deletion is best-effort with this read-only role. The roles are project-level; keep the service-account key only in EdgeOne secrets. Also enable **Firebase Cloud Messaging API** in Google Cloud Console > APIs & Services > Enabled APIs & services. The sender requests only the `firebase.messaging` and `datastore` OAuth scopes.
+
+Users opt in under Settings ? Notifications. New announcements are sent to opted-in browsers; editing an announcement does not send a second alert. The sender reports separate errors for Firestore lookup and FCM send permissions, pointing to the IAM setting to check.
 
 Account verification supports email/password plus Google sign-in. Existing unverified password accounts can choose **Verify with Google instead** using the same email address, or request a verification link at another email address they can access. To enable Google, turn on the Google provider under Firebase Authentication → Sign-in method and add the production website domain under Authentication → Settings → Authorized domains. Google verification depends on whether Firebase trusts that email domain; school Google Workspace can also block third-party sign-in until its administrator allows Hero.
 

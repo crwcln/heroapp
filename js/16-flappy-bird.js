@@ -10,11 +10,11 @@ let flState = null;
 function flOpen() {
     if (document.getElementById('flappy')) return;
     const el = document.createElement('div'); el.id = 'flappy';
-    el.innerHTML = '<div class="fl-wrap"><button class="fl-close">Close \u2715</button><div class="fl-hud">0</div><canvas width="360" height="560"></canvas><div class="fl-over"><h3>Game over</h3><div class="fl-score"></div><div class="fl-row"><input maxlength="15" placeholder="Your name"><button class="cm-btn go fl-submit">Post score</button></div><div class="fl-board">Loading best runs...</div><button class="cm-btn ghost fl-again" style="color:#fff;border-color:rgba(255,255,255,.4)">Play again</button></div></div>';
+    el.innerHTML = '<div class="fl-wrap"><button class="fl-close">Close \u2715</button><div class="fl-hud">0</div><canvas width="360" height="560" aria-label="Flappy Bird game. Tap, click, or press Space to start and flap."></canvas><div class="fl-over"><h3>Game over</h3><div class="fl-score"></div><div class="fl-row"><input maxlength="15" placeholder="Your name"><button class="cm-btn go fl-submit">Post score</button></div><div class="fl-board">Loading best runs...</div><button class="cm-btn ghost fl-again">Play again</button></div></div>';
     document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('open'));
     el.querySelector('.fl-close').onclick = flClose; document.addEventListener('keydown', flKeys);
     const cv = el.querySelector('canvas'), img = new Image(); img.src = flCfg.flappyBirdUrl;
-    flState = { cv, ctx: cv.getContext('2d'), img, y: 260, vy: 0, pipes: [], score: 0, t: 0, dead: false, raf: 0, posted: false };
+    flState = { cv, ctx: cv.getContext('2d'), img, y: 260, vy: 0, pipes: [], score: 0, t: 0, dead: false, started: false, raf: 0, posted: false };
     cv.onpointerdown = flFlap; el.querySelector('.fl-again').onclick = () => { flReset(); flLoop(); }; el.querySelector('.fl-submit').onclick = flPost; flLoop();
 }
 function flKeys(e) {
@@ -22,8 +22,8 @@ function flKeys(e) {
     const typing = e.target.closest('input, textarea, [contenteditable="true"]');
     if (e.key === ' ' && document.getElementById('flappy') && !typing) { e.preventDefault(); flFlap(); }
 }
-function flReset() { Object.assign(flState, { y: 260, vy: 0, pipes: [], score: 0, t: 0, dead: false, posted: false }); document.getElementById('flappy').classList.remove('over'); }
-function flFlap() { if (flState && !flState.dead) flState.vy = -7.6; }
+function flReset() { Object.assign(flState, { y: 260, vy: 0, pipes: [], score: 0, t: 0, dead: false, started: false, posted: false }); document.getElementById('flappy').classList.remove('over'); }
+function flFlap() { if (!flState || flState.dead) return; flState.started = true; flState.vy = -7.6; }
 function flClose() { if (flState) cancelAnimationFrame(flState.raf); document.removeEventListener('keydown', flKeys); flState = null; const el = document.getElementById('flappy'); if (el) { el.classList.remove('open'); setTimeout(() => el.remove(), 400); } }
 async function flBoard() {
     const box = document.querySelector('#flappy .fl-board'); if (!box) return;
@@ -38,15 +38,22 @@ async function flPost() {
 }
 function flDie() { const s = flState; s.dead = true; const el = document.getElementById('flappy'); el.classList.add('over'); el.querySelector('.fl-score').textContent = `Score: ${s.score}`; flBoard(); }
 function flLoop() {
-    const s = flState, { ctx, cv } = s; s.t++; s.vy += flCfg.flappyGravity; s.y += s.vy;
-    if (s.t % 90 === 1) s.pipes.push({ x: cv.width, top: 40 + Math.random() * (cv.height - flCfg.flappyGap - 120), gap: flCfg.flappyGap });
-    s.pipes.forEach(p => p.x -= 2.6); s.pipes = s.pipes.filter(p => p.x > -60);
+    const s = flState, { ctx, cv } = s; s.t++;
+    if (s.started) {
+        s.vy += flCfg.flappyGravity; s.y += s.vy;
+        if (s.t % 90 === 1) s.pipes.push({ x: cv.width, top: 40 + Math.random() * (cv.height - flCfg.flappyGap - 120), gap: flCfg.flappyGap });
+        s.pipes.forEach(p => p.x -= 2.6); s.pipes = s.pipes.filter(p => p.x > -60);
+    } else s.y = 260 + Math.sin(s.t / 12) * 8;
     const g = ctx.createLinearGradient(0, 0, 0, cv.height); g.addColorStop(0, '#1a2a52'); g.addColorStop(1, '#0a0e1a'); ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.fillStyle = '#d4af37'; s.pipes.forEach(p => { ctx.fillRect(p.x, 0, 46, p.top); ctx.fillRect(p.x, p.top + p.gap, 46, cv.height - p.top - p.gap); if (!p.passed && p.x + 46 < 60) { p.passed = true; s.score++; } });
     ctx.save(); ctx.translate(60, s.y); ctx.rotate(Math.max(-0.5, Math.min(0.9, s.vy / 12)));
     if (s.img.complete && s.img.naturalWidth) ctx.drawImage(s.img, -20, -20, 40, 40); else { ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, 7); ctx.fill(); }
     ctx.restore(); document.querySelector('#flappy .fl-hud').textContent = s.score;
-    if (s.y < 10 || s.y > cv.height - 10 || s.pipes.some(p => p.x < 78 && p.x + 46 > 42 && (s.y - 16 < p.top || s.y + 16 > p.top + p.gap))) return flDie();
+    if (!s.started) {
+        ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '700 26px Spectral, Georgia, serif'; ctx.fillText('FLAPPY BIRD', cv.width / 2, 150);
+        ctx.fillStyle = 'rgba(255,255,255,.84)'; ctx.font = '600 16px Spectral, Georgia, serif'; ctx.fillText('Tap, click, or press Space to start', cv.width / 2, 188);
+    }
+    if (s.started && (s.y < 10 || s.y > cv.height - 10 || s.pipes.some(p => p.x < 78 && p.x + 46 > 42 && (s.y - 16 < p.top || s.y + 16 > p.top + p.gap)))) return flDie();
     s.raf = requestAnimationFrame(flLoop);
 }
 const _secretAsk = secretAsk;

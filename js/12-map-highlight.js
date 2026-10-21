@@ -5,7 +5,7 @@ const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 // ===== MAP HIGHLIGHT + PREMIUM EXTRAS =====
 // Curated Natural Earth 10m and historical boundaries are built into one local GeoJSON file.
 // No map-boundary data is requested from a CDN while a player is using the site.
-let hlLocations = {}, hlFeatures = {}, hlLoading = null, hlLayers = [], hlTok = 0;
+let hlLocations = {}, hlFeatures = {}, hlLoading = null, hlLayers = [], hlTok = 0, hlMissingWarned = false;
 const hlNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 function hlLoad() {
     if (hlLoading) return hlLoading;
@@ -59,7 +59,12 @@ function hlShow(loc) {
                 hlLayers.push(layer);
             });
         } else {
-            hlLayers.push(L.circleMarker([loc.lat, loc.lng], { radius: 22, className: 'hl hl-pulse hl-' + hlKind(loc), interactive: false }).addTo(map));
+            // A point halo is not a boundary. Do not show a misleading circle when the curated
+            // outline is missing; the location catalog can be exported and rebuilt by a steward.
+            if (!hlMissingWarned) {
+                hlMissingWarned = true;
+                console.warn('No curated geographic outline matched this location. Export the active location catalog and run npm run build:boundaries.');
+            }
         }
     });
 }

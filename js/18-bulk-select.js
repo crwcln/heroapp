@@ -3,20 +3,20 @@
 function bulkWire(listId, getArr, setArr, saveFn) {
     const sel = new Set(); let lastIdx = null;
     const bar = document.createElement('div');
-    bar.className = 'bulk-select-toolbar flex items-center gap-2 mb-3 flex-wrap'; bar.style.display = 'none';
-    bar.innerHTML = `<span class="text-xs font-bold text-slate-500"><span class="bulk-n">0</span> selected</span>
-        <button class="cm-btn ghost" style="padding:6px 12px;font-size:12px">Select all</button>
-        <button class="cm-btn ghost" style="padding:6px 12px;font-size:12px">Clear</button>
-        <button class="cm-btn go" style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#e11d48,#fb7185)">Delete selected</button>
-        <span class="flex-1"></span>
-        <button class="cm-btn ghost" style="padding:6px 12px;font-size:12px;color:#e11d48;border-color:#fda4af">Delete all</button>`;
+    bar.className = 'bulk-select-toolbar mb-3'; bar.style.display = 'none';
+    bar.innerHTML = `<div class="bulk-select-count"><span class="bulk-n">0</span> selected <span class="bulk-select-hint">Click a row to select; Ctrl/Cmd-click or Shift-click to add more.</span></div>
+        <div class="bulk-select-actions">
+            <button type="button" class="cm-btn ghost">Select all</button>
+            <button type="button" class="cm-btn ghost">Clear</button>
+            <button type="button" class="cm-btn ghost bulk-delete-selected">Delete selected</button>
+            <button type="button" class="cm-btn ghost bulk-delete-all">Delete all</button>
+        </div>`;
     const list = document.getElementById(listId); list.parentElement.insertBefore(bar, list);
-    const [selAllBtn, clearBtn, delSelBtn, spacer, delAllBtn] = bar.children;
-    spacer.classList.add('bulk-select-spacer');
+    const [selAllBtn, clearBtn, delSelBtn, delAllBtn] = bar.querySelector('.bulk-select-actions').children;
     function refresh() {
         const rows = [...list.children];
         rows.forEach((r, i) => r.classList.toggle('bulk-on', sel.has(i)));
-        bar.style.display = getArr().length ? 'flex' : 'none';
+        bar.style.display = getArr().length ? 'grid' : 'none';
         bar.querySelector('.bulk-n').textContent = sel.size;
         delSelBtn.disabled = !sel.size; delSelBtn.classList.toggle('bulk-btn-off', !sel.size);
     }

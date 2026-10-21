@@ -1,5 +1,5 @@
 // ================= SHERPA (Gemini via /api/chat) =================
-        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0, streamText: null };
+        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0, streamText: null, streamReceived: '', typingQueue: '', typingTimer: 0, typingDone: null };
         const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
         const shFmt = t => {
             const source = document.createElement('template');
@@ -35,8 +35,9 @@
             const result = document.createElement('div'); [...source.content.childNodes].forEach(node => result.append(clean(node)));
             return result.innerHTML;
         };
+        const shLogo = () => `<svg class="clio-mark" viewBox="0 0 48 48" aria-hidden="true"><path class="clio-mark-arc" d="M10 37V23a14 14 0 0 1 28 0v14"/><path class="clio-mark-scroll" d="M17 18h14v20H17zM20 23h8M20 27h8M20 31h5"/><path class="clio-mark-sprig" d="M8 37c0-6 3-11 8-15M40 37c0-6-3-11-8-15M10 32l4 1m-1-7 4 2m21 4-4 1m1-7-4 2"/></svg>`;
         function shUI(k, full) {
-            return `<div class="sh-head"><div class="sh-av"><i data-lucide="bot"></i></div><div><h3>Clio</h3><small>Muse of history, guide to the map</small></div><div class="sh-sp"></div>
+            return `<div class="sh-head"><div class="sh-av sh-clio-mark">${shLogo()}</div><div><h3>Clio</h3><small>Muse of history, guide to the map</small></div><div class="sh-sp"></div>
                 <button class="sh-ib" title="New chat" onclick="shClear()"><i data-lucide="rotate-ccw"></i></button>
                 ${full ? '' : '<button class="sh-ib" title="Open full page" onclick="switchView(\'ai-view\')"><i data-lucide="maximize-2"></i></button><button class="sh-ib" title="Close" onclick="sherpaToggle()"><i data-lucide="x"></i></button>'}</div>
                 <div class="sh-msgs" id="shm-${k}"></div>
@@ -65,7 +66,7 @@
             ['p', 'v'].forEach(k => {
                 const box = document.getElementById('shm-' + k); box.innerHTML = '';
                 if (!sh.msgs.length) {
-                    box.innerHTML = `<div class="sh-hero"><div class="sh-av"><i data-lucide="bot"></i></div><h2>Hi, I'm Clio</h2><p>Ask me about places, regions, rivers, empires or trade routes. I'll help you remember them.</p><div class="sh-chips">${SH_CHIPS.map(c => `<button class="sh-chip">${esc(c)}</button>`).join('')}</div></div>`;
+                    box.innerHTML = `<div class="sh-hero"><div class="sh-av sh-clio-mark">${shLogo()}</div><h2>Hi, I'm Clio</h2><p>Ask me about places, regions, rivers, empires or trade routes. I'll help you remember them.</p><div class="sh-chips">${SH_CHIPS.map(c => `<button class="sh-chip">${esc(c)}</button>`).join('')}</div></div>`;
                     box.querySelectorAll('.sh-chip').forEach(b => { b.onclick = () => sherpaSend(b.textContent); });
                     lucide.createIcons();
                 }
@@ -79,12 +80,36 @@
             sessionStorage.setItem('sh_msgs', JSON.stringify(sh.msgs.slice(-30).map(m => ({ r: m.r, t: m.t, err: !!m.err }))));
         }
         function shAppendStreamDelta(text) {
-            sh.streamText = (sh.streamText || '') + text;
+            sh.streamReceived += text;
+            sh.typingQueue += text;
+            if (!sh.typingTimer) shTypeNext();
+        }
+        function shTypeNext() {
+            if (!sh.typingQueue.length) {
+                sh.typingTimer = 0;
+                if (sh.typingDone) { const done = sh.typingDone; sh.typingDone = null; done(); }
+                return;
+            }
+            // Reveal a few characters per beat; punctuation gets a short pause for a natural cadence.
+            let count = Math.min(sh.typingQueue.length, 2);
+            const chunk = sh.typingQueue.slice(0, count); sh.typingQueue = sh.typingQueue.slice(count);
+            sh.streamText = (sh.streamText || '') + chunk;
             ['p', 'v'].forEach(k => {
                 const el = document.getElementById('sh-live-' + k); if (!el) return;
                 el.innerHTML = shFmt(sh.streamText);
                 const box = el.closest('.sh-msgs'); if (box) box.scrollTop = box.scrollHeight;
             });
+            const pause = /[.!?\n]$/.test(chunk) ? 110 : 34;
+            sh.typingTimer = setTimeout(shTypeNext, pause);
+        }
+        function shWaitForTyping() {
+            if (!sh.typingTimer && !sh.typingQueue.length) return Promise.resolve();
+            return new Promise(resolve => { sh.typingDone = resolve; });
+        }
+        async function shAnimateReply(text) {
+            sh.streamText = ''; sh.streamReceived = ''; sh.typingQueue = ''; shRender();
+            shAppendStreamDelta(text || '');
+            await shWaitForTyping();
         }
         async function shQueueFiles(files) {
             const picked = [...(files || [])].filter(f => f.type.startsWith('image/'));
@@ -146,10 +171,11 @@
                 if (!isStream) {
                     const d = await r.json().catch(() => ({}));
                     if (!r.ok) { const err = new Error(d.error || r.status); err.d = d; throw err; }
+                    await shAnimateReply(d.reply || '');
                     sh.msgs.push({ r: 'model', t: d.reply });
                 } else {
                     // Show Clio's answer as it's generated, the same way Gemini's own UI does, instead of waiting for the full reply.
-                    sh.streamText = ''; shRender();
+                    sh.streamText = ''; sh.streamReceived = ''; sh.typingQueue = ''; shRender();
                     const reader = r.body.getReader(), decoder = new TextDecoder();
                     let buf = '', streamErr = null;
                     let readError = null;
@@ -174,14 +200,15 @@
                         sh.streamText = null;
                         const fallback = await sendChat(false), fallbackData = await fallback.json().catch(() => ({}));
                         if (!fallback.ok) { const err = new Error(fallbackData.error || fallback.status); err.d = fallbackData; throw err; }
+                        await shAnimateReply(fallbackData.reply || '');
                         sh.msgs.push({ r: 'model', t: fallbackData.reply || '' });
                     } else if (readError) throw readError;
                     if (streamErr) { sh.streamText = null; const err = new Error(streamErr); throw err; }
-                    if (!readError) sh.msgs.push({ r: 'model', t: sh.streamText || '' });
+                    if (!readError) { await shWaitForTyping(); sh.msgs.push({ r: 'model', t: sh.streamReceived || '' }); }
                     sh.streamText = null;
                 }
             } catch (e) {
-                sh.streamText = null;
+                clearTimeout(sh.typingTimer); sh.typingTimer = 0; sh.typingQueue = ''; sh.typingDone = null; sh.streamText = null;
                 const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", server_not_configured: 'Clio needs FIREBASE_API_KEY set in EdgeOne env vars (the same public value already in js/02-firebase-config.js), then redeploy.', signed_out: 'Sign in with a verified Hero account to talk with Clio.', not_verified: 'Verify your email to talk with Clio.', rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, upstream_unreachable: "Clio's connection to Google's AI service was interrupted. Please try again.", empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
                 const networkFailure = /network|fetch|connection|stream/i.test(String(e && e.message || ''));
                 sh.msgs.push({ r: 'model', t: m || (networkFailure ? "Clio lost its connection while answering. Please try again." : `Clio couldn't answer just now${e && e.message ? ` (${String(e.message).slice(0, 140)})` : ''}. Please try again, and use \u201cSend a Word\u201d if it keeps happening.`), err: true });

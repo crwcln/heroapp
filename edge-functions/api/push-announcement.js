@@ -59,7 +59,8 @@ async function getGoogleAccessToken(clientEmail, privateKeyPem) {
     iss: clientEmail,
     sub: clientEmail,
     aud: 'https://oauth2.googleapis.com/token',
-    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    // These two APIs are all this sender needs: FCM sends and Firestore token lookup.
+    scope: 'https://www.googleapis.com/auth/firebase.messaging https://www.googleapis.com/auth/datastore',
     iat: now,
     exp: now + 3600,
   }));
@@ -111,7 +112,11 @@ export async function onRequestPost(context) {
         } }),
       });
       const rows = await response.json().catch(() => ({}));
-      if (!response.ok) return json({ ok: false, error: 'token_lookup_failed', status: response.status }, 502);
+      if (!response.ok) return json({
+        ok: false,
+        error: response.status === 403 ? 'firestore_permission_denied' : 'token_lookup_failed',
+        upstreamStatus: response.status,
+      }, 502);
       const docs = (Array.isArray(rows) ? rows : []).map((row) => row.document).filter((doc) =>
         doc && doc.fields && doc.fields.enabled && doc.fields.enabled.booleanValue === true
         && doc.fields.token && doc.fields.token.stringValue
@@ -134,19 +139,22 @@ export async function onRequestPost(context) {
         }),
       });
       if (response.ok) return { sent: 1, removed: 0, failed: 0 };
-      const errorBody = await response.text().catch(() => '');
-      if (response.status === 404 || errorBody.includes('UNREGISTERED')) {
+      const errorBody = await response.json().catch(() => ({}));
+      const errorCode = String(errorBody.error?.details?.find?.((item) => item.errorCode)?.errorCode || errorBody.error?.status || '');
+      const errorMessage = String(errorBody.error?.message || '');
+      if (response.status === 404 || errorCode === 'UNREGISTERED' || errorMessage.includes('UNREGISTERED')) {
         await fetch(`https://firestore.googleapis.com/v1/${doc.name}`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => {});
         return { sent: 0, removed: 1, failed: 0 };
       }
-      return { sent: 0, removed: 0, failed: 1 };
+      return { sent: 0, removed: 0, failed: 1, permissionDenied: response.status === 403 };
     };
 
-    let sent = 0, removed = 0, failed = 0;
+    let sent = 0, removed = 0, failed = 0, permissionDenied = false;
     for (let start = 0; start < tokenDocs.length; start += 20) {
       const results = await Promise.all(tokenDocs.slice(start, start + 20).map(sendOne));
-      for (const result of results) { sent += result.sent; removed += result.removed; failed += result.failed; }
+      for (const result of results) { sent += result.sent; removed += result.removed; failed += result.failed; permissionDenied ||= !!result.permissionDenied; }
     }
+    if (permissionDenied) return json({ ok: false, error: 'fcm_permission_denied', sent, removed, failed }, 502);
     return json({ ok: true, sent, removed, failed });
   } catch (error) {
     console.error('push announcement send failed:', error);

@@ -128,15 +128,17 @@ html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.
 #tut .tut-actions #tut-skip { margin-right: auto; color: #aab2c3; }
 #tut .tut-actions #tut-back[hidden] { display: none; }
 #tut :focus-visible { outline: 3px solid var(--sec); outline-offset: 3px; }
-.bulk-select-toolbar { width: 100%; min-width: 0; box-sizing: border-box; align-items: center; }
-.bulk-select-toolbar > button { flex: 0 0 auto; white-space: nowrap; }
-.bulk-select-toolbar .bulk-select-spacer { flex: 1 1 auto; min-width: 0; }
+.bulk-select-toolbar { display:grid; width:100%; min-width:0; box-sizing:border-box; gap:10px; padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(var(--brand-rgb),.035); }
+.bulk-select-count { display:flex; align-items:baseline; gap:5px; color:var(--ink-500); font-size:12px; font-weight:800; }
+.bulk-select-hint { margin-left:6px; color:var(--ink-500); font-size:11px; font-weight:500; }
+.bulk-select-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.bulk-select-actions > button { min-width:0; min-height:38px; padding:7px 10px!important; white-space:normal; font-size:12px!important; }
+.bulk-select-actions .bulk-delete-selected { color:#be123c!important; border-color:rgba(244,63,94,.42)!important; }
+.bulk-select-actions .bulk-delete-all { color:var(--ink-500)!important; }
 @media (max-width: 640px) {
     #tut { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
     #tut .tut-copy { font-size: 13px; }
-    .bulk-select-toolbar .bulk-select-spacer { display: none; }
-    .bulk-select-toolbar > span:first-child { flex: 1 1 100%; }
-    .bulk-select-toolbar > button:last-child { margin-left: auto; }
+    .bulk-select-hint { display:none; }
 }
 @keyframes tutArrive { from { opacity: 0; transform: translate(-50%, 12px) scale(.985); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @media (prefers-reduced-motion: reduce) { #tut, #tut-spotlight { animation: none !important; transition: none !important; } #tut .tut-progress i { transition: none; } }
@@ -622,6 +624,13 @@ button.cm-btn:hover:not(:disabled), .daily-challenge-actions button:hover:not(:d
 #ai-shell .sh-head { min-height:68px; padding:16px 20px; background:linear-gradient(110deg,rgba(var(--brand-rgb),.08),transparent 70%); }
 #ai-shell .sh-msgs { gap:14px; padding:22px clamp(16px,4vw,30px); }
 #ai-shell .sh-msg { max-width:min(82%,700px); padding:13px 17px; border-radius:18px; line-height:1.65; }
+.sh-clio-mark { position:relative; overflow:hidden; color:#f3dfb8; background:radial-gradient(circle at 50% 30%,rgba(var(--brand-rgb),.35),transparent 65%),linear-gradient(145deg,#17192f,#0c0d1b); border:1px solid rgba(var(--brand-rgb),.55); box-shadow:inset 0 0 0 2px rgba(255,255,255,.035),0 5px 18px rgba(0,0,0,.22); }
+.clio-mark { width:28px!important; height:28px!important; overflow:visible; }
+.clio-mark-arc,.clio-mark-scroll,.clio-mark-sprig { fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.clio-mark-scroll { color:#f3dfb8; }
+.clio-mark-arc,.clio-mark-sprig { color:#d9a85f; }
+#ai-shell .sh-hero .clio-mark { width:48px!important; height:48px!important; }
+#ai-shell .sh-hero .sh-clio-mark { border-radius:20px; }
 
 /* 19–20: Form focus, keyboard visibility, and touch-sized mobile actions. */
 input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus { outline:none; border-color:var(--brand-500)!important; box-shadow:var(--hero-ring); }

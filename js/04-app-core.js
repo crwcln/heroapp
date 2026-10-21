@@ -446,6 +446,14 @@
             } catch (e) { showToast("Error during search.", "error"); } 
             finally { btnLoader.classList.add('hidden'); }
         }
+        ['place-name-input', 'place-category-input', 'place-year-input'].forEach(id => {
+            const field = document.getElementById(id);
+            field?.addEventListener('keydown', event => {
+                if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && adminToken) {
+                    event.preventDefault(); geocodeAndAddPlace();
+                }
+            });
+        });
 
         let deployedLocationsSnapshot = null;
         function markLocationsClean() { deployedLocationsSnapshot = JSON.stringify(globalLocations); updateUnsavedBadge(); }

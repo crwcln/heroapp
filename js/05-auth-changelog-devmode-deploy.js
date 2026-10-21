@@ -11,7 +11,9 @@
             if (!response.ok || !result.ok) {
                 const errors = {
                     push_sender_not_configured: 'Push sender is not configured. Check the Firebase service-account environment settings.',
+                    firestore_permission_denied: 'The Firebase service account cannot read push subscriptions. Grant it the Cloud Datastore Viewer role on this Firebase project.',
                     token_lookup_failed: 'Could not read notification subscriptions from Firestore.',
+                    fcm_permission_denied: 'Google denied FCM sending. Enable the Firebase Cloud Messaging API and grant the service account Firebase Cloud Messaging API Admin on this project.',
                     push_send_failed: 'The push service could not send notifications.',
                 };
                 throw new Error(errors[result.error] || `Push delivery failed (HTTP ${response.status}).`);

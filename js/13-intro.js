@@ -86,7 +86,7 @@ function introPlay(options = {}) {
         show(0);
     }, 1500);   // hold white, then reveal the night sky
 }
-{ const badge = document.getElementById('version-badge'); const build = document.querySelector('meta[name="hero-build-id"]')?.content; if (badge) badge.textContent = `HERO v${SITE.version}${build ? ' · ' + build : ''}`; }
+{ const badge = document.getElementById('version-badge'); const build = document.querySelector('meta[name="hero-build-id"]')?.content; if (badge) badge.textContent = `HERO v${SITE.version}${build ? ' · BUILD ' + build : ''}`; }
 { const pw = document.getElementById('admin-password'); if (pw && !pw._enterBound) { pw._enterBound = true; pw.addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); }); } }
 (function introAuto() {
     if (document.documentElement.classList.contains('launch-locked')) return;
