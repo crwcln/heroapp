@@ -36,10 +36,13 @@
                 canvas_timeout: 'Canvas took too long to respond. Try again in a moment.',
                 invalid_canvas_response: 'Canvas returned an unexpected response. Check the school URL.',
             };
+            const errors = Array.isArray(detail.errors) ? detail.errors : Object.values(detail.errors || {}).flat();
+            const apiMessage = errors.map(error => typeof error === 'string' ? error : error?.message).filter(Boolean).join(' ');
+            const endpoint = new URL(url).pathname.replace('/api/v1/', '');
             const message = relayErrors[detail.error] ||
                 (response.status === 401 ? 'Canvas rejected this access token. Check that it is current and has not expired.' :
                     response.status === 403 ? 'Canvas denied access. Your school may restrict API tokens or this data.' :
-                        `Canvas returned ${response.status}${detail.errors?.[0]?.message ? `: ${detail.errors[0].message}` : ''}.`);
+                        `Canvas rejected ${endpoint} (${response.status})${apiMessage ? `: ${apiMessage}` : '.'}`);
             const error = new Error(message);
             error.status = response.status; throw error;
         }
@@ -92,7 +95,7 @@
             const [profile] = await api(base, token, 'users/self/profile');
             const [courses, enrollments] = await Promise.all([
                 api(base, token, 'courses?enrollment_state[]=active&include[]=term&per_page=100'),
-                api(base, token, 'users/self/enrollments?state[]=active&state[]=completed&include[]=grades&per_page=100')
+                api(base, token, 'users/self/enrollments?state[]=active&state[]=completed&per_page=100')
             ]);
             const active = courses.filter(c => c.name && (c.workflow_state === 'available' || !c.workflow_state)).slice(0, 8);
             const courseIds = new Set(active.map(c => String(c.id)));
