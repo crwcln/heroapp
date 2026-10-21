@@ -115,6 +115,10 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
         .is-mobile #global-msg-minimized { left: 12px; right: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
         .is-mobile #visit-counter { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
         .is-mobile body.in-quiz #toast-container { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+        @media (max-width: 640px) {
+            .is-mobile #mobile-tabbar button span { display: none; }
+            .is-mobile #mobile-tabbar button { min-width: 0; padding: 4px 0; }
+        }
         @media (orientation: landscape) and (max-height: 500px) {
             .is-mobile #mobile-tabbar button span { display: none; }
             .is-mobile #mobile-tabbar button { padding: 4px 0; }
