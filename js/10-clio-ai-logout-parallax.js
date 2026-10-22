@@ -245,6 +245,11 @@
         };
         (function () {
             let tx = 0, ty = 0, cx = 0, cy = 0, run = false; const root = document.documentElement;
+            const fxMove = (x, y) => {
+                const fxA = document.getElementById('fx-a'), fxB = document.getElementById('fx-b');
+                if (fxA) fxA.style.translate = `${-x * 22}px ${-y * 22}px`;
+                if (fxB) fxB.style.translate = `${x * 60}px ${y * 60}px`;
+            };
             const step = () => {
                 cx += (tx - cx) * .05; cy += (ty - cy) * .05;
                 fxMove(cx, cy);

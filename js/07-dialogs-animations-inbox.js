@@ -119,7 +119,7 @@
         let inboxUnsub = null, inboxDocs = [];
         const inboxOpen = new Set();
         const inboxNodeById = new Map(), inboxExitTimers = new Map();
-        const IB_TYPE = { bug: 'Bug', location: 'Location', feature: 'Feature', general: 'General', other: 'Other' };
+        const IB_TYPE = { bug: 'Bug', location: 'Location', feature: 'Feature', general: 'General', beta: 'Beta tester application', other: 'Other' };
         const IB_NEXT = { new: [['Mark reviewed', 'reviewed'], ['Mark resolved', 'resolved']], reviewed: [['Mark resolved', 'resolved'], ['Reopen', 'new']], resolved: [['Reopen', 'new']] };
 
         function startInbox() {

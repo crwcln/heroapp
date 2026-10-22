@@ -72,7 +72,8 @@ export async function onRequestPost(context) {
     if (controller.signal.aborted || error?.name === 'TimeoutError' || error?.name === 'AbortError') {
       return json({ error: 'canvas_timeout' }, 504);
     }
-    return json({ error: 'canvas_unreachable' }, 502);
+    const cause = error?.cause?.code || error?.name || 'unknown';
+    return json({ error: 'canvas_unreachable', cause }, 502);
   } finally {
     clearTimeout(timeout);
   }

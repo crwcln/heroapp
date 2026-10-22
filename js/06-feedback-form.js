@@ -1,7 +1,7 @@
 // ================= FEEDBACK =================
         const FB = { maxFiles: 5, maxVideo: 8 * 1048576, maxImage: 20 * 1048576, imgTarget: 450 * 1024, maxTotal: 10 * 1048576, cooldownMs: 30000 };
         const FB_CHUNK = 700000; // multiple of 4 so every chunk is independently valid base64
-        const FB_TYPES = { bug: 'Bug report', location: 'Incorrect or missing location', feature: 'Feature request', general: 'General feedback', other: 'Other' };
+        const FB_TYPES = { bug: 'Bug report', location: 'Incorrect or missing location', feature: 'Feature request', general: 'General feedback', beta: 'Beta tester application', other: 'Other' };
         let fbFiles = [], fbBusy = false, fbPendingId = null, fbPrevView = 'home-view', fbCurView = 'home-view';
         window.__mqErrors = [];
         window.addEventListener('error', e => { window.__mqErrors = window.__mqErrors.concat(String(e.message || 'error').slice(0, 200)).slice(-10); });
@@ -14,8 +14,29 @@
         function fbUpdateType() {
             const type = fbEl('fb-type'); if (!type) return;
             const bug = type.value === 'bug';
+            const beta = type.value === 'beta';
             ['fb-sev-wrap', 'fb-freq-wrap', 'fb-steps-wrap'].forEach(id => fbEl(id)?.classList.toggle('hidden', !bug));
+            fbEl('fb-beta-note').classList.toggle('hidden', !beta);
+            fbEl('fb-diag-wrap').classList.toggle('hidden', beta);
+            fbEl('fb-contact').required = beta;
+            fbEl('fb-contact-hint').textContent = beta ? '(required so we can contact you about a spot)' : '(optional, only if you want a reply)';
+            fbEl('fb-contact-required').classList.toggle('hidden', !beta);
+            fbEl('fb-heading').textContent = beta ? 'Apply to be a beta tester' : 'Send a Word to the Scribes';
+            fbEl('fb-intro').textContent = beta ? 'Help shape what comes next. There are only 2 spots open; apply by October 24, 2026.' : 'Found a bug or have an idea? You can attach photos or short videos to your report.';
+            fbEl('fb-title-label').textContent = beta ? 'Application title' : 'Summary';
+            fbEl('fb-desc-label').textContent = beta ? 'Why would you like to test Hero?' : 'Details';
+            fbEl('fb-title').placeholder = beta ? 'Beta tester application' : "e.g. Marker won't open on my phone";
+            fbEl('fb-desc').placeholder = beta ? 'Tell us what you’d like to test, what device/browser you use, and how you’d share feedback.' : 'What happened, and what did you expect to happen?';
+            fbSubmitLabel();
         }
+        window.openBetaApplication = () => {
+            fbEl('fb-type').value = 'beta';
+            fbEl('fb-area').value = 'Beta testing';
+            fbEl('fb-title').value = 'Beta tester application';
+            fbUpdateType();
+            switchView('feedback-view');
+            fbEl('fb-desc').focus();
+        };
         function fbCount() { const desc = fbEl('fb-desc'), count = fbEl('fb-desc-count'); if (desc && count) count.innerText = `${desc.value.length} / 2000`; }
         function fbFieldError(id, msg) {
             const input = fbEl(id), err = fbEl(id + '-err');
@@ -140,7 +161,7 @@
             const btn = fbEl('fb-submit');
             btn.disabled = fbBusy;
             fbEl('fb-submit-spin').classList.toggle('hidden', !fbBusy);
-            let label = 'Submit Feedback';
+            let label = fbEl('fb-type')?.value === 'beta' ? 'Apply for a beta spot' : 'Submit Feedback';
             if (fbBusy) {
                 const up = fbFiles.filter(f => f.status === 'uploading');
                 if (up.length) {
@@ -176,6 +197,7 @@
             fbFieldError('fb-title'); fbFieldError('fb-desc'); fbFieldError('fb-contact');
             if (title.length < 5) bad('fb-title', 'Please add a short summary (at least 5 characters).');
             if (desc.length < 15) bad('fb-desc', 'Please describe the issue in a bit more detail (at least 15 characters).');
+            if (type === 'beta' && !contact) bad('fb-contact', 'Add an email so we can contact you about your application.');
             if (contact && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) bad('fb-contact', 'That email address doesn\'t look right.');
             if (first) { fbEl(first).focus(); return; }
             if (fbVal('fb-website')) { fbShowSuccess('SPAM0000'); return; } // honeypot
@@ -202,7 +224,7 @@
                     doc.severity = fbEl('fb-severity').value; doc.frequency = fbEl('fb-frequency').value;
                     if (fbVal('fb-steps')) doc.steps = fbVal('fb-steps');
                 }
-                if (fbEl('fb-diag').checked) doc.diagnostics = fbDiagnostics();
+                if (type !== 'beta' && fbEl('fb-diag').checked) doc.diagnostics = fbDiagnostics();
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('feedback').doc(fbPendingId).set(doc);
                 localStorage.setItem('mq_fbLast', String(Date.now()));
                 fbShowSuccess(fbPendingId.slice(-8).toUpperCase());
@@ -216,6 +238,7 @@
         }
         function fbShowSuccess(ref) {
             fbEl('fb-ref').innerText = ref;
+            fbEl('fb-success-message').textContent = fbEl('fb-type').value === 'beta' ? 'Your beta tester application has been sent. We’ll contact you if a spot is available.' : 'Your feedback has been sent.';
             fbEl('fb-form-wrap').classList.add('hidden');
             fbEl('fb-success').classList.remove('hidden');
         }

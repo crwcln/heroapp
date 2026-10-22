@@ -40,7 +40,7 @@
             const relayErrors = {
                 canvas_host_not_allowed: "This Canvas domain isn't configured for secure access. Ask the Hero administrator to add its hostname to CANVAS_ALLOWED_HOSTS in EdgeOne.",
                 canvas_redirect: 'Canvas redirected this address. Use the final school URL shown in your browser when signed in to Canvas.',
-                canvas_unreachable: "Hero couldn't reach your Canvas school. Check the school URL and try again.",
+                canvas_unreachable: `Hero's relay could not connect to Canvas${detail.cause ? ` (${detail.cause})` : ''}. This is an EdgeOne-to-Canvas network failure, not a rejected token.`,
                 canvas_timeout: 'Canvas took too long to respond. Try again in a moment.',
                 invalid_canvas_response: 'Canvas returned an unexpected response. Check the school URL.',
                 canvas_non_json_response: `Canvas's gateway returned ${detail.contentType} (HTTP ${detail.upstreamStatus}) while loading ${new URL(url).pathname.replace('/api/v1/', '')}. This usually indicates a school-side Canvas/gateway problem, not an invalid token.`,
