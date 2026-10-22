@@ -27,7 +27,15 @@
         } catch {
             throw new Error("Couldn't reach Hero's Canvas relay. Check your connection and try again.");
         }
-        const detail = response.ok ? null : await response.json().catch(() => ({}));
+        let detail = null;
+        if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            try {
+                detail = JSON.parse(body);
+            } catch {
+                throw new Error(`Hero's Canvas relay returned a non-JSON HTTP ${response.status} response. EdgeOne may not have deployed or run the Canvas relay correctly.`);
+            }
+        }
         if (!response.ok) {
             const relayErrors = {
                 canvas_host_not_allowed: "This Canvas domain isn't configured for secure access. Ask the Hero administrator to add its hostname to CANVAS_ALLOWED_HOSTS in EdgeOne.",
@@ -35,6 +43,7 @@
                 canvas_unreachable: "Hero couldn't reach your Canvas school. Check the school URL and try again.",
                 canvas_timeout: 'Canvas took too long to respond. Try again in a moment.',
                 invalid_canvas_response: 'Canvas returned an unexpected response. Check the school URL.',
+                canvas_non_json_response: `Canvas's gateway returned ${detail.contentType} (HTTP ${detail.upstreamStatus}) while loading ${new URL(url).pathname.replace('/api/v1/', '')}. This usually indicates a school-side Canvas/gateway problem, not an invalid token.`,
             };
             const errors = Array.isArray(detail.errors) ? detail.errors : Object.values(detail.errors || {}).flat();
             const apiMessage = errors.map(error => typeof error === 'string' ? error : error?.message).filter(Boolean).join(' ');

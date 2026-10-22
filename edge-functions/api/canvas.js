@@ -81,8 +81,13 @@ export async function onRequestPost(context) {
     return json({ error: 'canvas_redirect' }, 502);
   }
   const contentType = upstream.headers.get('Content-Type') || '';
-  if (contentType.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-    return json({ error: 'invalid_canvas_response' }, 502);
+  const mediaType = contentType.split(';', 1)[0].trim().toLowerCase();
+  if (mediaType !== 'application/json' && !mediaType.endsWith('+json')) {
+    return json({
+      error: 'canvas_non_json_response',
+      upstreamStatus: upstream.status,
+      contentType: mediaType || 'unknown content type',
+    }, 502);
   }
 
   const headers = {};
