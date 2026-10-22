@@ -1,8 +1,9 @@
 (() => {
     const $ = id => document.getElementById(id);
     const gate = $('gate'), studio = $('studio'), gateStatus = $('gate-status');
-    let accessToken = '', tokenExpiry = 0, catalogLocations = [], unmatched = [], overrides = [], manualFeatures = [], selected = null, pendingManual = null;
+    let accessToken = '', tokenExpiry = 0, catalogDocument = null, catalogLocations = [], unmatched = [], overrides = [], manualFeatures = [], selected = null, pendingManual = null;
     let map = null, drawingPoints = [], drawingMarkers = [], drawingLine = null, drawnShape = null, locationMarker = null, isDrawing = false;
+    let overridesLoaded = false, manualFileLoaded = false, publishBusy = false;
 
     const setStatus = (id, message, isError = false) => {
         const el = $(id);
@@ -41,10 +42,13 @@
         selected = null;
         if (locationMarker) map?.removeLayer(locationMarker);
         locationMarker = null;
+        catalogDocument = null;
         catalogLocations = [];
         unmatched = [];
         overrides = [];
         manualFeatures = [];
+        overridesLoaded = false;
+        manualFileLoaded = false;
         $('password').value = '';
         gate.classList.remove('hidden');
         studio.classList.add('hidden');
@@ -83,11 +87,20 @@
         try {
             const json = await readFile(event.currentTarget);
             if (!json) return;
-            catalogLocations = Array.isArray(json) ? json : json.locations;
-            if (!Array.isArray(catalogLocations)) throw new Error('Catalog must be an array or contain a locations array.');
+            const locations = Array.isArray(json) ? json : json.locations;
+            if (!Array.isArray(locations)) throw new Error('Catalog must be an array or contain a locations array.');
+            catalogDocument = json;
+            catalogLocations = locations;
             updateLoadedStatus();
             populateLocations();
-        } catch (error) { setStatus('loaded-status', error.message, true); }
+            updateOverrideCount();
+        } catch (error) {
+            catalogDocument = null;
+            catalogLocations = [];
+            updateOverrideCount();
+            populateLocations();
+            setStatus('loaded-status', error.message, true);
+        }
     });
     $('unmatched-file').addEventListener('change', async event => {
         try {
@@ -97,7 +110,11 @@
             if (!Array.isArray(unmatched)) throw new Error('Report must be an array or contain a locations array.');
             updateLoadedStatus();
             populateLocations();
-        } catch (error) { setStatus('loaded-status', error.message, true); }
+        } catch (error) {
+            unmatched = [];
+            populateLocations();
+            setStatus('loaded-status', error.message, true);
+        }
     });
     $('overrides-file').addEventListener('change', async event => {
         try {
@@ -105,10 +122,16 @@
             if (!json) return;
             overrides = Array.isArray(json) ? json : json.overrides;
             if (!Array.isArray(overrides)) throw new Error('Overrides must be an array or contain an overrides array.');
+            overridesLoaded = true;
             updateLoadedStatus();
             updateOverrideCount();
             populateLocations();
-        } catch (error) { setStatus('loaded-status', error.message, true); }
+        } catch (error) {
+            overridesLoaded = false;
+            overrides = [];
+            updateOverrideCount();
+            setStatus('loaded-status', error.message, true);
+        }
     });
     $('existing-manual-file').addEventListener('change', async event => {
         try {
@@ -119,9 +142,15 @@
                 throw new Error('Every manual boundary must be a Polygon or MultiPolygon feature.');
             }
             manualFeatures = json.features;
+            manualFileLoaded = true;
             updateOverrideCount();
             setStatus('loaded-status', `${catalogLocations.length} catalog locations, ${unmatched.length} unmatched items, ${overrides.length} overrides, and ${manualFeatures.length} manual features loaded.`);
-        } catch (error) { setStatus('loaded-status', error.message, true); }
+        } catch (error) {
+            manualFileLoaded = false;
+            manualFeatures = [];
+            updateOverrideCount();
+            setStatus('loaded-status', error.message, true);
+        }
     });
     const updateLoadedStatus = () => setStatus('loaded-status', `${catalogLocations.length} catalog locations, ${unmatched.length} unmatched items, and ${overrides.length} existing overrides loaded.`);
     function populateLocations() {
@@ -329,6 +358,10 @@
             await requireAccess();
             if (!selected) throw new Error('Choose a location first.');
             const mode = $('match-mode').value;
+            if (!overridesLoaded) throw new Error('Load your existing location-boundary-overrides.json first so this edit does not replace other saved overrides.');
+            if (mode === 'manual' && overrides.some(row => row.file === 'hero-manual-boundaries.geojson') && !manualFileLoaded) {
+                throw new Error('Load the existing hero-manual-boundaries.geojson first so its saved shapes and feature indexes are preserved.');
+            }
             const yearText = $('year').value.trim();
             const year = yearText === '' ? null : Number(yearText);
             if (mode === 'historical' && (!Number.isInteger(year) || !Number.isFinite(year))) throw new Error('Historical matches require an integer year; use a negative number for BCE.');
@@ -368,6 +401,7 @@
         $('override-count').textContent = `${overrides.length} overrides ready; ${manualFeatures.length} manual GeoJSON features.`;
         $('download-overrides').disabled = !overrides.length;
         $('download-manual').disabled = !manualFeatures.length;
+        $('publish-boundaries').disabled = !catalogLocations.length || publishBusy;
         updateDrawControls();
     };
     async function downloadFile(contents, name, type) {
@@ -385,6 +419,91 @@
     $('download-manual').addEventListener('click', async () => {
         try { await downloadFile({ type: 'FeatureCollection', features: manualFeatures }, 'hero-manual-boundaries.geojson', 'application/geo+json'); }
         catch (error) { setStatus('export-status', error.message, true); }
+    });
+    function setPublishBusy(busy, message, isError = false) {
+        publishBusy = busy;
+        $('publish-boundaries').disabled = busy || !catalogLocations.length;
+        $('publish-boundaries').textContent = busy ? 'Building and publishing…' : 'Build and publish boundaries';
+        setStatus('publish-status', message, isError);
+    }
+    async function watchPublish(commitSha) {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 15 * 60 * 1000) {
+            await new Promise(resolve => setTimeout(resolve, 12000));
+            const result = await requestPublishStatus(commitSha);
+            if (result.htmlUrl && /^https:\/\/github\.com\//.test(result.htmlUrl)) {
+                const link = $('workflow-link');
+                link.href = result.htmlUrl;
+                link.classList.remove('hidden');
+            }
+            if (result.status === 'completed') {
+                if (result.conclusion === 'success') {
+                    setPublishBusy(false, 'Boundary build finished and the EdgeOne deployment was triggered. Open GitHub to review the generated unmatched report.');
+                    return;
+                }
+                throw new Error(`GitHub boundary build ${result.conclusion || 'failed'}. Open the build status link for details; the generated borders were not confirmed deployed.`);
+            }
+            setStatus('publish-status', result.status === 'in_progress'
+                ? 'GitHub is matching locations and generating the boundary bundle. This can take several minutes.'
+                : 'Build request is queued on GitHub. This page will update when it finishes.');
+        }
+        throw new Error('The build is still running. You can close this page; check the linked GitHub Actions run and EdgeOne deployment status.');
+    }
+    async function requestPublishStatus(commitSha) {
+        const response = await fetch('/api/border-tool-publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ action: 'status', commitSha }),
+            cache: 'no-store',
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+            lockStudio();
+            throw new Error('Border Studio session expired. The queued build continues; check its GitHub Actions status.');
+        }
+        if (!response.ok || result.ok !== true) throw new Error('Could not check the GitHub build status. Check GitHub Actions and EdgeOne directly.');
+        return result;
+    }
+    $('publish-boundaries').addEventListener('click', async () => {
+        if (!catalogLocations.length || publishBusy) return;
+        if (!window.confirm('This will commit the loaded catalog and any loaded overrides/manual borders to the configured GitHub branch, generate boundary data, and trigger an EdgeOne deployment. Continue?')) return;
+        publishBusy = true;
+        updateOverrideCount();
+        $('workflow-link').classList.add('hidden');
+        setPublishBusy(true, 'Sending the catalog to GitHub and starting the boundary build…');
+        try {
+            await requireAccess();
+            const response = await fetch('/api/border-tool-publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+                body: JSON.stringify({
+                    action: 'publish',
+                    catalog: catalogDocument,
+                    ...(overridesLoaded || overrides.length ? { overrides } : {}),
+                    ...(manualFileLoaded || manualFeatures.length ? { manual: { type: 'FeatureCollection', features: manualFeatures } } : {}),
+                }),
+                cache: 'no-store',
+            });
+            const result = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+                lockStudio();
+                throw new Error('Border Studio session expired. Sign in again and retry.');
+            }
+            if (!response.ok || result.ok !== true) {
+                const detail = result.error === 'not_configured'
+                    ? 'GitHub publishing is not configured. Check the setup requirements in the instructions.'
+                    : result.error === 'payload_too_large'
+                        ? 'The files exceed the publishing limit. Use smaller boundary files.'
+                        : result.commitCreated
+                            ? `The inputs were committed (${result.commitSha?.slice(0, 7) || 'commit created'}), but GitHub did not queue the build. Check workflow permissions, then try again.`
+                        : `GitHub could not start the build (HTTP ${result.status || response.status}). Check the GitHub token and workflow permissions.`;
+                throw new Error(detail);
+            }
+            setStatus('publish-status', 'GitHub accepted the catalog. Waiting for automatic matching and deployment…');
+            await watchPublish(result.commitSha);
+        } catch (error) {
+            setPublishBusy(false, error.message, true);
+        }
     });
     updateOverrideCount();
 })();

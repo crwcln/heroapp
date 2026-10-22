@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=JetBrains+Mono:wght@500;700&family=Nunito:wght@600;700;800&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-    <link rel="stylesheet" href="css/border-studio.css?v=9d2bbc5b74eea6fc">
+    <link rel="stylesheet" href="css/border-studio.css?v=7a9d55148d1f3970">
 </head>
 <body>
     <main class="shell">
@@ -22,7 +22,7 @@
         <section id="gate" class="card gate">
             <p class="eyebrow">PASSWORD REQUIRED</p>
             <h1>Border Studio</h1>
-            <p>Use the private border-tool password configured by the site owner. Uploaded files stay in this browser. The interactive map loads map tiles from OpenStreetMap.</p>
+            <p>Files stay in this browser until you choose to publish. Publishing sends the catalog and any loaded overrides or manual shapes to the configured GitHub repository. The map loads tiles from OpenStreetMap.</p>
             <form id="login-form">
                 <label for="password">Border tool password</label>
                 <input id="password" type="password" autocomplete="current-password" required>
@@ -33,22 +33,28 @@
 
         <section id="studio" class="hidden">
             <div class="intro">
-                <p class="eyebrow">LOCAL-ONLY GEOJSON WORKFLOW</p>
+                <p class="eyebrow">BROWSER-BASED BOUNDARY BUILDER</p>
                 <h1>Make border fixes easier to review.</h1>
-                <p>Load your real location catalog and unmatched report, add aliases or historical years, and attach carefully reviewed GeoJSON for routes and other hand-drawn shapes. Exports are downloaded to your computer; this tool does not publish or deploy them.</p>
+                <p>Load the catalog from the quiz editor, then build and publish map borders from this page. Matching and deployment run on GitHub; you do not need to run a command on your computer.</p>
                 <button id="lock-button" class="secondary" type="button">Lock studio</button>
             </div>
 
             <section class="card">
-                <h2>1. Load the build files</h2>
+                <h2>1. Load your catalog</h2>
                 <div class="file-grid">
                     <label>Location catalog JSON<input id="catalog-file" type="file" accept=".json,application/json"></label>
-                    <label>Unmatched report JSON<input id="unmatched-file" type="file" accept=".json,application/json"></label>
-                    <label>Existing boundary overrides JSON<input id="overrides-file" type="file" accept=".json,application/json"></label>
+                    <label>Unmatched report JSON (optional; for editing reported misses)<input id="unmatched-file" type="file" accept=".json,application/json"></label>
+                    <label>Existing boundary overrides JSON (optional; needed to preserve them when editing)<input id="overrides-file" type="file" accept=".json,application/json"></label>
                     <label>Existing manual boundaries GeoJSON (optional)<input id="existing-manual-file" type="file" accept=".json,.geojson,application/geo+json,application/json"></label>
                 </div>
                 <p id="loaded-status" class="status" role="status" aria-live="polite">No files loaded yet.</p>
-                <p class="hint">Export the catalog from the steward quiz editor. Generate the unmatched report by running the boundary build. Use your production catalog, not sample or test locations.</p>
+                <p class="hint">In the main site's steward quiz editor, choose <strong>Export boundary build catalog</strong>. Choose that downloaded file here. The unmatched report is only needed when editing specific prior misses; this page creates a fresh report during each build.</p>
+                <details class="setup-details">
+                    <summary>One-time setup for the site owner</summary>
+                    <p>In EdgeOne, set <code>BORDER_TOOL_PASSWORD</code>, <code>GITHUB_TOKEN</code>, and <code>GITHUB_REPOSITORY</code>. The GitHub token needs repository contents read/write and Actions workflow-dispatch access.</p>
+                    <p>In GitHub, add an Actions repository secret named <code>EDGEONE_DEPLOY_WEBHOOK_URL</code> with the same deploy webhook URL as EdgeOne's <code>DEPLOY_WEBHOOK_URL</code>. The repository must include the boundary-build workflow, and its deployment branch must allow GitHub Actions to push generated files.</p>
+                    <p>Publishing writes the catalog and any loaded overrides/manual GeoJSON to the configured deployment branch, then builds and deploys the generated map data.</p>
+                </details>
             </section>
 
             <section class="card">
@@ -92,29 +98,32 @@
                 </div>
                 <p id="manual-status" class="status" role="status" aria-live="polite"></p>
                 <button id="save-override" type="button" disabled>Save this override</button>
-                <p class="hint">This only updates the in-browser working copy. It never writes to GitHub, Firestore, or the live site.</p>
+                <p class="hint">Changes stay in this tab until you publish. Load existing overrides before editing them, and load existing manual GeoJSON before changing a feature in that file.</p>
             </section>
 
             <section class="card">
-                <h2>4. Export and build locally</h2>
+                <h2>4. Build and publish from this browser</h2>
                 <p id="override-count">0 overrides ready.</p>
                 <div class="actions">
                     <button id="download-overrides" type="button" disabled>Download overrides JSON</button>
                     <button id="download-manual" class="secondary" type="button" disabled>Download manual GeoJSON</button>
                 </div>
+                <button id="publish-boundaries" type="button" disabled>Build and publish boundaries</button>
+                <p class="hint">This commits the catalog and any overrides you loaded to the configured GitHub deployment branch. GitHub then matches the borders, saves the generated files, and triggers an EdgeOne deployment. Review the unmatched report after it finishes.</p>
+                <p id="publish-status" class="status" role="status" aria-live="polite"></p>
+                <a id="workflow-link" class="workflow-link hidden" target="_blank" rel="noopener noreferrer">View build status on GitHub</a>
                 <ol>
-                    <li>Put <code>location-boundary-overrides.json</code> in your repository's <code>content/</code> folder.</li>
-                    <li>Put the exported <code>hero-manual-boundaries.geojson</code> beside it in <code>content/</code>. Load the existing manual file above first to preserve previously added shapes.</li>
-                    <li>Run <code>npm run build:boundaries -- "C:\\path\\to\\location-catalog.json"</code> from the repo root.</li>
-                    <li>Inspect <code>content/location-boundaries-unmatched.json</code> and the map results before committing or deploying.</li>
+                    <li>Wait for the browser to report that the build and EdgeOne deploy completed.</li>
+                    <li>Review <code>content/location-boundaries-unmatched.json</code> in GitHub for anything that still needs a manual match.</li>
+                    <li>Load existing overrides and manual GeoJSON above before editing them, so previous work is preserved.</li>
                 </ol>
-                <p class="warning">A matching polygon can be misleading if the name, year, coordinates, or source data are wrong. Verify every generated border; this tool does not declare borders authoritative.</p>
+                <p class="warning">Automatic matches are suggestions, not authoritative borders. Historical locations and point-context matches can be wrong; review the generated report and map before relying on them.</p>
                 <p id="export-status" class="status" role="status" aria-live="polite"></p>
             </section>
-            <footer>Files are processed locally in this tab. Lock the studio or close the tab when finished.</footer>
+            <footer>Your catalog and any loaded overrides or manual borders are sent to the configured GitHub repository when you publish. Lock the studio or close this tab when finished.</footer>
         </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/border-studio.js?v=666c1f4aed4be16c"></script>
+    <script src="js/border-studio.js?v=bb0020489660552a"></script>
 </body>
 </html>

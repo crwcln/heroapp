@@ -1,0 +1,59 @@
+name: Build and deploy map boundaries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: boundary-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out deployment branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate matched boundary bundle
+        run: node scripts/build-boundaries.mjs content/boundary-build-catalog.json
+
+      - name: Commit generated boundaries
+        env:
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$DEPLOY_BRANCH"
+          if [ "$(git rev-parse "origin/$DEPLOY_BRANCH")" != "$SOURCE_SHA" ]; then
+            echo "The deployment branch changed during boundary generation. Retry from Border Studio to avoid publishing stale results."
+            exit 1
+          fi
+          git add content/location-boundaries.geojson content/location-boundaries-unmatched.json
+          if git diff --cached --quiet; then
+            echo "Boundary outputs are already current."
+          else
+            git commit -m "Generate map boundary bundle"
+            git push origin "HEAD:$DEPLOY_BRANCH"
+          fi
+
+      - name: Trigger EdgeOne deployment
+        env:
+          EDGEONE_DEPLOY_WEBHOOK_URL: ${{ secrets.EDGEONE_DEPLOY_WEBHOOK_URL }}
+        run: |
+          if [ -z "$EDGEONE_DEPLOY_WEBHOOK_URL" ]; then
+            echo "Missing EDGEONE_DEPLOY_WEBHOOK_URL GitHub Actions secret."
+            exit 1
+          fi
+          curl --fail --silent --show-error --request POST "$EDGEONE_DEPLOY_WEBHOOK_URL"

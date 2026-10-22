@@ -8,7 +8,17 @@ Hero now loads map outlines from `content/location-boundaries.geojson`; the brow
 4. From the repository root, run `npm run build:boundaries -- "C:\\path\\to\\location-catalog.json"`.
 5. Review `content/location-boundaries-unmatched.json`. Add aliases, historical years, or a hand-traced GeoJSON feature in `content/location-boundary-overrides.json`, then rebuild.
 
-For a guided local helper, deploy the unlinked `/border-studio.html` page and configure `BORDER_TOOL_PASSWORD` in EdgeOne. Import the catalog, unmatched report, and existing overrides; prepare alias/year matches or draw a Polygon on the map; then download the files. A GeoJSON upload remains available for existing Polygon or MultiPolygon features. The selected files are processed locally and are not uploaded to Hero. The map uses OpenStreetMap tiles, and the page loads the site's web fonts and Leaflet library from their public CDNs. Review each generated shape before deploying.
+## Build and publish from your browser
+
+1. In the site's steward quiz editor, choose **Export boundary build catalog**.
+2. Open `/border-studio.html`, enter the Border Studio password, and load the downloaded catalog JSON.
+3. To build automatic matches, choose **Build and publish boundaries**. No terminal or local build command is needed. GitHub runs the boundary matcher, commits `content/location-boundaries.geojson` and `content/location-boundaries-unmatched.json`, and then triggers an EdgeOne deployment.
+4. Watch the status on the page or open its GitHub Actions link. When complete, inspect `content/location-boundaries-unmatched.json` in GitHub for locations that need more help.
+5. For a manual correction, load the unmatched report and existing overrides, select the location, add a Natural Earth alias or historical year, or draw/upload a Polygon. Load existing manual GeoJSON before editing it so its features are preserved. Then publish again.
+
+To enable this browser workflow, configure `BORDER_TOOL_PASSWORD`, `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, and (if needed) `DEPLOY_BRANCH` in EdgeOne. The GitHub token needs repository contents read/write and Actions workflow-dispatch permissions. Add the GitHub Actions repository secret `EDGEONE_DEPLOY_WEBHOOK_URL` with the same EdgeOne deploy webhook URL as `DEPLOY_WEBHOOK_URL`. Make sure branch protection allows GitHub Actions to push the generated boundary files.
+
+The catalog and any loaded overrides/manual shapes are committed to the configured GitHub branch; this is a real publish action, not just a local preview. The map uses OpenStreetMap tiles, and the page loads web fonts and Leaflet from public CDNs. Automatic and historical matches can be wrong, so review the generated map and unmatched report after the deploy.
 
 The build selects matching features from Natural Earth v5.1.2 at 1:10m scale for countries, admin-1 provinces/states, lakes, marine areas, rivers, and geographic regions. Natural Earth is public domain. It downloads only during this build; the generated matched shapes are what the site ships.
 

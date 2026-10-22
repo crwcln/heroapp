@@ -242,11 +242,15 @@ button.secondary {
     background: rgba(15, 168, 154, .045);
 }
 
+.setup-details { margin-top: 14px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+.setup-details summary { padding: 12px 0 4px; color: var(--brand-deep); font-family: "Nunito", "Segoe UI", system-ui, sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; }
+.setup-details p { margin: 8px 0; }
 .manual-input-tabs, .draw-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .manual-input-tabs { margin-bottom: 12px; }
 .manual-input-tabs button, .draw-actions button { margin-top: 0; }
 .manual-input-tabs button.active { border-color: rgba(15, 168, 154, .5); background: rgba(15, 168, 154, .12); color: var(--brand-deep); }
 .draw-actions { margin-bottom: 12px; }
+.workflow-link { display: inline-flex; margin-top: 6px; color: var(--brand-deep); font-family: "Nunito", "Segoe UI", system-ui, sans-serif; font-size: 13px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 #border-map { width: 100%; height: min(54vh, 480px); min-height: 290px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #dbe8e8; }
 .manual-upload { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .leaflet-container { font-family: "Nunito", "Segoe UI", system-ui, sans-serif; }
@@ -325,6 +329,7 @@ footer { padding: 18px 4px; color: var(--ink-muted); font-size: 12px; }
         background: rgba(255, 255, 255, .045);
         color: #e1e8fb;
     }
+    .manual-input-tabs button.active, .workflow-link { color: #5dd6c8; }
     code { border-color: rgba(148, 163, 184, .12); background: rgba(30, 41, 59, .72); }
     .warning { border-color: rgba(245, 158, 11, .2); background: rgba(59, 43, 25, .72); color: #ffdfa9; }
     .status.error { color: #ff9b90; }
