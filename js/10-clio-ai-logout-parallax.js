@@ -1,5 +1,9 @@
 // ================= SHERPA (Gemini via /api/chat) =================
-        const sh = { msgs: JSON.parse(sessionStorage.getItem('sh_msgs') || '[]'), pendingImages: [], busy: false, last: 0, streamText: null, streamReceived: '', typingQueue: '', typingTimer: 0, typingDone: null };
+        const SH_MSGS_KEY = 'hero_clio_private_msgs_v1', SH_OWNER_KEY = 'hero_clio_private_owner_v1';
+        sessionStorage.removeItem('sh_msgs');
+        sessionStorage.removeItem('hero_clio_owner_session');
+        const sh = { msgs: [], pendingImages: [], busy: false, last: 0, streamText: null, streamReceived: '', typingQueue: '', typingTimer: 0, typingDone: null };
+        let shAuthResolved = false, shUid = null, shRequestGeneration = 0, shRequestController = null;
         const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
         const shFmt = t => {
             const source = document.createElement('template');
@@ -41,7 +45,6 @@
                 ${full ? '' : '<button class="sh-ib" title="Open full page" onclick="switchView(\'ai-view\')"><i data-lucide="maximize-2"></i></button><button class="sh-ib" title="Close" onclick="sherpaToggle()"><i data-lucide="x"></i></button>'}</div>
                 <div class="sh-msgs" id="shm-${k}"></div>
                 <div class="sh-preview" id="shprev-${k}" aria-live="polite"></div>
-                <label class="clio-canvas-optin"><input type="checkbox" class="clio-canvas-context"> Include my Canvas classes, grades, and upcoming work when I ask</label>
                 <div class="sh-in"><input id="shfile-${k}" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><button class="sh-ib sh-attach" type="button" id="shattach-${k}" aria-label="Attach images to send to Clio's AI" title="Images are sent to Clio's AI provider for analysis"><i data-lucide="paperclip"></i></button><textarea id="shi-${k}" rows="1" maxlength="1000" placeholder="Ask Clio or drop an image..."></textarea><button class="sh-send" id="shs-${k}" aria-label="Send"><i data-lucide="send"></i></button></div>`;
         }
         ['p', 'v'].forEach(k => {
@@ -77,8 +80,36 @@
                 const previews = document.getElementById('shprev-' + k); previews.innerHTML = '';
                 sh.pendingImages.forEach((img, i) => { const wrap = document.createElement('span'); wrap.className = 'sh-preview-item'; const im = document.createElement('img'); im.src = img.url; im.alt = 'Image ready to send'; const rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '×'; rm.setAttribute('aria-label', 'Remove image'); rm.onclick = () => { sh.pendingImages.splice(i, 1); shRender(); }; wrap.append(im, rm); previews.appendChild(wrap); });
             });
-            sessionStorage.setItem('sh_msgs', JSON.stringify(sh.msgs.slice(-30).map(m => ({ r: m.r, t: m.t, err: !!m.err }))));
+            if (!shAuthResolved) return;
+            if (shUid) {
+                sessionStorage.setItem(SH_MSGS_KEY, JSON.stringify(sh.msgs.slice(-30).map(m => ({ r: m.r, t: m.t, err: !!m.err }))));
+                sessionStorage.setItem(SH_OWNER_KEY, shUid);
+            } else {
+                sessionStorage.removeItem(SH_MSGS_KEY);
+                sessionStorage.removeItem(SH_OWNER_KEY);
+            }
         }
+        window.addEventListener('hero-auth-state', e => {
+            const nextUid = e.detail?.authorized && e.detail.user?.uid ? e.detail.user.uid : null;
+            if (shAuthResolved && nextUid === shUid) return;
+            shAuthResolved = true;
+            shUid = nextUid;
+            shRequestGeneration++;
+            shRequestController?.abort();
+            shRequestController = null;
+            clearTimeout(sh.typingTimer);
+            sh.typingTimer = 0; sh.typingQueue = '';
+            const finishTyping = sh.typingDone; sh.typingDone = null; finishTyping?.();
+            sh.streamText = null; sh.streamReceived = ''; sh.busy = false; sh.pendingImages = [];
+            if (nextUid && sessionStorage.getItem(SH_OWNER_KEY) === nextUid) {
+                sh.msgs = JSON.parse(sessionStorage.getItem(SH_MSGS_KEY) || '[]');
+            } else {
+                sh.msgs = [];
+                sessionStorage.removeItem(SH_MSGS_KEY);
+                sessionStorage.removeItem(SH_OWNER_KEY);
+            }
+            shRender();
+        });
         function shAppendStreamDelta(text) {
             sh.streamReceived += text;
             sh.typingQueue += text;
@@ -112,10 +143,15 @@
             await shWaitForTyping();
         }
         async function shQueueFiles(files) {
+            const queueGeneration = shRequestGeneration;
             const picked = [...(files || [])].filter(f => f.type.startsWith('image/'));
             const slots = Math.max(0, 2 - sh.pendingImages.length);
             for (const file of picked.slice(0, slots)) {
-                try { sh.pendingImages.push(await shCompressImage(file)); }
+                try {
+                    const image = await shCompressImage(file);
+                    if (queueGeneration !== shRequestGeneration) return;
+                    sh.pendingImages.push(image);
+                }
                 catch (_) { showToast('That image could not be read. Try a PNG, JPG, or WebP file.', 'error'); }
             }
             if (picked.length > slots) showToast('Clio accepts up to two images per message.', 'error');
@@ -152,27 +188,34 @@
             }
             const images = sh.pendingImages.splice(0);
             if ((!text && !images.length) || sh.busy || Date.now() - sh.last < 1000) { sh.pendingImages.unshift(...images); return; }
+            const requestGeneration = shRequestGeneration;
+            const requestController = new AbortController();
+            shRequestController = requestController;
             sh.last = Date.now(); sh.msgs.push({ r: 'user', t: text.slice(0, 1000) || 'Please describe this image in a geography or history learning context.', images }); sh.busy = true; shRender();
             try {
                 let idToken = '';
                 try { idToken = auth && auth.currentUser ? await auth.currentUser.getIdToken() : ''; } catch (e) { /* sendable without it; server will reply 'signed_out' */ }
+                if (requestGeneration !== shRequestGeneration) return;
                 const headers = Object.assign({ 'Content-Type': 'application/json' }, idToken ? { Authorization: 'Bearer ' + idToken } : {});
-                const canvasContext = [...document.querySelectorAll('.clio-canvas-context')].some(el => el.checked) && window.heroCanvasGetClioContext ? window.heroCanvasGetClioContext() : '';
-                const requestData = { messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: ((window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}` + (canvasContext ? `\nStudent-shared Canvas summary (user opted in for this request): ${canvasContext}` : '')).slice(0, 3000) };
-                const sendChat = stream => fetch('/api/chat', { method: 'POST', headers, body: JSON.stringify({ ...requestData, stream }) });
+                const requestData = { messages: sh.msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.r, text: m.t, images: (m.images || []).map(img => ({ mimeType: img.mimeType, data: img.data })) })), ctx: ((window.__focusLoc ? `Looking at: ${window.__focusLoc.name}${window.__focusLoc.category ? ' (' + window.__focusLoc.category + ')' : ''}. ` : '') + `${yearMode === 'twoyear' ? '2 Year' : '1 Year'} quiz: ${globalQuizTitle}`).slice(0, 3000) };
+                const sendChat = stream => fetch('/api/chat', { method: 'POST', headers, body: JSON.stringify({ ...requestData, stream }), signal: requestController.signal });
                 let r;
                 try { r = await sendChat(true); }
                 catch (requestError) {
+                    if (requestGeneration !== shRequestGeneration) return;
                     // Some edge proxies reset long-lived SSE responses. Retry once
                     // as a regular JSON request before telling the player it failed.
                     if (!(requestError instanceof TypeError)) throw requestError;
                     r = await sendChat(false);
                 }
+                if (requestGeneration !== shRequestGeneration) return;
                 const isStream = r.ok && (r.headers.get('content-type') || '').includes('text/event-stream');
                 if (!isStream) {
                     const d = await r.json().catch(() => ({}));
+                    if (requestGeneration !== shRequestGeneration) return;
                     if (!r.ok) { const err = new Error(d.error || r.status); err.d = d; throw err; }
                     await shAnimateReply(d.reply || '');
+                    if (requestGeneration !== shRequestGeneration) return;
                     sh.msgs.push({ r: 'model', t: d.reply });
                 } else {
                     // Show Clio's answer as it's generated, the same way Gemini's own UI does, instead of waiting for the full reply.
@@ -183,6 +226,7 @@
                     try {
                         outer: while (true) {
                             const { done, value } = await reader.read();
+                            if (requestGeneration !== shRequestGeneration) return;
                             if (done) break;
                             buf += decoder.decode(value, { stream: true });
                             const events = buf.split('\n\n'); buf = events.pop() || '';
@@ -195,26 +239,33 @@
                             }
                         }
                     } catch (error) { readError = error; }
+                    if (requestGeneration !== shRequestGeneration) return;
                     if (readError && !sh.streamText) {
                         // The stream reset before delivering any content; retry on
                         // the same authenticated request without SSE.
                         sh.streamText = null;
                         const fallback = await sendChat(false), fallbackData = await fallback.json().catch(() => ({}));
+                        if (requestGeneration !== shRequestGeneration) return;
                         if (!fallback.ok) { const err = new Error(fallbackData.error || fallback.status); err.d = fallbackData; throw err; }
                         await shAnimateReply(fallbackData.reply || '');
+                        if (requestGeneration !== shRequestGeneration) return;
                         sh.msgs.push({ r: 'model', t: fallbackData.reply || '' });
                     } else if (readError) throw readError;
                     if (streamErr) { sh.streamText = null; const err = new Error(streamErr); throw err; }
-                    if (!readError) { await shWaitForTyping(); sh.msgs.push({ r: 'model', t: sh.streamReceived || '' }); }
+                    if (!readError) { await shWaitForTyping(); if (requestGeneration !== shRequestGeneration) return; sh.msgs.push({ r: 'model', t: sh.streamReceived || '' }); }
                     sh.streamText = null;
                 }
             } catch (e) {
+                if (requestGeneration !== shRequestGeneration) return;
                 clearTimeout(sh.typingTimer); sh.typingTimer = 0; sh.typingQueue = ''; sh.typingDone = null; sh.streamText = null;
                 const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", server_not_configured: 'Clio needs FIREBASE_API_KEY set in EdgeOne env vars (the same public value already in js/02-firebase-config.js), then redeploy.', signed_out: 'Sign in to a Hero account to talk with Clio.', not_verified: 'Sign in to talk with Clio.', rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, upstream_unreachable: "Clio's connection to Google's AI service was interrupted. Please try again.", empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
                 const networkFailure = /network|fetch|connection|stream/i.test(String(e && e.message || ''));
                 sh.msgs.push({ r: 'model', t: m || (networkFailure ? "Clio lost its connection while answering. Please try again." : `Clio couldn't answer just now${e && e.message ? ` (${String(e.message).slice(0, 140)})` : ''}. Please try again, and use \u201cSend a Word\u201d if it keeps happening.`), err: true });
             }
-            sh.busy = false; shRender();
+            if (requestGeneration === shRequestGeneration) {
+                shRequestController = null;
+                sh.busy = false; shRender();
+            }
         }
         const _sv2 = switchView;
         switchView = function (id) { _sv2(id); document.body.dataset.view = id; if (id === 'ai-view') document.body.classList.remove('sh-open'); setTimeout(shRender, 0); };

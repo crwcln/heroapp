@@ -1,10 +1,31 @@
-// Canvas dashboard. Personal access tokens live in sessionStorage only and are
-// forwarded through Hero's same-origin relay to the student's Canvas instance.
+// Canvas dashboard. Credentials live only in this page's memory and are forwarded
+// through Hero's same-origin relay to the student's Canvas instance.
 (() => {
-    const TOKEN_KEY = 'hero_canvas_token_session';
-    const URL_KEY = 'hero_canvas_url_session';
-    let snapshot = null, loading = false;
+    const LEGACY_KEYS = ['hero_canvas_token_session', 'hero_canvas_url_session', 'hero_canvas_owner_session'];
+    LEGACY_KEYS.forEach(key => sessionStorage.removeItem(key));
+    let canvasToken = null, canvasUrl = null, canvasOwner = null;
+    let snapshot = null, loading = false, activeHeroUid = null, authGeneration = 0, loadGeneration = 0, activeRequest = null;
     const root = () => document.getElementById('canvas-dashboard');
+    const clearSession = () => {
+        canvasToken = null;
+        canvasUrl = null;
+        canvasOwner = null;
+    };
+    const resetCanvasState = () => {
+        loadGeneration++;
+        activeRequest?.abort();
+        activeRequest = null;
+        loading = false;
+        snapshot = null;
+    };
+    const getSession = () => {
+        if (!canvasToken && !canvasUrl && !canvasOwner) return null;
+        if (!activeHeroUid || !canvasToken || !canvasUrl || canvasOwner !== activeHeroUid) {
+            clearSession();
+            return null;
+        }
+        return { token: canvasToken, url: canvasUrl };
+    };
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmtDate = (value) => {
         if (!value) return 'No deadline';
@@ -16,13 +37,14 @@
         if (u.protocol !== 'https:' || u.username || u.password || u.search || u.hash) throw new Error('Enter your Canvas school URL, starting with https://.');
         return u.origin;
     };
-    const getJson = async (url, token) => {
+    const getJson = async (url, token, signal) => {
         let response;
         try {
             response = await fetch('/api/canvas', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
                 body: JSON.stringify({ url }),
+                signal,
             });
         } catch {
             throw new Error("Couldn't reach Hero's Canvas relay. Check your connection and try again.");
@@ -57,12 +79,12 @@
         }
         return { data: await response.json(), next: response.headers.get('Link') };
     };
-    const api = async (base, token, path) => {
+    const api = async (base, token, path, signal) => {
         const first = new URL(`${base}/api/v1/${path}`);
         let url = first, result = [], pages = 0;
         do {
             if (url.origin !== first.origin || !url.pathname.startsWith('/api/v1/')) throw new Error('Canvas supplied an unsafe pagination link; request stopped.');
-            const response = await getJson(url.href, token);
+            const response = await getJson(url.href, token, signal);
             result.push(...(Array.isArray(response.data) ? response.data : [response.data]));
             const next = response.next?.split(',').find(part => /rel="next"/.test(part));
             url = next ? new URL(next.slice(0, next.indexOf(';')).trim().replace(/^<|>$/g, ''), url) : null;
@@ -74,10 +96,10 @@
             <div class="canvas-eyebrow"><span>YOUR ACADEMIC COMMAND DECK</span><i data-lucide="sparkles"></i></div>
             <h1>Make room for the work that matters.</h1>
             <p class="canvas-lede">Connect Canvas to bring your courses, grades, announcements, quizzes, and deadlines into one calm view.</p>
-            <div class="canvas-security"><i data-lucide="shield-check"></i><span>Your token stays in this browser tab session and is briefly forwarded by Hero’s secure relay to your Canvas school. Hero does not save it to your account or Firestore.</span></div>
+            <div class="canvas-security"><i data-lucide="shield-check"></i><span>Your token stays in this page’s memory and is briefly forwarded by Hero’s HTTPS relay to your Canvas school. It is cleared when you sign out, switch Hero accounts, or reload/close this page. Dashboard data is cleared when you leave Canvas. Canvas details are not sent to Clio automatically.</span></div>
             ${error ? `<div class="canvas-error" role="alert">${esc(error)}</div>` : ''}
             <form id="canvas-connect-form" class="canvas-form">
-                <label>Canvas school URL<input id="canvas-url" type="url" required placeholder="https://school.instructure.com" autocomplete="url" value="${esc(sessionStorage.getItem(URL_KEY) || '')}"><small>Use the same address where you open Canvas.</small></label>
+                <label>Canvas school URL<input id="canvas-url" type="url" required placeholder="https://school.instructure.com" autocomplete="url"><small>Use the same address where you open Canvas.</small></label>
                 <label>Canvas access token<input id="canvas-token" type="password" required placeholder="Paste your Canvas token" autocomplete="off" spellcheck="false"><small>Create a personal access token in Canvas Account → Settings. Treat it like your password.</small></label>
                 <button class="canvas-primary" type="submit"><i data-lucide="arrow-up-right"></i> Open my dashboard</button>
             </form>
@@ -87,24 +109,37 @@
         document.getElementById('canvas-connect-form').onsubmit = async (event) => {
             event.preventDefault();
             const button = event.currentTarget.querySelector('button'); button.disabled = true; button.textContent = 'Connecting securely…';
+            const requestOwner = activeHeroUid;
+            const requestAuthGeneration = authGeneration;
             try {
                 const base = baseUrl(document.getElementById('canvas-url').value);
                 const token = document.getElementById('canvas-token').value.trim();
                 if (!token) throw new Error('Paste your Canvas token to continue.');
-                sessionStorage.setItem(URL_KEY, base); sessionStorage.setItem(TOKEN_KEY, token);
+                if (!requestOwner) throw new Error('Sign in to Hero before connecting Canvas.');
+                canvasUrl = base;
+                canvasToken = token;
+                canvasOwner = requestOwner;
                 await loadDashboard(base, token);
-            } catch (e) { sessionStorage.removeItem(TOKEN_KEY); form(e.message || 'Could not connect to Canvas.'); }
+            } catch (e) {
+                if (requestOwner !== activeHeroUid || requestAuthGeneration !== authGeneration) return;
+                clearSession();
+                form(e.message || 'Could not connect to Canvas.');
+            }
         };
     };
     const loadDashboard = async (base, token) => {
-        if (loading) return;
+        if (loading || !activeHeroUid) return;
         loading = true;
+        const requestGeneration = ++loadGeneration;
+        const requestOwner = activeHeroUid;
+        const controller = new AbortController();
+        activeRequest = controller;
         root().innerHTML = '<section class="canvas-loading"><span class="canvas-loader"></span><h1>Gathering your courses…</h1><p>Reading the Canvas details available to your account.</p></section>';
         try {
-            const [profile] = await api(base, token, 'users/self/profile');
+            const [profile] = await api(base, token, 'users/self/profile', controller.signal);
             const [courses, enrollments] = await Promise.all([
-                api(base, token, 'courses?enrollment_state[]=active&include[]=term&per_page=100'),
-                api(base, token, 'users/self/enrollments?state[]=active&state[]=completed&per_page=100')
+                api(base, token, 'courses?enrollment_state[]=active&include[]=term&per_page=100', controller.signal),
+                api(base, token, 'users/self/enrollments?state[]=active&state[]=completed&per_page=100', controller.signal)
             ]);
             const active = courses.filter(c => c.name && (c.workflow_state === 'available' || !c.workflow_state)).slice(0, 8);
             const courseIds = new Set(active.map(c => String(c.id)));
@@ -113,9 +148,9 @@
             // Keep the number of simultaneous API calls low; Canvas dynamically throttles clients.
             for (const c of active) {
                 const [assignments, quizzes, announcements] = await Promise.all([
-                    api(base, token, `courses/${encodeURIComponent(c.id)}/assignments?include[]=submission&order_by=due_at&per_page=100`),
-                    api(base, token, `courses/${encodeURIComponent(c.id)}/quizzes?per_page=100`).catch(() => []),
-                    api(base, token, `announcements?context_codes[]=course_${encodeURIComponent(c.id)}&per_page=10`)
+                    api(base, token, `courses/${encodeURIComponent(c.id)}/assignments?include[]=submission&order_by=due_at&per_page=100`, controller.signal),
+                    api(base, token, `courses/${encodeURIComponent(c.id)}/quizzes?per_page=100`, controller.signal).catch(() => []),
+                    api(base, token, `announcements?context_codes[]=course_${encodeURIComponent(c.id)}&per_page=10`, controller.signal)
                 ]);
                 assignmentsByCourse.push({ course: c, rows: [...assignments, ...quizzes.map(q => ({ ...q, name: q.title, isCanvasQuiz: true, points_possible: q.points_possible }))] });
                 announcementsByCourse.push({ course: c, rows: announcements });
@@ -123,12 +158,19 @@
             const assignments = assignmentsByCourse.flatMap(x => x.rows.map(a => ({ ...a, courseName: x.course.name, courseId: x.course.id }))).sort((a,b) => new Date(a.due_at || '9999') - new Date(b.due_at || '9999'));
             const announcements = announcementsByCourse.flatMap(x => x.rows.map(a => ({ ...a, courseName: x.course.name }))).sort((a,b) => new Date(b.posted_at || 0) - new Date(a.posted_at || 0)).slice(0, 8);
             const gradeRows = eligibleEnrollments.map(e => ({ courseName: active.find(c => String(c.id) === String(e.course_id))?.name || e.course_id, grade: e.grades?.current_grade, score: e.grades?.current_score })).filter(e => e.grade || Number.isFinite(e.score));
+            if (requestGeneration !== loadGeneration || requestOwner !== activeHeroUid) return;
             snapshot = { name: profile.name || profile.short_name || 'Student', courses: active, assignments, announcements, grades: gradeRows };
             renderDashboard(snapshot);
         } catch (e) {
-            if (e.status === 401) { sessionStorage.removeItem(TOKEN_KEY); form(e.message); }
+            if (requestGeneration !== loadGeneration || requestOwner !== activeHeroUid) return;
+            if (e.status === 401) { clearSession(); form(e.message); }
             else root().innerHTML = `<section class="canvas-connect"><div class="canvas-eyebrow">CANVAS CONNECTION</div><h1>We couldn’t load your dashboard.</h1><div class="canvas-error" role="alert">${esc(e.message || 'Canvas request failed.')}</div><p class="canvas-lede">Check that your school URL is correct and that the token is current and has access to this data. If your school uses a custom Canvas domain, ask the Hero administrator to allowlist it.</p><button class="canvas-secondary" onclick="heroCanvasDisconnect()">Return to secure setup</button></section>`;
-        } finally { loading = false; }
+        } finally {
+            if (requestGeneration === loadGeneration) {
+                loading = false;
+                activeRequest = null;
+            }
+        }
     };
     const renderDashboard = (data) => {
         const now = Date.now();
@@ -152,19 +194,44 @@
         </section>`;
         lucide.createIcons();
     };
-    window.heroCanvasDisconnect = () => { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(URL_KEY); snapshot = null; form(); };
-    window.heroCanvasRefresh = () => { const token = sessionStorage.getItem(TOKEN_KEY), url = sessionStorage.getItem(URL_KEY); if (token && url) { snapshot = null; loadDashboard(url, token); } };
-    window.heroCanvasGetClioContext = () => {
-        if (!snapshot) return '';
-        const a = snapshot.assignments.filter(x => x.due_at && !x.has_submitted_submissions).slice(0, 5).map(x => `${x.name} (${x.courseName}, due ${fmtDate(x.due_at)})`);
-        const g = snapshot.grades.slice(0, 8).map(x => `${x.courseName}: ${x.grade || (Number.isFinite(x.score) ? `${Math.round(x.score)}%` : 'grade unavailable')}`);
-        const ann = snapshot.announcements.slice(0, 3).map(x => `${x.courseName}: ${x.title}`);
-        return `Student name: ${snapshot.name}. Courses: ${snapshot.courses.map(x => x.name).slice(0, 8).join('; ')}. Grades: ${g.join('; ')}. Upcoming work: ${a.join('; ')}. Recent announcements: ${ann.join('; ')}`.slice(0, 2400);
-    };
+    window.heroCanvasDisconnect = () => { clearSession(); resetCanvasState(); form(); };
+    window.heroCanvasRefresh = () => { const saved = getSession(); if (saved) { resetCanvasState(); loadDashboard(saved.url, saved.token); } };
     window.addEventListener('hero-auth-state', (e) => {
-        if (e.detail?.authorized && sessionStorage.getItem(TOKEN_KEY) && sessionStorage.getItem(URL_KEY) && !snapshot) loadDashboard(sessionStorage.getItem(URL_KEY), sessionStorage.getItem(TOKEN_KEY));
+        const nextUid = e.detail?.authorized && e.detail.user?.uid ? e.detail.user.uid : null;
+        if (!nextUid) {
+            if (activeHeroUid !== null) authGeneration++;
+            activeHeroUid = null;
+            clearSession();
+            resetCanvasState();
+            root()?.replaceChildren();
+            return;
+        }
+        if (nextUid !== activeHeroUid) {
+            authGeneration++;
+            activeHeroUid = nextUid;
+            clearSession();
+            resetCanvasState();
+            const canvasRoot = root();
+            if (canvasRoot) {
+                canvasRoot.replaceChildren();
+                if (nextUid) form();
+            }
+        }
+        const saved = getSession();
+        if (saved && !snapshot) loadDashboard(saved.url, saved.token);
     });
-    window.addEventListener('hero-view-change', (e) => { if (e.detail === 'canvas-view' && !snapshot) { const token = sessionStorage.getItem(TOKEN_KEY), url = sessionStorage.getItem(URL_KEY); if (token && url) loadDashboard(url, token); else form(); } });
+    window.addEventListener('hero-view-change', (e) => {
+        if (e.detail !== 'canvas-view') {
+            resetCanvasState();
+            root()?.replaceChildren();
+            return;
+        }
+        if (activeHeroUid && !snapshot) {
+            const saved = getSession();
+            if (saved) loadDashboard(saved.url, saved.token);
+            else form();
+        }
+    });
     const oldSwitch = window.switchView;
-    if (oldSwitch) window.switchView = function(id, ...args) { const r = oldSwitch.call(this, id, ...args); if (id === 'canvas-view' && !snapshot) { const token = sessionStorage.getItem(TOKEN_KEY), url = sessionStorage.getItem(URL_KEY); if (token && url) loadDashboard(url, token); else form(); } window.dispatchEvent(new CustomEvent('hero-view-change', { detail: id })); return r; };
+    if (oldSwitch) window.switchView = function(id, ...args) { const r = oldSwitch.call(this, id, ...args); if (id === 'canvas-view' && activeHeroUid && !snapshot) { const saved = getSession(); if (saved) loadDashboard(saved.url, saved.token); else form(); } window.dispatchEvent(new CustomEvent('hero-view-change', { detail: id })); return r; };
 })();

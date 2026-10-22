@@ -61,8 +61,6 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
 .canvas-announcement h3 { margin: 7px 0; font-size: 14px; line-height: 1.4; }
 .canvas-announcement p { margin: 0; color: #a7a4bf; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .canvas-refresh-note { margin: 20px 2px 0; }
-.clio-canvas-optin { display: flex; gap: 8px; align-items: flex-start; color: #a9a6c3; font-size: 11px; line-height: 1.45; padding: 6px 12px; }
-.clio-canvas-optin input { flex: none; margin-top: 2px; accent-color: #a78bfa; }
 @media (max-width: 760px) {
   #canvas-dashboard { padding: 20px 16px calc(28px + env(safe-area-inset-bottom,0px)); border-radius: 20px; }
   .canvas-welcome { display: grid; gap: 15px; }.canvas-actions { width: 100%; }.canvas-welcome .canvas-secondary { justify-self: start; }

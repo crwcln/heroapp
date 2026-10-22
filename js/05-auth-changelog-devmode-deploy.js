@@ -299,20 +299,24 @@
         }
 
         // ================= DEV MODE =================
-        let siteDev = false;
+        let siteDev = false, siteDevMessage = '';
+        const DEFAULT_DEV_MESSAGE = 'Sorry for the inconvenience! Hero is currently under construction. Please check back soon.';
         const devUnlocked = () => sessionStorage.getItem('mq_devUnlocked') === '1';
         const siteModeRef = () => gs().doc('siteMode');
 
         function loadSiteMode() {
             if (!db || !userId) return;
             siteModeRef().onSnapshot(doc => {
-                siteDev = doc.exists && doc.data().dev === true;
+                const settings = doc.exists ? doc.data() : {};
+                siteDev = settings.dev === true;
+                siteDevMessage = typeof settings.devMessage === 'string' ? settings.devMessage.slice(0, 280) : '';
                 applyDevScreen();
             }, err => { console.error('Site mode listener:', err); hideCover(); });
         }
         function applyDevScreen() {
             const show = siteDev && !devUnlocked();
             document.getElementById('dev-screen').classList.toggle('hidden', !show);
+            document.getElementById('dev-message').innerText = siteDevMessage || DEFAULT_DEV_MESSAGE;
             hideCover();
             renderDevCard();
             if (!show) maybeShowChangelogPopup();
@@ -327,6 +331,8 @@
             const btn = document.getElementById('dev-toggle-btn');
             btn.innerText = siteDev ? 'Disable Dev Mode' : 'Enable Dev Mode';
             btn.className = 'w-full text-white font-bold py-3 rounded-lg transition shadow ' + (siteDev ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700');
+            const messageInput = document.getElementById('dev-message-input');
+            if (messageInput && document.activeElement !== messageInput) messageInput.value = siteDevMessage;
         }
         async function devLogin(inputId) {
             const input = document.getElementById(inputId);
@@ -341,6 +347,21 @@
         }
         const unlockDevScreen = () => devLogin('dev-password');
         const unlockDevCard = () => devLogin('dev-card-password');
+
+        async function saveDevMessage() {
+            if (!db || !userId) return showToast('Cannot update the construction message offline.', 'error');
+            if (!devUnlocked()) return showToast('Unlock Dev Mode before changing this message.', 'error');
+            const input = document.getElementById('dev-message-input');
+            const message = input.value.trim();
+            if (message.length > 280) return showToast('Keep the message to 280 characters or fewer.', 'error');
+            try {
+                await siteModeRef().set({ devMessage: message }, { merge: true });
+                showToast(message ? 'Construction message saved.' : 'Default construction message restored.', 'success');
+            } catch (err) {
+                console.error('Construction message save failed:', err);
+                showToast(`Could not save message (${err.code || 'error'}).`, 'error');
+            }
+        }
 
         async function toggleDevMode() {
             if (!db || !userId) return showToast('Cannot change mode offline.', 'error');

@@ -1,28 +1,37 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile, writeFile} from 'node:fs/promises';
 
-const htmlPath = new URL('../index.html', import.meta.url);
-let html = await readFile(htmlPath, 'utf8');
+const htmlPaths = [
+  new URL('../index.html', import.meta.url),
+  new URL('../border-studio.html', import.meta.url),
+];
 const assetPattern = /((?:src|href)=["'])(\/?(?:js|css)\/[^"'?#]+)(?:\?[^"']*)?(["'])/g;
-const assets = [...html.matchAll(assetPattern)];
 const hashedAssets = new Map();
 
-for (const [, , assetPath] of assets) {
-  if (hashedAssets.has(assetPath)) continue;
-  const filePath = new URL(`../${assetPath.replace(/^\//, '')}`, import.meta.url);
-  const contents = await readFile(filePath);
-  const hash = createHash('sha256').update(contents).digest('hex').slice(0, 16);
-  hashedAssets.set(assetPath, hash);
+const pages = new Map();
+for (const htmlPath of htmlPaths) {
+  let html = await readFile(htmlPath, 'utf8');
+  const assets = [...html.matchAll(assetPattern)];
+  for (const [, , assetPath] of assets) {
+    if (hashedAssets.has(assetPath)) continue;
+    const filePath = new URL(`../${assetPath.replace(/^\//, '')}`, import.meta.url);
+    const contents = await readFile(filePath);
+    const hash = createHash('sha256').update(contents).digest('hex').slice(0, 16);
+    hashedAssets.set(assetPath, hash);
+  }
+  html = html.replace(assetPattern, (_match, attribute, assetPath, quote) =>
+    `${attribute}${assetPath}?v=${hashedAssets.get(assetPath)}${quote}`,
+  );
+  pages.set(htmlPath, html);
 }
 
-html = html.replace(assetPattern, (_match, attribute, assetPath, quote) =>
-  `${attribute}${assetPath}?v=${hashedAssets.get(assetPath)}${quote}`,
-);
-
+let html = pages.get(htmlPaths[0]);
 const buildMeta = /(<meta\s+name=["']hero-build-id["']\s+content=["'])[^"']*(["']\s*\/?\s*>)/i;
-const normalizedHtml = html
-  .replace(assetPattern, (_match, attribute, assetPath, quote) => `${attribute}${assetPath}${quote}`)
-  .replace(buildMeta, (_match, prefix, suffix) => `${prefix}local${suffix}`);
+const normalizedHtml = [...pages.values()].map((page) =>
+  page
+    .replace(assetPattern, (_match, attribute, assetPath, quote) => `${attribute}${assetPath}${quote}`)
+    .replace(buildMeta, (_match, prefix, suffix) => `${prefix}local${suffix}`),
+).join('\n');
 const assetManifest = [...hashedAssets].map(([path, hash]) => `${path}:${hash}`).join('\n');
 const contentHash = createHash('sha256').update(`${normalizedHtml}\n${assetManifest}`).digest('hex').slice(0, 12);
 const buildId = `${contentHash}-${randomUUID()}`;
@@ -31,6 +40,7 @@ if (buildMeta.test(html)) {
 } else {
   html = html.replace('</head>', `    <meta name="hero-build-id" content="${buildId}">\n</head>`);
 }
+pages.set(htmlPaths[0], html);
 
-await writeFile(htmlPath, html);
+for (const [htmlPath, page] of pages) await writeFile(htmlPath, page);
 console.log(`Stamped ${hashedAssets.size} local assets for build ${buildId}.`);

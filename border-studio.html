@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="referrer" content="no-referrer">
+    <title>Hero Border Studio</title>
+    <link rel="stylesheet" href="css/border-studio.css?v=acad015f1569de08">
+</head>
+<body>
+    <main class="shell">
+        <header class="site-head">
+            <a href="/" aria-label="Hero home">HERO</a>
+            <span>PRIVATE BORDER STUDIO</span>
+        </header>
+
+        <section id="gate" class="card gate">
+            <p class="eyebrow">PASSWORD REQUIRED</p>
+            <h1>Border Studio</h1>
+            <p>Use the private border-tool password configured by the site owner. Nothing you upload is sent to Hero; files stay in this browser.</p>
+            <form id="login-form">
+                <label for="password">Border tool password</label>
+                <input id="password" type="password" autocomplete="current-password" required>
+                <button type="submit">Unlock studio</button>
+            </form>
+            <p id="gate-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section id="studio" class="hidden">
+            <div class="intro">
+                <p class="eyebrow">LOCAL-ONLY GEOJSON WORKFLOW</p>
+                <h1>Make border fixes easier to review.</h1>
+                <p>Load your real location catalog and unmatched report, add aliases or historical years, and attach carefully reviewed GeoJSON for routes and other hand-drawn shapes. Exports are downloaded to your computer; this tool does not publish or deploy them.</p>
+                <button id="lock-button" class="secondary" type="button">Lock studio</button>
+            </div>
+
+            <section class="card">
+                <h2>1. Load the build files</h2>
+                <div class="file-grid">
+                    <label>Location catalog JSON<input id="catalog-file" type="file" accept=".json,application/json"></label>
+                    <label>Unmatched report JSON<input id="unmatched-file" type="file" accept=".json,application/json"></label>
+                    <label>Existing boundary overrides JSON<input id="overrides-file" type="file" accept=".json,application/json"></label>
+                    <label>Existing manual boundaries GeoJSON (optional)<input id="existing-manual-file" type="file" accept=".json,.geojson,application/geo+json,application/json"></label>
+                </div>
+                <p id="loaded-status" class="status" role="status" aria-live="polite">No files loaded yet.</p>
+                <p class="hint">Export the catalog from the steward quiz editor. Generate the unmatched report by running the boundary build. Use your production catalog, not sample or test locations.</p>
+            </section>
+
+            <section class="card">
+                <h2>2. Choose an unmatched location</h2>
+                <label for="location-select">Location from the unmatched report</label>
+                <select id="location-select" disabled><option value="">Load a report first</option></select>
+                <p id="location-details" class="hint">Choose a location to prepare a matching override.</p>
+            </section>
+
+            <section class="card">
+                <h2>3. Add a matching hint or a manual shape</h2>
+                <label for="match-mode">How should the builder handle it?</label>
+                <select id="match-mode">
+                    <option value="alias">Match a Natural Earth name/alias</option>
+                    <option value="historical">Match a historical empire (requires a year)</option>
+                    <option value="manual">Use a hand-traced GeoJSON feature</option>
+                </select>
+                <div class="form-grid">
+                    <label>Aliases <span class="hint">(one per line or comma-separated)</span><textarea id="aliases" rows="3" placeholder="Alternate names used by Natural Earth"></textarea></label>
+                    <label>Historical year <span class="hint">(negative values are BCE)</span><input id="year" type="number" step="1" placeholder="For example: -300"></label>
+                    <label>Map hint region <span class="hint">(optional)</span><input id="hint-region" type="text" maxlength="120" placeholder="For example: Central Asia"></label>
+                    <label>Manual feature type<select id="kind"><option value="">Auto-detect from location</option><option value="route">Route/trade path</option><option value="historic">Historical area</option><option value="region">Geographic region</option><option value="land">Land/country</option><option value="river">River</option><option value="lake">Lake</option><option value="marine">Marine area</option></select></label>
+                </div>
+                <label id="manual-file-wrap" class="manual-file hidden">Single-feature GeoJSON for this location<input id="manual-file" type="file" accept=".json,.geojson,application/geo+json,application/json"><span class="hint">Use a Polygon or MultiPolygon feature. Review coordinates and licensing before adding it.</span></label>
+                <p id="manual-status" class="status" role="status" aria-live="polite"></p>
+                <button id="save-override" type="button" disabled>Save this override</button>
+                <p class="hint">This only updates the in-browser working copy. It never writes to GitHub, Firestore, or the live site.</p>
+            </section>
+
+            <section class="card">
+                <h2>4. Export and build locally</h2>
+                <p id="override-count">0 overrides ready.</p>
+                <div class="actions">
+                    <button id="download-overrides" type="button" disabled>Download overrides JSON</button>
+                    <button id="download-manual" class="secondary" type="button" disabled>Download manual GeoJSON</button>
+                </div>
+                <ol>
+                    <li>Put <code>location-boundary-overrides.json</code> in your repository's <code>content/</code> folder.</li>
+                    <li>Put the exported <code>hero-manual-boundaries.geojson</code> beside it in <code>content/</code>. Load the existing manual file above first to preserve previously added shapes.</li>
+                    <li>Run <code>npm run build:boundaries -- "C:\\path\\to\\location-catalog.json"</code> from the repo root.</li>
+                    <li>Inspect <code>content/location-boundaries-unmatched.json</code> and the map results before committing or deploying.</li>
+                </ol>
+                <p class="warning">A matching polygon can be misleading if the name, year, coordinates, or source data are wrong. Verify every generated border; this tool does not declare borders authoritative.</p>
+                <p id="export-status" class="status" role="status" aria-live="polite"></p>
+            </section>
+            <footer>Files are processed locally in this tab. Lock the studio or close the tab when finished.</footer>
+        </section>
+    </main>
+    <script src="js/border-studio.js?v=d4a92189c41c8c60"></script>
+</body>
+</html>
