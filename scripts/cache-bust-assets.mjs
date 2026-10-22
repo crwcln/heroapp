@@ -3,7 +3,6 @@ import {readFile, writeFile} from 'node:fs/promises';
 
 const htmlPaths = [
   new URL('../index.html', import.meta.url),
-  new URL('../border-studio.html', import.meta.url),
 ];
 const assetPattern = /((?:src|href)=["'])(\/?(?:js|css)\/[^"'?#]+)(?:\?[^"']*)?(["'])/g;
 const hashedAssets = new Map();
