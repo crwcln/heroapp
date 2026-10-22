@@ -634,14 +634,6 @@ button.cm-btn:hover:not(:disabled), .daily-challenge-actions button:hover:not(:d
 #ai-shell .sh-head { min-height:68px; padding:16px 20px; background:linear-gradient(110deg,rgba(var(--brand-rgb),.08),transparent 70%); }
 #ai-shell .sh-msgs { gap:14px; padding:22px clamp(16px,4vw,30px); }
 #ai-shell .sh-msg { max-width:min(82%,700px); padding:13px 17px; border-radius:18px; line-height:1.65; }
-.sh-clio-mark { position:relative; overflow:hidden; color:#f3dfb8; background:radial-gradient(circle at 50% 30%,rgba(var(--brand-rgb),.35),transparent 65%),linear-gradient(145deg,#17192f,#0c0d1b); border:1px solid rgba(var(--brand-rgb),.55); box-shadow:inset 0 0 0 2px rgba(255,255,255,.035),0 5px 18px rgba(0,0,0,.22); }
-.clio-mark { width:28px!important; height:28px!important; overflow:visible; }
-.clio-mark-arc,.clio-mark-scroll,.clio-mark-sprig { fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
-.clio-mark-scroll { color:#f3dfb8; }
-.clio-mark-arc,.clio-mark-sprig { color:#d9a85f; }
-#ai-shell .sh-hero .clio-mark { width:48px!important; height:48px!important; }
-#ai-shell .sh-hero .sh-clio-mark { border-radius:20px; }
-
 /* 19–20: Form focus, keyboard visibility, and touch-sized mobile actions. */
 input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus { outline:none; border-color:var(--brand-500)!important; box-shadow:var(--hero-ring); }
 :where(button,a,input,textarea,select,[tabindex]):focus-visible { outline:2px solid var(--brand-500); outline-offset:3px; }

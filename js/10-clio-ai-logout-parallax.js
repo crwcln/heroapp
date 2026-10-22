@@ -35,9 +35,8 @@
             const result = document.createElement('div'); [...source.content.childNodes].forEach(node => result.append(clean(node)));
             return result.innerHTML;
         };
-        const shLogo = () => `<svg class="clio-mark" viewBox="0 0 48 48" aria-hidden="true"><path class="clio-mark-arc" d="M10 37V23a14 14 0 0 1 28 0v14"/><path class="clio-mark-scroll" d="M17 18h14v20H17zM20 23h8M20 27h8M20 31h5"/><path class="clio-mark-sprig" d="M8 37c0-6 3-11 8-15M40 37c0-6-3-11-8-15M10 32l4 1m-1-7 4 2m21 4-4 1m1-7-4 2"/></svg>`;
         function shUI(k, full) {
-            return `<div class="sh-head"><div class="sh-av sh-clio-mark">${shLogo()}</div><div><h3>Clio</h3><small>Muse of history, guide to the map</small></div><div class="sh-sp"></div>
+            return `<div class="sh-head"><div class="sh-av"><i data-lucide="bot"></i></div><div><h3>Clio</h3><small>Muse of history, guide to the map</small></div><div class="sh-sp"></div>
                 <button class="sh-ib" title="New chat" onclick="shClear()"><i data-lucide="rotate-ccw"></i></button>
                 ${full ? '' : '<button class="sh-ib" title="Open full page" onclick="switchView(\'ai-view\')"><i data-lucide="maximize-2"></i></button><button class="sh-ib" title="Close" onclick="sherpaToggle()"><i data-lucide="x"></i></button>'}</div>
                 <div class="sh-msgs" id="shm-${k}"></div>
@@ -67,7 +66,7 @@
             ['p', 'v'].forEach(k => {
                 const box = document.getElementById('shm-' + k); box.innerHTML = '';
                 if (!sh.msgs.length) {
-                    box.innerHTML = `<div class="sh-hero"><div class="sh-av sh-clio-mark">${shLogo()}</div><h2>Hi, I'm Clio</h2><p>Ask me about places, regions, rivers, empires or trade routes. I'll help you remember them.</p><div class="sh-chips">${SH_CHIPS.map(c => `<button class="sh-chip">${esc(c)}</button>`).join('')}</div></div>`;
+                    box.innerHTML = `<div class="sh-hero"><div class="sh-av"><i data-lucide="bot"></i></div><h2>Hi, I'm Clio</h2><p>Ask me about places, regions, rivers, empires or trade routes. I'll help you remember them.</p><div class="sh-chips">${SH_CHIPS.map(c => `<button class="sh-chip">${esc(c)}</button>`).join('')}</div></div>`;
                     box.querySelectorAll('.sh-chip').forEach(b => { b.onclick = () => sherpaSend(b.textContent); });
                     lucide.createIcons();
                 }
