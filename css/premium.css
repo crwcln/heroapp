@@ -98,8 +98,6 @@ html[data-bg=plain] #fx-a, html[data-bg=plain] #fx-b, html.in-frame #fx-a, html.
         html.dark .brand-mark .badge, html.dark .ld-logo .badge, html.dark .in-logo .badge { fill: var(--brand-700); }
         .brand-mark .glyph, .ld-logo .glyph, .in-logo .glyph { fill: var(--sec); }
 
-.is-mobile #version-badge { display: block; bottom: 8px; right: 10px; }
-
 #top-nav > div:first-child > svg.brand-mark { background: none; padding: 0; box-shadow: none; width: 40px; height: 40px; color: inherit !important; }
 #top-nav > div:first-child > svg.brand-mark .badge { filter: drop-shadow(0 4px 10px rgba(var(--sec-rgb), .25)); }
 #custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: rgba(var(--brand-rgb),.08); }

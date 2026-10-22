@@ -213,7 +213,10 @@ for (let locIndex = 0; locIndex < locations.length; locIndex++) {
 
   // If a named city or landmark has no Natural Earth polygon, attach its containing
   // admin-1 or country outline as a useful map context and flag it for review.
-  const noPointFallback = kind === 'historic' || kind === 'route' || /river|lake|sea|ocean|gulf|bay|strait|marine|water/.test(`${loc.name} ${loc.category}`.toLowerCase());
+  // Fictional/legendary places must not inherit a real country's border just because
+  // their marker happens to sit nearby.
+  const isLegendary = /legend|lost (city|cities|continent)|phantom|mythical|fictional/.test(`${loc.name} ${loc.category}`.toLowerCase());
+  const noPointFallback = isLegendary || kind === 'historic' || kind === 'route' || /river|lake|sea|ocean|gulf|bay|strait|marine|water/.test(`${loc.name} ${loc.category}`.toLowerCase());
   const pointFeature = noPointFallback ? null : ['provinces', 'countries'].flatMap((layer) => layerRows.find((row) => row[0] === layer)?.[1] || []).find((row) => contains(row.feature, loc));
   if (pointFeature) {
     addFeature(loc, locKey, pointFeature, 'point-fallback', kind, null, override?.hintRegion);
