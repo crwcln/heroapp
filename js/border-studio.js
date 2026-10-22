@@ -2,6 +2,7 @@
     const $ = id => document.getElementById(id);
     const gate = $('gate'), studio = $('studio'), gateStatus = $('gate-status');
     let accessToken = '', tokenExpiry = 0, catalogLocations = [], unmatched = [], overrides = [], manualFeatures = [], selected = null, pendingManual = null;
+    let map = null, drawingPoints = [], drawingMarkers = [], drawingLine = null, drawnShape = null, locationMarker = null, isDrawing = false;
 
     const setStatus = (id, message, isError = false) => {
         const el = $(id);
@@ -36,7 +37,10 @@
         accessToken = '';
         tokenExpiry = 0;
         pendingManual = null;
+        resetDrawing();
         selected = null;
+        if (locationMarker) map?.removeLayer(locationMarker);
+        locationMarker = null;
         catalogLocations = [];
         unmatched = [];
         overrides = [];
@@ -140,6 +144,11 @@
         const index = $('location-select').value;
         selected = index === '' ? null : locationFor(unmatched[Number(index)]);
         pendingManual = null;
+        resetDrawing();
+        if (!selected && locationMarker) {
+            map?.removeLayer(locationMarker);
+            locationMarker = null;
+        }
         $('manual-file').value = '';
         $('manual-status').textContent = '';
         $('save-override').disabled = !selected;
@@ -156,8 +165,132 @@
         $('kind').value = row?.kind || '';
         updateMode();
     }
-    const updateMode = () => $('manual-file-wrap').classList.toggle('hidden', $('match-mode').value !== 'manual');
+    function updateMode() {
+        const manual = $('match-mode').value === 'manual';
+        $('manual-file-wrap').classList.toggle('hidden', !manual);
+        if (manual && selected) {
+            initializeMap();
+            centerMapOnSelected();
+            setTimeout(() => map?.invalidateSize(), 0);
+        }
+    }
     $('match-mode').addEventListener('change', updateMode);
+    function initializeMap() {
+        if (map) return;
+        if (!window.L) {
+            setStatus('draw-status', 'The map library could not load. You can still upload a GeoJSON file instead.', true);
+            $('draw-mode-button').disabled = true;
+            $('upload-mode-button').click();
+            return;
+        }
+        map = L.map('border-map', { worldCopyJump: true }).setView([20, 0], 2);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+        }).addTo(map);
+        map.on('click', event => {
+            if (!isDrawing) return;
+            drawingPoints.push(event.latlng);
+            renderDraft();
+            setStatus('draw-status', `${drawingPoints.length} points added. Keep tracing, undo the last point, or finish the shape.`);
+        });
+    }
+    function centerMapOnSelected() {
+        if (!map) return;
+        if (locationMarker) map.removeLayer(locationMarker);
+        const lat = selected?.lat == null || selected.lat === '' ? NaN : Number(selected.lat);
+        const lng = selected?.lng == null || selected.lng === '' ? NaN : Number(selected.lng);
+        if (Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lng) && Math.abs(lng) <= 180) {
+            map.setView([lat, lng], 6);
+            locationMarker = L.circleMarker([lat, lng], {
+                radius: 7, color: '#fff', weight: 3, fillColor: '#d4a94f', fillOpacity: 1,
+            }).addTo(map).bindTooltip(selected.name || 'Catalog location');
+            setStatus('draw-status', `Centered on ${selected.name || 'the selected location'}. Zoom in and trace the boundary by clicking around its edge.`);
+        } else {
+            map.setView([20, 0], 2);
+            setStatus('draw-status', 'This location has no coordinates in the catalog. Pan and zoom to the right place before tracing.');
+        }
+    }
+    function renderDraft() {
+        drawingMarkers.forEach(marker => map.removeLayer(marker));
+        drawingMarkers = drawingPoints.map(point => L.circleMarker(point, {
+            radius: 5, color: '#fff', weight: 2, fillColor: '#087f79', fillOpacity: 1,
+        }).addTo(map));
+        if (drawingLine) map.removeLayer(drawingLine);
+        drawingLine = drawingPoints.length > 1
+            ? L.polyline(drawingPoints, { color: '#087f79', weight: 3, dashArray: '7 5' }).addTo(map)
+            : null;
+        updateDrawControls();
+    }
+    function updateDrawControls() {
+        $('start-drawing').disabled = isDrawing || !selected;
+        $('undo-point').disabled = !drawingPoints.length || !isDrawing;
+        $('finish-drawing').disabled = !isDrawing || drawingPoints.length < 3;
+        $('clear-drawing').disabled = !drawingPoints.length && !pendingManual && !isDrawing;
+        if (map) map.getContainer().style.cursor = isDrawing ? 'crosshair' : '';
+    }
+    function resetDrawing() {
+        isDrawing = false;
+        drawingPoints = [];
+        drawingMarkers.forEach(marker => map?.removeLayer(marker));
+        drawingMarkers = [];
+        if (drawingLine) map?.removeLayer(drawingLine);
+        if (drawnShape) map?.removeLayer(drawnShape);
+        drawingLine = null;
+        drawnShape = null;
+        updateDrawControls();
+    }
+    $('draw-mode-button').addEventListener('click', () => {
+        pendingManual = null;
+        $('manual-file').value = '';
+        resetDrawing();
+        $('draw-mode-button').classList.add('active');
+        $('upload-mode-button').classList.remove('active');
+        $('draw-panel').classList.remove('hidden');
+        $('manual-upload-wrap').classList.add('hidden');
+        initializeMap();
+        setTimeout(() => map?.invalidateSize(), 0);
+    });
+    $('upload-mode-button').addEventListener('click', () => {
+        pendingManual = null;
+        resetDrawing();
+        $('upload-mode-button').classList.add('active');
+        $('draw-mode-button').classList.remove('active');
+        $('manual-upload-wrap').classList.remove('hidden');
+        $('draw-panel').classList.add('hidden');
+    });
+    $('start-drawing').addEventListener('click', () => {
+        if (!selected) return;
+        pendingManual = null;
+        resetDrawing();
+        isDrawing = true;
+        updateDrawControls();
+        setStatus('draw-status', 'Click at least three points around the boundary. You can pan and zoom while drawing.');
+    });
+    $('undo-point').addEventListener('click', () => {
+        drawingPoints.pop();
+        renderDraft();
+        setStatus('draw-status', drawingPoints.length ? `${drawingPoints.length} points remain.` : 'No points on the map. Click to add a point.');
+    });
+    $('finish-drawing').addEventListener('click', () => {
+        if (drawingPoints.length < 3) return;
+        const ring = drawingPoints.map(point => [point.lng, point.lat]);
+        ring.push([...ring[0]]);
+        pendingManual = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } };
+        isDrawing = false;
+        if (drawingLine) map.removeLayer(drawingLine);
+        drawingLine = null;
+        drawnShape = L.polygon(drawingPoints, { color: '#087f79', weight: 3, fillColor: '#0fa89a', fillOpacity: .24 }).addTo(map);
+        updateDrawControls();
+        setStatus('draw-status', `Shape ready with ${drawingPoints.length} points. Save this override to add it to the export.`);
+        setStatus('manual-status', 'Map shape ready. Save this override to keep it in the working copy.');
+    });
+    $('clear-drawing').addEventListener('click', () => {
+        pendingManual = null;
+        resetDrawing();
+        setStatus('draw-status', 'Shape cleared. Start drawing to trace a new one.');
+        $('manual-status').textContent = '';
+    });
     $('manual-file').addEventListener('change', async event => {
         try {
             const json = await readFile(event.currentTarget);
@@ -184,6 +317,8 @@
             if (positions.length < 4) throw new Error('A polygon needs at least four coordinate positions.');
             pendingManual = feature;
             setStatus('manual-status', `Loaded one ${feature.geometry.type} with ${positions.length} positions. Verify the shape and source before exporting.`);
+            $('draw-status').textContent = '';
+            updateDrawControls();
         } catch (error) {
             pendingManual = null;
             setStatus('manual-status', error.message, true);
@@ -215,8 +350,10 @@
                     row.featureIndex = manualFeatures.length;
                     manualFeatures.push(pendingManual);
                     pendingManual = null;
+                    resetDrawing();
                 }
-                row.kind = $('kind').value || 'land';
+                if ($('kind').value) row.kind = $('kind').value;
+                else delete row.kind;
                 delete row.source; delete row.year;
             } else {
                 delete row.source; delete row.year; delete row.file; delete row.featureIndex; delete row.kind;
@@ -231,6 +368,7 @@
         $('override-count').textContent = `${overrides.length} overrides ready; ${manualFeatures.length} manual GeoJSON features.`;
         $('download-overrides').disabled = !overrides.length;
         $('download-manual').disabled = !manualFeatures.length;
+        updateDrawControls();
     };
     async function downloadFile(contents, name, type) {
         await requireAccess();

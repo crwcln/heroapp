@@ -8,7 +8,7 @@ Hero now loads map outlines from `content/location-boundaries.geojson`; the brow
 4. From the repository root, run `npm run build:boundaries -- "C:\\path\\to\\location-catalog.json"`.
 5. Review `content/location-boundaries-unmatched.json`. Add aliases, historical years, or a hand-traced GeoJSON feature in `content/location-boundary-overrides.json`, then rebuild.
 
-For a guided local helper, deploy the unlinked `/border-studio.html` page and configure `BORDER_TOOL_PASSWORD` in EdgeOne. Import the catalog, unmatched report, and existing overrides; prepare alias/year matches or a single-feature manual GeoJSON override; then download the files. The helper does not upload or publish your data. Review each generated shape before deploying.
+For a guided local helper, deploy the unlinked `/border-studio.html` page and configure `BORDER_TOOL_PASSWORD` in EdgeOne. Import the catalog, unmatched report, and existing overrides; prepare alias/year matches or draw a Polygon on the map; then download the files. A GeoJSON upload remains available for existing Polygon or MultiPolygon features. The selected files are processed locally and are not uploaded to Hero. The map uses OpenStreetMap tiles, and the page loads the site's web fonts and Leaflet library from their public CDNs. Review each generated shape before deploying.
 
 The build selects matching features from Natural Earth v5.1.2 at 1:10m scale for countries, admin-1 provinces/states, lakes, marine areas, rivers, and geographic regions. Natural Earth is public domain. It downloads only during this build; the generated matched shapes are what the site ships.
 

@@ -6,7 +6,11 @@
     <meta name="robots" content="noindex, nofollow, noarchive">
     <meta name="referrer" content="no-referrer">
     <title>Hero Border Studio</title>
-    <link rel="stylesheet" href="css/border-studio.css?v=acad015f1569de08">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=JetBrains+Mono:wght@500;700&family=Nunito:wght@600;700;800&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <link rel="stylesheet" href="css/border-studio.css?v=9d2bbc5b74eea6fc">
 </head>
 <body>
     <main class="shell">
@@ -18,7 +22,7 @@
         <section id="gate" class="card gate">
             <p class="eyebrow">PASSWORD REQUIRED</p>
             <h1>Border Studio</h1>
-            <p>Use the private border-tool password configured by the site owner. Nothing you upload is sent to Hero; files stay in this browser.</p>
+            <p>Use the private border-tool password configured by the site owner. Uploaded files stay in this browser. The interactive map loads map tiles from OpenStreetMap.</p>
             <form id="login-form">
                 <label for="password">Border tool password</label>
                 <input id="password" type="password" autocomplete="current-password" required>
@@ -68,7 +72,24 @@
                     <label>Map hint region <span class="hint">(optional)</span><input id="hint-region" type="text" maxlength="120" placeholder="For example: Central Asia"></label>
                     <label>Manual feature type<select id="kind"><option value="">Auto-detect from location</option><option value="route">Route/trade path</option><option value="historic">Historical area</option><option value="region">Geographic region</option><option value="land">Land/country</option><option value="river">River</option><option value="lake">Lake</option><option value="marine">Marine area</option></select></label>
                 </div>
-                <label id="manual-file-wrap" class="manual-file hidden">Single-feature GeoJSON for this location<input id="manual-file" type="file" accept=".json,.geojson,application/geo+json,application/json"><span class="hint">Use a Polygon or MultiPolygon feature. Review coordinates and licensing before adding it.</span></label>
+                <div id="manual-file-wrap" class="manual-file hidden">
+                    <div class="manual-input-tabs" role="group" aria-label="Choose how to add a border">
+                        <button id="draw-mode-button" class="secondary active" type="button">Draw on map</button>
+                        <button id="upload-mode-button" class="secondary" type="button">Upload GeoJSON</button>
+                    </div>
+                    <div id="draw-panel">
+                        <p class="hint">Click the map to trace a closed area. Drag to pan, use the map controls to zoom, then finish the shape. You can undo points before saving.</p>
+                        <div class="draw-actions">
+                            <button id="start-drawing" class="secondary" type="button">Start drawing</button>
+                            <button id="undo-point" class="secondary" type="button" disabled>Undo point</button>
+                            <button id="finish-drawing" type="button" disabled>Finish shape</button>
+                            <button id="clear-drawing" class="secondary" type="button" disabled>Clear</button>
+                        </div>
+                        <div id="border-map" role="application" aria-label="Map for drawing a border polygon"></div>
+                        <p id="draw-status" class="status" role="status" aria-live="polite">Select a location and start drawing.</p>
+                    </div>
+                    <label id="manual-upload-wrap" class="manual-upload hidden">Single-feature GeoJSON for this location<input id="manual-file" type="file" accept=".json,.geojson,application/geo+json,application/json"><span class="hint">Use a Polygon or MultiPolygon feature. Review coordinates and licensing before exporting.</span></label>
+                </div>
                 <p id="manual-status" class="status" role="status" aria-live="polite"></p>
                 <button id="save-override" type="button" disabled>Save this override</button>
                 <p class="hint">This only updates the in-browser working copy. It never writes to GitHub, Firestore, or the live site.</p>
@@ -93,6 +114,7 @@
             <footer>Files are processed locally in this tab. Lock the studio or close the tab when finished.</footer>
         </section>
     </main>
-    <script src="js/border-studio.js?v=d4a92189c41c8c60"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="js/border-studio.js?v=666c1f4aed4be16c"></script>
 </body>
 </html>
