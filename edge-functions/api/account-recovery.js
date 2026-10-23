@@ -71,7 +71,7 @@ async function accessToken(clientEmail, privateKey) {
       assertion,
     }),
   });
-  if (!response.ok) throw new Error('Could not authorize Firebase Admin access.');
+  if (!response.ok) throw new Error(`Could not authorize Firebase Admin access (HTTP ${response.status}).`);
   const token = await response.json();
   if (typeof token.access_token !== 'string' || !Number.isFinite(token.expires_in)) throw new Error('Firebase Admin authorization returned an invalid token.');
   cachedAccessToken = token.access_token;
@@ -139,7 +139,9 @@ async function saveRecoveryCode(body, request, env, settings) {
   if (existing.response.ok && existing.body.fields && existing.body.fields.uid && existing.body.fields.uid.stringValue !== user.localId) {
     return json({ ok: false, error: 'username_unavailable' }, 409);
   }
-  if (!existing.response.ok && existing.response.status !== 404) throw new Error('Could not read recovery record.');
+  if (!existing.response.ok && existing.response.status !== 404) {
+    throw new Error(`Could not read recovery record (Firestore HTTP ${existing.response.status}).`);
+  }
 
   const query = existing.response.ok
     ? `?currentDocument.updateTime=${encodeURIComponent(existing.body.updateTime)}`
@@ -154,7 +156,7 @@ async function saveRecoveryCode(body, request, env, settings) {
   });
   if (!saved.response.ok) {
     if (saved.response.status === 409 || saved.response.status === 412) return json({ ok: false, error: 'username_unavailable' }, 409);
-    throw new Error('Could not save the recovery code.');
+    throw new Error(`Could not save the recovery record (Firestore HTTP ${saved.response.status}).`);
   }
   return json({ ok: true });
 }

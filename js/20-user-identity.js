@@ -52,7 +52,13 @@
                 ? 'Account recovery is not configured yet. Ask a steward to finish the private Firebase setup.'
                 : result.error === 'username_unavailable'
                     ? 'That username is already in use. Choose another one.'
-                    : 'Could not securely save your recovery code. Please retry.';
+                    : result.error === 'not_authorized'
+                        ? 'Firebase could not verify this sign-in. Sign in again and retry.'
+                        : result.error === 'recovery_unavailable' || response.status === 503
+                            ? 'The recovery service could not save this code to Firebase. Ask a steward to check the EdgeOne function logs and Firebase service-account permissions.'
+                            : response.status === 404
+                                ? 'The account-recovery service is not deployed yet. Ask a steward to deploy the latest site functions.'
+                                : `Could not securely save your recovery code (HTTP ${response.status}). Ask a steward to check the recovery service.`;
             throw new Error(message);
         }
     }
