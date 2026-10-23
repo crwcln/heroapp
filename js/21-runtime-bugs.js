@@ -115,7 +115,7 @@
             const recurred = b.status !== 'resolved' && siblings.some(s => s !== b && s.status === 'resolved' && (!s.createdAt || !b.createdAt || s.createdAt.toMillis() < b.createdAt.toMillis()));
             const p = profiles[b.deviceId] || {};
             const card = document.createElement('article'); card.className = 'runtime-bug-card rounded-xl border border-slate-200 dark:border-slate-700 p-4' + (recurred ? ' recurred' : '');
-            const identity = p.email ? `${p.name || 'Verified user'} | ${p.email}` : 'Anonymous browser';
+            const identity = p.username ? `${p.name || 'Hero member'} | @${p.username}` : 'Anonymous browser';
             const heading = document.createElement('div'); heading.className = 'flex flex-wrap items-start justify-between gap-3';
             const details = document.createElement('div'); details.className = 'min-w-0 flex-1';
             const meta = document.createElement('p'); meta.className = 'text-xs text-slate-500'; meta.textContent = `${identity} | ${b.page || '/'} | ${b.appVersion || ''} | ${b.status || 'new'}`;

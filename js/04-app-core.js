@@ -120,7 +120,23 @@
                     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 4000));
                     isAdmin = (await Promise.race([claimsPromise, timeout])).claims.admin === true;
                 } catch (e) { console.warn('Could not read account claims (continuing without admin claim):', e); }
-                allowed = isAdmin || !user.isAnonymous;
+                if (isAdmin || user.uid === 'admin') {
+                    allowed = true;
+                } else if (!user.isAnonymous && typeof user.email === 'string') {
+                    const domain = '@accounts.hero.invalid';
+                    const email = user.email.toLowerCase();
+                    if (email.endsWith(domain)) {
+                        const username = email.slice(0, -domain.length);
+                        try {
+                            const profile = await db.collection('artifacts').doc(appId).collection('public').doc('data')
+                                .collection('members').doc(user.uid).get();
+                            const profileData = profile.exists ? profile.data() : {};
+                            allowed = profileData.username === username && profileData.recoveryReady === true;
+                        } catch (error) {
+                            console.error('Could not verify username account profile:', error);
+                        }
+                    }
+                }
             }
             userId = allowed ? user.uid : null;
             if (userId && activeDataUid !== userId) {

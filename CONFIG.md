@@ -34,15 +34,18 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Yes | Steward/admin sign-in and signing server-side admin sessions |
 | `DEV_ACCESS` | Yes for early access | Unlocks the launch countdown and development mode controls; `DEV_PASSWORD` remains supported as a legacy fallback |
-| `FIREBASE_CLIENT_EMAIL` | Yes for secure admin sign-in | Firebase service-account email |
-| `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure admin sign-in | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
+| `FIREBASE_CLIENT_EMAIL` | Yes for secure admin sign-in and account recovery | Firebase service-account email |
+| `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure admin sign-in and account recovery | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
+| `FIREBASE_API_KEY` | Yes for Clio and account recovery | The public Firebase web API key from `js/02-firebase-config.js`; used by the server-side Firebase Auth verification request |
+| `ACCOUNT_RECOVERY_PEPPER` | Yes for account recovery | A private random value used to HMAC one-time recovery codes; never commit it or reuse it for another purpose |
+| `FIREBASE_SITE_ID` | Optional | Firestore data namespace for account-recovery records; defaults to `hero-2026` and should match `SITE.id` in `js/00-site-config.js` |
 | `DEPLOY_WEBHOOK_URL` | Yes for redeploy | EdgeOne build/deploy webhook URL |
 | `GITHUB_TOKEN` | Yes for redeploy | GitHub token with repository contents read/write access |
 | `GITHUB_REPOSITORY` | Optional | Repository as `owner/name`; defaults to `crwcln/heroapp` |
 | `DEPLOY_BRANCH` | Optional | Branch to commit to; defaults to `main` |
 | `GEMINI_API_KEY` | Optional | Enables Clio AI |
 | `FIREBASE_WEB_PUSH_VAPID_KEY` | Yes for push notifications | Public Web Push certificate key from Firebase Console → Project settings → Cloud Messaging → Web Push certificates |
-| `FIREBASE_PROJECT_ID` | Optional | Firebase project ID for FCM; if omitted, the sender derives it from `FIREBASE_CLIENT_EMAIL` |
+| `FIREBASE_PROJECT_ID` | Optional | Firebase project ID; required for account recovery if it cannot be derived from `FIREBASE_CLIENT_EMAIL` |
 | `GEMINI_MODEL` | Optional | Overrides the model preference list in `edge-functions/api/chat.js` |
 | `FLAPPY_TRIGGER`, `FLAPPY_BIRD_URL`, `FLAPPY_GRAVITY`, `FLAPPY_GAP` | Optional | Overrides for the Flappy Bird feature |
 | `CANVAS_ALLOWED_HOSTS` | Optional | Comma- or space-separated exact hostnames for custom Canvas domains; `*.instructure.com` is allowed by default |
@@ -61,9 +64,20 @@ The announcement endpoint also queries opted-in tokens in Firestore. Grant the s
 
 Users opt in under Settings ? Notifications. New announcements are sent to opted-in browsers; editing an announcement does not send a second alert. The sender reports separate errors for Firestore lookup and FCM send permissions, pointing to the IAM setting to check.
 
-Account verification supports email/password plus Google sign-in. Existing unverified password accounts can choose **Verify with Google instead** using the same email address, or request a verification link at another email address they can access. To enable Google, turn on the Google provider under Firebase Authentication → Sign-in method and add the production website domain under Authentication → Settings → Authorized domains. Google verification depends on whether Firebase trusts that email domain; school Google Workspace can also block third-party sign-in until its administrator allows Hero.
+## Username accounts and private recovery
 
-For email delivery, Firebase can send Auth messages from a verified custom domain after you customize the Authentication email templates and add the DNS records Firebase provides. For stronger control, Identity Platform also supports a custom SMTP relay; use an email provider and sender domain configured with SPF, DKIM, and DMARC. These changes can improve authentication and sender reputation but cannot guarantee a school will release a message—its administrator may need to allowlist Hero. The browser reports when Firebase accepted a send request, not that the recipient inbox received it.
+Hero accounts now use a 3–20 character username (`A–Z`, `a–z`, `0–9`, underscore; case-insensitive) and password. Do not use a real name, school ID, or other identifying detail as a username. Firebase Auth stores the username as an internal address at the reserved, non-deliverable `accounts.hero.invalid` domain; users never enter or see that address. The recovery endpoint stores only an HMAC of each high-entropy, one-time recovery code in a Firestore collection that client rules deny.
+
+Before deploying the username flow:
+
+1. Set `FIREBASE_API_KEY` to the same public API key from `js/02-firebase-config.js`, `FIREBASE_PROJECT_ID` to the Firebase project ID, and `ACCOUNT_RECOVERY_PEPPER` to a newly generated random secret. For example, generate a value locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste it directly into EdgeOne secrets; do not save it in the repository.
+2. Reuse the Firebase service account already configured as `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY_1…N`. Give it only the needed access: `firebaseauth.users.update` to reset passwords, plus Firestore document read/create/update/delete access for recovery records. It does not need project Owner. The endpoint uses OAuth server-to-server; no service-account key is sent to browsers.
+3. Publish `firestore.rules` before the site code. Firebase Authentication must allow Email/Password accounts because usernames are implemented as non-deliverable aliases.
+4. Keep the Google provider enabled temporarily for existing Google-only users to migrate. Existing users must authenticate once using their former email/password or Google account, then choose a username and new password. On successful migration Hero changes the Firebase Auth email to the alias, unlinks Google, and removes the old email fields from that user's Hero profile and device-profile documents. After all users have migrated, disable Google sign-in in Firebase Authentication.
+
+New users receive a one-time recovery code, and a successful password reset issues a replacement code. The code is displayed once, so users must save it privately. Without it, Hero cannot automatically recover an account; no security questions or email reset path is used. Account deletion also removes the associated recovery record through the trusted endpoint.
+
+Migration runs account-by-account when each user signs in; it does not mass-edit Firebase data. These changes cannot erase Firebase's retained operational logs or backups immediately, so do not promise complete provider-side erasure. Separately supplied email addresses in feedback/contact forms are not authentication identifiers and are not automatically removed by account migration.
 
 ## Project layout
 

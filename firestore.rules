@@ -4,6 +4,12 @@
       function isAdmin()  { return request.auth != null && request.auth.token.admin == true; }
       // Shared app access requires a signed-in account; anonymous sessions remain local-only.
       function signedIn() { return isAdmin() || (request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'); }
+      function ownsUsername(username) {
+        return request.auth != null
+          && request.auth.token.email is string
+          && request.auth.token.email.matches('[A-Za-z0-9_]{3,20}@accounts[.]hero[.]invalid')
+          && request.auth.token.email.split('@')[0].lower() == username.lower();
+      }
 
       match /artifacts/{appId}/public/data {
 
@@ -125,10 +131,13 @@
           allow list: if isAdmin();
           allow create, update: if signedIn()
             && request.auth.uid == memberId
-            && request.resource.data.keys().hasOnly(['userId', 'name', 'email', 'updatedAt', 'photoURL'])
-            && request.resource.data.keys().hasAll(['userId', 'name', 'email', 'updatedAt'])
+            && request.resource.data.keys().hasOnly(['userId', 'name', 'username', 'recoveryReady', 'updatedAt', 'photoURL'])
+            && request.resource.data.keys().hasAll(['userId', 'name', 'username', 'recoveryReady', 'updatedAt'])
             && request.resource.data.userId == request.auth.uid
-            && request.resource.data.email == request.auth.token.email
+            && (isAdmin() || request.auth.uid == 'admin' || ownsUsername(request.resource.data.username))
+            && request.resource.data.username is string
+            && request.resource.data.username.matches('[A-Za-z0-9_]{3,20}')
+            && request.resource.data.recoveryReady is bool
             && request.resource.data.name is string
             && request.resource.data.name.size() >= 2
             && request.resource.data.name.size() <= 40
@@ -154,20 +163,28 @@
           }
         }
 
-        // A signed-in user may link a name/email to the random id stored by this browser.
+        // A signed-in user may link a name/username to the random id stored by this browser.
         // Only stewards can list these mappings; the owner can create or update this browser's record.
         match /deviceProfiles/{deviceId} {
           allow create, update: if signedIn()
-            && request.resource.data.keys().hasOnly(['deviceId', 'userId', 'name', 'email', 'updatedAt'])
+            && request.resource.data.keys().hasOnly(['deviceId', 'userId', 'name', 'username', 'updatedAt'])
+            && request.resource.data.keys().hasAll(['deviceId', 'userId', 'name', 'username', 'updatedAt'])
             && request.resource.data.deviceId == deviceId
             && deviceId.matches('d_[A-Za-z0-9-]{12}')
             && request.resource.data.userId == request.auth.uid
-            && request.resource.data.email == request.auth.token.email
+            && (isAdmin() || request.auth.uid == 'admin' || ownsUsername(request.resource.data.username))
+            && request.resource.data.username is string
+            && request.resource.data.username.matches('[A-Za-z0-9_]{3,20}')
             && request.resource.data.name is string
             && request.resource.data.name.size() >= 2
             && request.resource.data.name.size() <= 40;
           allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
           allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+        }
+
+        // Recovery hashes and username mappings are available only through the trusted Edge Function.
+        match /accountRecovery/{username} {
+          allow read, write: if false;
         }
 
         // Browser-captured uncaught exceptions and unhandled promise rejections.

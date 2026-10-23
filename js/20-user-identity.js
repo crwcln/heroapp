@@ -10,7 +10,7 @@
 // Public surface other files rely on (kept the same on purpose, so nothing else needed to change):
 //   window.__heroOpenAccountDialog()   opens the sign-in / account dialog
 //   window.__heroShowAuthGate()        same dialog, used when a blocked view needs to show it
-//   window.__heroDeviceProfiles        { deviceId: {name,email,userId,deviceId} } for admin tooling
+//   window.__heroDeviceProfiles        { deviceId: {name,username,userId,deviceId} } for admin tooling
 //   #hero-account-open                 the nav button (created here, inserted with the primary actions)
 //   #member-profile-content            populated with the signed-in profile (profile-view in index.html)
 (function () {
@@ -19,12 +19,92 @@
     const memberRef = (uid) => dataCol().collection('members').doc(uid);
     const ROLES = [[30000, 'Legend'], [15000, 'Historian'], [5000, 'Cartographer'], [1000, 'Scout'], [0, 'Explorer']];
     const roleFor = (score) => (ROLES.find(([min]) => score >= min) || ROLES[ROLES.length - 1])[1];
+    const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
+    const ACCOUNT_DOMAIN = 'accounts.hero.invalid';
 
     let latest = { user: null, authorized: false, isAdmin: false };
-    let mode = 'signin';                 // gate form: 'signin' | 'register'
+    let mode = 'signin';
     let profileOpenPending = false;
     let dialog = null, body = null;
     let knownProfilesUnsub = null;
+    let pendingRecoveryCode = '';
+    let pendingRecoveryUsername = '';
+
+    function usernameEmail(username) { return `${username.toLowerCase()}@${ACCOUNT_DOMAIN}`; }
+    function userUsername(user) {
+        const email = String(user && user.email || '');
+        return email.toLowerCase().endsWith(`@${ACCOUNT_DOMAIN}`) ? email.slice(0, -(`@${ACCOUNT_DOMAIN}`).length) : '';
+    }
+    function newRecoveryCode() {
+        const bytes = crypto.getRandomValues(new Uint8Array(20));
+        return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase().match(/.{1,4}/g).join('-');
+    }
+    async function saveRecoveryCode(user, username, recoveryCode) {
+        const idToken = await user.getIdToken(true);
+        const response = await fetch('/api/account-recovery', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ action: 'save', username, recoveryCode }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const message = result.error === 'not_configured'
+                ? 'Account recovery is not configured yet. Ask a steward to finish the private Firebase setup.'
+                : result.error === 'username_unavailable'
+                    ? 'That username is already in use. Choose another one.'
+                    : 'Could not securely save your recovery code. Please retry.';
+            throw new Error(message);
+        }
+    }
+    async function deleteRecoveryCode(user, username) {
+        const idToken = await user.getIdToken(true);
+        const response = await fetch('/api/account-recovery', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ action: 'delete', username }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error === 'not_configured'
+                ? 'Account recovery is not configured. Your account was not deleted.'
+                : 'Could not remove the recovery record. Your account was not deleted.');
+        }
+    }
+    async function saveAccountProfile(user, username, name) {
+        await memberRef(user.uid).set({
+            userId: user.uid,
+            name,
+            username,
+            recoveryReady: false,
+            email: firebase.firestore.FieldValue.delete(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        const profiles = await dataCol().collection('deviceProfiles').where('userId', '==', user.uid).get();
+        for (let start = 0; start < profiles.docs.length; start += 400) {
+            const batch = db.batch();
+            profiles.docs.slice(start, start + 400).forEach((doc) => batch.update(doc.ref, {
+                username,
+                email: firebase.firestore.FieldValue.delete(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            }));
+            await batch.commit();
+        }
+    }
+    async function markRecoveryReady(user) {
+        await memberRef(user.uid).update({
+            recoveryReady: true,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    async function finishUsernameSetup(user, username) {
+        const profile = await memberRef(user.uid).get();
+        if (profile.exists && profile.data().recoveryReady === true) return '';
+        await saveAccountProfile(user, username, username);
+        const recoveryCode = newRecoveryCode();
+        await saveRecoveryCode(user, username, recoveryCode);
+        await markRecoveryReady(user);
+        return recoveryCode;
+    }
 
     // ---------------- photo resize: a square JPEG under ~100KB, stored inline on the member doc ----------------
     async function resizePhoto(file) {
@@ -89,70 +169,100 @@
     // ---------------- gate: sign in / create account ----------------
     function renderGate(errorText) {
         const register = mode === 'register';
+        const legacy = mode === 'legacy';
+        if (mode === 'recover') return renderRecoveryGate(errorText);
         body.innerHTML = `
             <div class="hero-auth-mark">H</div>
             <p class="hero-auth-eyebrow">HERO ACCOUNT</p>
-            <h2 class="hero-auth-title">${register ? 'Create your account' : 'Welcome back'}</h2>
-            <p class="hero-auth-sub">${register ? "One quick email check, then you're set on this browser." : 'Sign in to play, save scores, and talk with Clio.'}</p>
+            <h2 class="hero-auth-title">${legacy ? 'Move your existing account' : register ? 'Create your account' : 'Welcome back'}</h2>
+            <p class="hero-auth-sub">${legacy ? 'Sign in with your current method once. You will choose a username and new password next.' : register ? 'Choose a private username that does not include your real name, school ID, or other identifying details. Save your one-time recovery code.' : 'Sign in with your username to play, save scores, and talk with Clio.'}</p>
             ${errorText ? `<div class="hero-auth-error">${esc(errorText)}</div>` : ''}
             <form id="ha-form" novalidate>
-                ${register ? '<label class="hero-auth-label">Name</label><input id="ha-name" class="hero-auth-input" maxlength="40" autocomplete="name" placeholder="Display name" required>' : ''}
-                <label class="hero-auth-label">Email</label>
-                <input id="ha-email" class="hero-auth-input" type="email" autocomplete="email" placeholder="you@example.com" required>
+                ${legacy ? '<label class="hero-auth-label">Current email</label><input id="ha-email" class="hero-auth-input" type="email" autocomplete="username" placeholder="you@example.com" required>' : '<label class="hero-auth-label">Username</label><input id="ha-username" class="hero-auth-input" maxlength="20" minlength="3" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="PandaCoder42" required>'}
                 <label class="hero-auth-label">Password</label>
-                <input id="ha-password" class="hero-auth-input" type="password" minlength="8" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="${register ? 'At least 8 characters' : 'Your password'}" required>
+                <input id="ha-password" class="hero-auth-input" type="password" minlength="8" maxlength="128" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="${register ? 'At least 8 characters' : 'Your password'}" required>
                 ${register ? '<label class="hero-auth-label">Confirm password</label><input id="ha-confirm" class="hero-auth-input" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again" required>' : ''}
-                <button type="submit" id="ha-submit" class="hero-auth-submit">${register ? 'Create account' : 'Sign in'}</button>
+                <button type="submit" id="ha-submit" class="hero-auth-submit">${legacy ? 'Continue' : register ? 'Create account' : 'Sign in'}</button>
             </form>
-            <div class="hero-auth-or"><span>or</span></div>
-            <button type="button" id="ha-google" class="hero-auth-google"><span aria-hidden="true">G</span> Continue with Google</button>
-            <div class="hero-auth-links-primary"><button type="button" id="ha-toggle">${register ? 'Already have an account? Sign in' : "New to Hero? Create an account"}</button></div>
-            ${register ? '' : '<div class="hero-auth-links"><button type="button" id="ha-forgot">Forgot password?</button></div>'}
+            ${legacy ? '<div class="hero-auth-or"><span>or</span></div><button type="button" id="ha-google" class="hero-auth-google"><span aria-hidden="true">G</span> Continue with Google once</button>' : ''}
+            <div class="hero-auth-links-primary"><button type="button" id="ha-toggle">${legacy ? 'Back to username sign in' : register ? 'Already have an account? Sign in' : "New to Hero? Create an account"}</button></div>
+            ${!register && !legacy ? '<div class="hero-auth-links"><button type="button" id="ha-forgot">Forgot password?</button></div>' : ''}
+            ${!legacy ? '<div class="hero-auth-links"><button type="button" id="ha-legacy">Move an existing email or Google account</button></div>' : ''}
         `;
-        document.getElementById('ha-toggle').onclick = () => { mode = register ? 'signin' : 'register'; renderGate(); };
-        document.getElementById('ha-google').onclick = handleGoogleSignIn;
-        if (!register) document.getElementById('ha-forgot').onclick = handleForgot;
+        document.getElementById('ha-toggle').onclick = () => { mode = legacy ? 'signin' : register ? 'signin' : 'register'; renderGate(); };
+        const googleButton = document.getElementById('ha-google');
+        if (googleButton) googleButton.onclick = handleLegacyGoogleSignIn;
+        const forgotButton = document.getElementById('ha-forgot');
+        if (forgotButton) forgotButton.onclick = () => { mode = 'recover'; renderGate(); };
+        const legacyButton = document.getElementById('ha-legacy');
+        if (legacyButton) legacyButton.onclick = () => { mode = 'legacy'; renderGate(); };
         document.getElementById('ha-form').addEventListener('submit', handleGateSubmit);
-        document.getElementById(register ? 'ha-name' : 'ha-email').focus();
+        document.getElementById(legacy ? 'ha-email' : 'ha-username').focus();
     }
 
     async function handleGateSubmit(e) {
         e.preventDefault();
         const register = mode === 'register';
-        const email = document.getElementById('ha-email').value.trim();
+        const legacy = mode === 'legacy';
+        const username = legacy ? '' : document.getElementById('ha-username').value.trim();
+        const email = legacy ? document.getElementById('ha-email').value.trim() : '';
         const password = document.getElementById('ha-password').value;
-        const name = register ? document.getElementById('ha-name').value.trim() : '';
         const confirm = register ? document.getElementById('ha-confirm').value : '';
-        if (register && name.length < 2) return renderGate('Enter a name with at least 2 characters.');
-        if (!email) return renderGate('Enter your email address.');
-        if (password.length < 8) return renderGate('Password must be at least 8 characters.');
+        if (!legacy && !USERNAME_PATTERN.test(username)) return renderGate('Use 3–20 letters, numbers, or underscores for your username.');
+        if (legacy && !email) return renderGate('Enter the email you used before.');
+        if (password.length < 8 || password.length > 128) return renderGate('Choose a password between 8 and 128 characters.');
         if (register && password !== confirm) return renderGate("Passwords don't match.");
 
         const btn = document.getElementById('ha-submit');
-        btn.disabled = true; const original = btn.textContent; btn.textContent = register ? 'Creating account\u2026' : 'Signing in\u2026';
+        btn.disabled = true; const original = btn.textContent; btn.textContent = register ? 'Creating account…' : 'Signing in…';
         try {
             if (register) {
-                const cred = await auth.createUserWithEmailAndPassword(email, password);
-                await cred.user.updateProfile({ displayName: name });
-            } else {
+                const normalizedUsername = username.toLowerCase();
+                const credential = await auth.createUserWithEmailAndPassword(usernameEmail(normalizedUsername), password);
+                try {
+                    await credential.user.updateProfile({ displayName: normalizedUsername });
+                    const recoveryCode = await finishUsernameSetup(credential.user, normalizedUsername);
+                    await window.__heroApplyAuthUser(auth.currentUser);
+                    pendingRecoveryCode = recoveryCode;
+                    pendingRecoveryUsername = normalizedUsername;
+                    renderRecoveryReceipt();
+                } catch (error) {
+                    try {
+                        await deleteRecoveryCode(credential.user, normalizedUsername);
+                        await memberRef(credential.user.uid).delete();
+                        await credential.user.delete();
+                        await auth.signOut();
+                    } catch (cleanupError) {
+                        console.error('Could not fully roll back incomplete account setup; the account is retained for retry:', cleanupError);
+                        await auth.signOut().catch((signOutError) => console.error('Could not sign out after incomplete account setup:', signOutError));
+                    }
+                    throw error;
+                }
+            } else if (legacy) {
                 await auth.signInWithEmailAndPassword(email, password);
+            } else {
+                const normalizedUsername = username.toLowerCase();
+                const credential = await auth.signInWithEmailAndPassword(usernameEmail(normalizedUsername), password);
+                const recoveryCode = await finishUsernameSetup(credential.user, normalizedUsername);
+                if (recoveryCode) {
+                    await window.__heroApplyAuthUser(credential.user);
+                    pendingRecoveryCode = recoveryCode;
+                    pendingRecoveryUsername = normalizedUsername;
+                    renderRecoveryReceipt();
+                }
             }
-            // The real UI update comes from js/04's hero-auth-state event, which fires from onAuthStateChanged
-            // right after this resolves. We don't render a "success" state ourselves to avoid a second,
-            // competing source of truth -- we just stop showing this form's own loading state.
         } catch (err) {
             btn.disabled = false; btn.textContent = original;
             renderGate(gateErrorMessage(err));
         }
     }
 
-    async function handleGoogleSignIn() {
+    async function handleLegacyGoogleSignIn() {
         const button = document.getElementById('ha-google');
-        const email = (document.getElementById('ha-email')?.value || '').trim();
         button.disabled = true; button.textContent = 'Opening Google…';
         try {
             const provider = new firebase.auth.GoogleAuthProvider();
-            if (email) provider.setCustomParameters({ login_hint: email, prompt: 'select_account' });
+            provider.setCustomParameters({ prompt: 'select_account' });
             await auth.signInWithPopup(provider);
         } catch (err) {
             renderGate(gateErrorMessage(err));
@@ -160,34 +270,191 @@
     }
 
     function gateErrorMessage(err) {
+        if (err && err.message && !err.code) return err.message;
         const map = {
-            'auth/email-already-in-use': 'An account already exists for that email. Try signing in instead.',
-            'auth/invalid-email': "That doesn't look like a valid email address.",
+            'auth/email-already-in-use': 'That username is already in use. Choose another one or sign in.',
+            'auth/invalid-email': 'That username could not be used. Choose another one.',
             'auth/weak-password': 'Choose a stronger password (at least 8 characters).',
-            'auth/wrong-password': 'Incorrect email or password.',
-            'auth/user-not-found': 'Incorrect email or password.',
-            'auth/invalid-credential': 'Incorrect email or password.',
+            'auth/wrong-password': 'Incorrect username or password.',
+            'auth/user-not-found': 'Incorrect username or password.',
+            'auth/invalid-credential': 'Incorrect username or password.',
             'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
             'auth/network-request-failed': 'Could not reach the sign-in server. Check your connection.',
-            'auth/operation-not-allowed': 'Google sign-in is not enabled for Hero yet. Ask a steward to enable Google in Firebase Authentication settings.',
-            'auth/unauthorized-domain': 'Google sign-in is not enabled for this website domain yet. Ask a steward to add it to Firebase authorized domains.',
-            'auth/popup-blocked': 'Your browser blocked the Google sign-in popup. Allow popups for Hero and try again.',
+            'auth/operation-not-allowed': 'The original sign-in method is not enabled. Ask a steward for help migrating this account.',
+            'auth/unauthorized-domain': 'This website domain is not authorized for the original sign-in method. Ask a steward to check Firebase settings.',
+            'auth/popup-blocked': 'Your browser blocked the sign-in popup. Allow popups for Hero and try again.',
             'auth/popup-closed-by-user': 'The Google sign-in window was closed before you finished.',
-            'auth/account-exists-with-different-credential': 'This email already has a Hero account using a password. Sign in with that password first.',
-            'auth/credential-already-in-use': 'That Google account is already connected to another Hero account. Sign in to that account instead.',
+            'auth/account-exists-with-different-credential': 'Sign in using the original provider connected to this account.',
+            'auth/credential-already-in-use': 'That username is already connected to a different Hero account.',
+            'auth/requires-recent-login': 'Sign out, sign back in to your old account, then retry the move.',
         };
         return map[err.code] || (err.message || 'Something went wrong. Please try again.');
     }
 
     async function handleForgot() {
-        const email = (document.getElementById('ha-email').value || '').trim();
-        if (!email) return renderGate('Enter your email above first, then press Forgot password.');
+        mode = 'recover';
+        renderGate();
+    }
+
+    function renderRecoveryGate(errorText) {
+        body.innerHTML = `
+            <div class="hero-auth-mark">H</div>
+            <p class="hero-auth-eyebrow">ACCOUNT RECOVERY</p>
+            <h2 class="hero-auth-title">Reset your password</h2>
+            <p class="hero-auth-sub">Use the one-time recovery code you saved when you created your account.</p>
+            ${errorText ? `<div class="hero-auth-error">${esc(errorText)}</div>` : ''}
+            <form id="ha-recover-form" novalidate>
+                <label class="hero-auth-label">Username</label><input id="ha-recover-username" class="hero-auth-input" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                <label class="hero-auth-label">One-time recovery code</label><input id="ha-recover-code" class="hero-auth-input" maxlength="80" autocomplete="one-time-code" spellcheck="false" required>
+                <label class="hero-auth-label">New password</label><input id="ha-recover-password" class="hero-auth-input" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                <label class="hero-auth-label">Confirm new password</label><input id="ha-recover-confirm" class="hero-auth-input" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                <button type="submit" id="ha-recover-submit" class="hero-auth-submit">Reset password</button>
+            </form>
+            <div class="hero-auth-links-primary"><button type="button" id="ha-recover-back">Back to sign in</button></div>
+        `;
+        document.getElementById('ha-recover-back').onclick = () => { mode = 'signin'; renderGate(); };
+        document.getElementById('ha-recover-form').addEventListener('submit', handleRecoverySubmit);
+    }
+
+    async function handleRecoverySubmit(event) {
+        event.preventDefault();
+        const username = document.getElementById('ha-recover-username').value.trim().toLowerCase();
+        const recoveryCode = document.getElementById('ha-recover-code').value.trim();
+        const password = document.getElementById('ha-recover-password').value;
+        const confirm = document.getElementById('ha-recover-confirm').value;
+        if (!USERNAME_PATTERN.test(username)) return renderRecoveryGate('Enter a valid username.');
+        if (password.length < 8 || password.length > 128) return renderRecoveryGate('Choose a password between 8 and 128 characters.');
+        if (password !== confirm) return renderRecoveryGate("Passwords don't match.");
+        const button = document.getElementById('ha-recover-submit');
+        button.disabled = true; button.textContent = 'Resetting…';
+        let passwordReset = false;
         try {
-            await auth.sendPasswordResetEmail(email);
-            renderGate(); 
-            const sub = body.querySelector('.hero-auth-sub');
-            if (sub) sub.textContent = `Password reset email sent to ${email}. Check your inbox.`;
-        } catch (err) { renderGate(gateErrorMessage(err)); }
+            const response = await fetch('/api/account-recovery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'reset', username, recoveryCode, password }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const message = result.error === 'not_configured'
+                    ? 'Account recovery is not configured. Ask a steward for help.'
+                    : result.error === 'recovery_unavailable'
+                        ? 'Recovery is temporarily unavailable. Try again shortly.'
+                        : 'Those recovery details could not be verified.';
+                throw new Error(message);
+            }
+            passwordReset = true;
+            const credential = await auth.signInWithEmailAndPassword(usernameEmail(username), password);
+            const nextCode = newRecoveryCode();
+            await window.__heroApplyAuthUser(auth.currentUser);
+            try {
+                await saveRecoveryCode(credential.user, username, nextCode);
+                pendingRecoveryCode = nextCode;
+                pendingRecoveryUsername = username;
+                renderRecoveryReceipt();
+            } catch (error) {
+                console.error('Password reset succeeded, but a new recovery code was not saved:', error);
+                closeDialog();
+                showToast('Password reset succeeded, but a new recovery code could not be created. Create one in your account settings.', 'error');
+            }
+        } catch (error) {
+            const message = passwordReset
+                ? 'Your password was reset, but sign-in did not finish. Return to sign in with your new password; the recovery code has been used.'
+                : error.message || 'Could not reset the password.';
+            renderRecoveryGate(message);
+        }
+    }
+
+    function renderRecoveryReceipt() {
+        if (!pendingRecoveryCode) return;
+        body.innerHTML = `
+            <div class="hero-auth-mark">H</div>
+            <p class="hero-auth-eyebrow">SAVE THIS NOW</p>
+            <h2 class="hero-auth-title">Your recovery code</h2>
+            <p class="hero-auth-sub">This code is shown once and cannot be retrieved later. Keep it private; anyone with it and your username can reset your password.</p>
+            <div class="hero-auth-error" style="font-family:monospace;text-align:center;overflow-wrap:anywhere">${esc(pendingRecoveryCode)}</div>
+            <p class="hero-auth-sub">Username: <strong>${esc(pendingRecoveryUsername)}</strong></p>
+            <button type="button" id="ha-copy-recovery" class="hero-auth-submit">Copy recovery code</button>
+            <button type="button" id="ha-recovery-done" class="hero-auth-submit">I saved it — continue</button>
+        `;
+        document.getElementById('ha-copy-recovery').onclick = async () => {
+            try { await navigator.clipboard.writeText(pendingRecoveryCode); showToast('Recovery code copied.', 'success'); }
+            catch { showToast('Copy failed. Select and copy the code manually.', 'error'); }
+        };
+        document.getElementById('ha-recovery-done').onclick = () => {
+            pendingRecoveryCode = ''; pendingRecoveryUsername = '';
+            if (latest.authorized) closeDialog();
+            else render();
+        };
+    }
+
+    function renderMigrationGate(errorText) {
+        const user = latest.user;
+        const hasPassword = (user.providerData || []).some((item) => item.providerId === 'password');
+        const currentUsername = userUsername(user);
+        body.innerHTML = `
+            <div class="hero-auth-mark">H</div>
+            <p class="hero-auth-eyebrow">ACCOUNT UPDATE REQUIRED</p>
+            <h2 class="hero-auth-title">Choose your username</h2>
+            <p class="hero-auth-sub">Move this account to a username and new password to keep your saved Hero data. The old email will be removed from this Hero account after the move.</p>
+            ${errorText ? `<div class="hero-auth-error">${esc(errorText)}</div>` : ''}
+            <form id="ha-migrate-form" novalidate>
+                <label class="hero-auth-label">Username</label><input id="ha-migrate-username" class="hero-auth-input" maxlength="20" minlength="3" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="PandaCoder42" value="${esc(currentUsername)}" ${currentUsername ? 'readonly' : ''} required>
+                ${hasPassword ? '<label class="hero-auth-label">Current password</label><input id="ha-migrate-current" class="hero-auth-input" type="password" autocomplete="current-password" required>' : ''}
+                <label class="hero-auth-label">New password</label><input id="ha-migrate-password" class="hero-auth-input" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                <label class="hero-auth-label">Confirm new password</label><input id="ha-migrate-confirm" class="hero-auth-input" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                <button type="submit" id="ha-migrate-submit" class="hero-auth-submit">Move account</button>
+            </form>
+            <button type="button" id="ha-migrate-signout" class="hero-auth-link mt-3">Sign out</button>
+        `;
+        document.getElementById('ha-migrate-form').addEventListener('submit', handleAccountMigration);
+        document.getElementById('ha-migrate-signout').onclick = () => auth.signOut();
+    }
+
+    async function handleAccountMigration(event) {
+        event.preventDefault();
+        const user = latest.user;
+        const username = document.getElementById('ha-migrate-username').value.trim().toLowerCase();
+        const currentPassword = document.getElementById('ha-migrate-current')?.value || '';
+        const password = document.getElementById('ha-migrate-password').value;
+        const confirm = document.getElementById('ha-migrate-confirm').value;
+        if (!USERNAME_PATTERN.test(username)) return renderMigrationGate('Use 3–20 letters, numbers, or underscores for your username.');
+        const currentUsername = userUsername(user);
+        if (currentUsername && username !== currentUsername) return renderMigrationGate('Finish setting up this account with its existing username.');
+        if (password.length < 8 || password.length > 128) return renderMigrationGate('Choose a password between 8 and 128 characters.');
+        if (password !== confirm) return renderMigrationGate("Passwords don't match.");
+        const button = document.getElementById('ha-migrate-submit');
+        button.disabled = true; button.textContent = 'Moving account…';
+        try {
+            const code = newRecoveryCode();
+            const providers = (user.providerData || []).map((item) => item.providerId);
+            const alias = usernameEmail(username);
+            if (providers.includes('password')) {
+                if (!currentPassword) throw new Error('Enter your current password to verify this account.');
+                await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, currentPassword));
+                await user.updateEmail(alias);
+                await user.updatePassword(password);
+                if (providers.includes('google.com')) await user.unlink('google.com');
+            } else if (providers.includes('google.com')) {
+                await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+                await user.linkWithCredential(firebase.auth.EmailAuthProvider.credential(alias, password));
+                await user.unlink('google.com');
+            } else {
+                throw new Error('This account cannot be moved automatically. Contact a steward for help.');
+            }
+            await user.updateProfile({ displayName: username });
+            await user.getIdToken(true);
+            await saveAccountProfile(user, username, username);
+            await saveRecoveryCode(user, username, code);
+            await markRecoveryReady(user);
+            await user.reload();
+            pendingRecoveryCode = code;
+            pendingRecoveryUsername = username;
+            await window.__heroApplyAuthUser(auth.currentUser);
+            renderRecoveryReceipt();
+        } catch (error) {
+            renderMigrationGate(gateErrorMessage(error));
+        }
     }
 
     async function reauthenticateForDeletion(user, password) {
@@ -235,9 +502,10 @@
 
     // ---------------- signed-in account dialog ----------------
     function renderAccount(user) {
+        const username = userUsername(user) || (user.uid === 'admin' ? 'steward' : '');
         body.innerHTML = `
             <section class="acct-card">
-                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Signed in as <strong>${esc(user.email || 'Hero member')}</strong></p></div></header>
+                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="user-circle"></i></span><div><h3>Profile</h3><p>Username <strong>${esc(username || 'Hero member')}</strong></p></div></header>
                 <div class="member-photo-edit">
                     <div class="member-photo-edit-preview" id="ha-photo-preview"></div>
                     <div>
@@ -255,7 +523,7 @@
                 <button type="button" id="ha-save" class="cm-btn go w-full mt-4"><i data-lucide="check" class="w-4 h-4"></i> Save profile</button>
             </section>
             <section class="acct-card">
-                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="key-round"></i></span><div><h3>Password</h3><p>Confirm your current password to change it, or request a reset email.</p></div></header>
+                <header class="acct-card-head"><span class="acct-ico"><i data-lucide="key-round"></i></span><div><h3>Password &amp; recovery</h3><p>Change your password here. Make a new one-time recovery code if you need to replace a lost one.</p></div></header>
                 <label class="acct-label" for="ha-old-pass">Current password</label>
                 <input id="ha-old-pass" type="password" class="acct-input" autocomplete="current-password" placeholder="Current password">
                 <div class="acct-grid-2">
@@ -263,7 +531,7 @@
                     <div><label class="acct-label" for="ha-new-pass2">Confirm new password</label><input id="ha-new-pass2" type="password" minlength="8" class="acct-input" autocomplete="new-password" placeholder="Type it again"></div>
                 </div>
                 <button type="button" id="ha-pw-save" class="cm-btn ghost w-full mt-4"><i data-lucide="lock" class="w-4 h-4"></i> Update password</button>
-                <button type="button" id="ha-pw-reset" class="hero-auth-link mt-3">Email me a reset link instead</button>
+                ${username && user.uid !== 'admin' ? '<button type="button" id="ha-recovery-new" class="hero-auth-link mt-3">Create a new recovery code</button>' : ''}
             </section>
             <section class="acct-card">
                 <h3 class="font-bold text-sm mb-3 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4"></i> Your Hero rank</h3>
@@ -307,11 +575,18 @@
             if (name.length < 2) { showToast('Enter a display name (2+ characters).', 'error'); btn.disabled = false; return; }
             try {
                 if (name !== user.displayName) await user.updateProfile({ displayName: name });
-                const payload = { userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                const payload = { userId: user.uid, name, username, recoveryReady: username !== '' && user.uid !== 'admin', email: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
                 if (pendingPhoto !== undefined) payload.photoURL = pendingPhoto;
                 else { const existing = await memberRef(user.uid).get(); if (existing.exists && existing.data().photoURL) payload.photoURL = existing.data().photoURL; }
                 await memberRef(user.uid).set(payload, { merge: true });
-                await dataCol().collection('deviceProfiles').doc(window.__heroDeviceId || deviceId()).set({ deviceId: window.__heroDeviceId || deviceId(), userId: user.uid, name, email: user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+                await dataCol().collection('deviceProfiles').doc(window.__heroDeviceId || deviceId()).set({
+                    deviceId: window.__heroDeviceId || deviceId(),
+                    userId: user.uid,
+                    name,
+                    username,
+                    email: firebase.firestore.FieldValue.delete(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
                 showToast('Profile saved.', 'success');
             } catch (err) { showToast(`Could not save profile (${err.code || 'error'}).`, 'error'); }
             finally { btn.disabled = false; }
@@ -323,7 +598,7 @@
             const next = document.getElementById('ha-new-pass').value;
             const confirm = document.getElementById('ha-new-pass2').value;
             if (!current) return showToast('Enter your current password.', 'error');
-            if (next.length < 8) return showToast('New password must be at least 8 characters.', 'error');
+            if (next.length < 8 || next.length > 128) return showToast('New password must be between 8 and 128 characters.', 'error');
             if (next !== confirm) return showToast("New passwords don't match.", 'error');
             btn.disabled = true;
             try {
@@ -335,9 +610,21 @@
             } catch (err) { showToast(gateErrorMessage(err), 'error'); }
             finally { btn.disabled = false; }
         };
-        document.getElementById('ha-pw-reset').onclick = async () => {
-            try { await auth.sendPasswordResetEmail(user.email); showToast('Reset email sent.', 'success'); }
-            catch (err) { showToast(gateErrorMessage(err), 'error'); }
+        const recoveryButton = document.getElementById('ha-recovery-new');
+        if (recoveryButton) recoveryButton.onclick = async (event) => {
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+                const code = newRecoveryCode();
+                await saveRecoveryCode(user, username, code);
+                pendingRecoveryCode = code;
+                pendingRecoveryUsername = username;
+                renderRecoveryReceipt();
+            } catch (error) {
+                showToast(error.message || 'Could not create a recovery code.', 'error');
+            } finally {
+                button.disabled = false;
+            }
         };
 
         document.getElementById('ha-signout').onclick = () => auth.signOut();
@@ -357,6 +644,8 @@
                     await reauthenticateForDeletion(user, password);
                     confirmButton.textContent = 'Deleting your data…';
                     await deleteOwnedAccountData(user);
+                    const username = userUsername(user);
+                    if (username) await deleteRecoveryCode(user, username);
                     await user.delete();
                     localStorage.removeItem('hero_member_name');
                     localStorage.removeItem('mq_playerName');
@@ -440,7 +729,7 @@
             host.innerHTML = `
                 <div class="flex items-center gap-4 mb-6">
                     <div class="member-photo-edit-preview" style="width:72px;height:72px">${photo ? `<img src="${esc(photo)}" alt="">` : `<i data-lucide="user" class="w-7 h-7"></i>`}</div>
-                    <div><div class="text-xl font-extrabold">${esc(user.displayName || user.email)}</div><span class="hero-rank-badge">${esc(roleFor(best))}</span></div>
+                    <div><div class="text-xl font-extrabold">${esc(user.displayName || userUsername(user))}</div><span class="hero-rank-badge">${esc(roleFor(best))}</span></div>
                 </div>
                 <div class="an-grid">
                     <div class="an-kpi"><small>Journeys</small><strong>${quizRows.length}</strong></div>
@@ -492,10 +781,12 @@
             if (latest.authorized && latest.user && fbCurView === 'profile-view') renderProfilePage(latest.user);
             return;
         }
+        if (pendingRecoveryCode) { renderRecoveryReceipt(); return; }
         const user = latest.user;
         // Stewards can use the same account settings dialog as other authorized users.
         if (!user || user.isAnonymous) { mode = 'signin'; renderGate(); return; }
         if (latest.authorized) { renderAccount(user); return; }
+        if (!latest.isAdmin) { renderMigrationGate(); return; }
         renderGate();
     }
 
@@ -504,6 +795,12 @@
         ensureNavButton();
         render();
         if (latest.authorized && latest.user && !latest.user.isAnonymous) startKnownProfiles(); else stopKnownProfiles();
+        if (latest.user && !latest.user.isAnonymous && !latest.authorized && !latest.isAdmin) {
+            mode = 'migration';
+            if (!dialog || dialog.classList.contains('hidden')) openDialog();
+            else renderMigrationGate();
+            return;
+        }
         if (profileOpenPending && latest.authorized && latest.user && !latest.user.isAnonymous) {
             profileOpenPending = false;
             closeDialog();

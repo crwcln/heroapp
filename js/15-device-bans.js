@@ -1,7 +1,7 @@
 // ===== DEVICE BANS =====
 // Privacy-friendlier than matching names to IP addresses: each browser gets a random id in localStorage on first load.
 // The admin can ban a browser id or a Hero account id. Browser ids are random and stored only in that browser.
-// The site does not collect IP addresses. Verified email profiles are opt-in and admin-only; network-level abuse can
+// The site does not collect IP addresses. Username profiles are admin-only; network-level abuse can
 // be handled with EdgeOne rate limiting / WAF rules without this site storing an address.
 const deviceId = () => { let id = localStorage.getItem('hero_device'); if (!id) { id = 'd_' + crypto.randomUUID().slice(0, 12); localStorage.setItem('hero_device', id); } return id; };
 window.__heroDeviceId = deviceId();
