@@ -489,12 +489,6 @@ html.dark .acct-ico { color: var(--brand-300); }
 .hero-auth-links-primary { text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); }
 .hero-auth-links-primary button { border: 0; background: none; color: var(--sec); font-size: 13px; font-weight: 800; cursor: pointer; padding: 4px; }
 .hero-auth-links-primary button:hover { text-decoration: underline; }
-.hero-auth-or { display:flex; align-items:center; gap:12px; margin:15px 0 10px; color:#94a3b8; font-size:11px; font-weight:700; }
-.hero-auth-or::before,.hero-auth-or::after { content:""; height:1px; flex:1; background:rgba(255,255,255,.12); }
-.hero-auth-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:44px; border:1px solid rgba(255,255,255,.18); border-radius:11px; background:#fff; color:#202124; font-size:13px; font-weight:750; cursor:pointer; transition:filter .15s,transform .15s; }
-.hero-auth-google:hover { filter:brightness(.96); transform:translateY(-1px); }
-.hero-auth-google:disabled { cursor:wait; opacity:.7; transform:none; }
-.hero-auth-google span { font-family:Arial,sans-serif; font-size:17px; font-weight:800; color:#4285f4; }
 .hero-auth-links { opacity: .75; }
 .hero-auth-sep { color: #6b6f85; font-size: 11px; }
 .hero-auth-steps { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 2px 0 18px; font-size: 11px; font-weight: 800; letter-spacing: .03em; color: #6b6f85; }
