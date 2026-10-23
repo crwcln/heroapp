@@ -283,6 +283,28 @@
         document.getElementById('ha-recover-form').addEventListener('submit', handleRecoverySubmit);
     }
 
+    function renderRetiredAccountGate(errorText) {
+        body.innerHTML = `
+            <div class="hero-auth-mark">H</div>
+            <p class="hero-auth-eyebrow">ACCOUNT SIGN-IN CHANGED</p>
+            <h2 class="hero-auth-title">Sign out of this account</h2>
+            <p class="hero-auth-sub">This browser is still signed in to an old email-based account. Sign out, then use a username account or create a new one.</p>
+            ${errorText ? `<div class="hero-auth-error">${esc(errorText)}</div>` : ''}
+            <button type="button" id="ha-retired-signout" class="hero-auth-submit">Sign out</button>
+        `;
+        document.getElementById('ha-retired-signout').onclick = async (event) => {
+            const button = event.currentTarget;
+            button.disabled = true;
+            button.textContent = 'Signing out…';
+            try {
+                await auth.signOut();
+            } catch (error) {
+                console.error('Could not sign out of retired account:', error);
+                renderRetiredAccountGate('Could not sign out. Check your connection and try again.');
+            }
+        };
+    }
+
     async function handleRecoverySubmit(event) {
         event.preventDefault();
         const username = document.getElementById('ha-recover-username').value.trim().toLowerCase();
@@ -689,7 +711,7 @@
         if (latest.user && !latest.user.isAnonymous && !latest.authorized && !latest.isAdmin) {
             mode = 'signin';
             if (!dialog || dialog.classList.contains('hidden')) openDialog();
-            renderGate('This account uses the retired email sign-in and cannot be accessed here. Sign in with a username account or create a new one.');
+            renderRetiredAccountGate();
             return;
         }
         if (profileOpenPending && latest.authorized && latest.user && !latest.user.isAnonymous) {

@@ -13,5 +13,8 @@
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0"
   }
 }

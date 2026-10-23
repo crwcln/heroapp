@@ -1,0 +1,44 @@
+{
+  "name": "hero-site-config-editor",
+  "displayName": "Hero Site Config Editor",
+  "description": "Edit Hero site settings from a VS Code form.",
+  "version": "0.1.0",
+  "publisher": "heroapp",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:heroSiteConfig.edit",
+    "onView:heroConfig.settings"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "heroSiteConfig.edit",
+        "title": "Hero: Edit Site Configuration"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "heroConfig",
+          "title": "Hero",
+          "icon": "media/hero.svg"
+        }
+      ]
+    },
+    "views": {
+      "heroConfig": [
+        {
+          "id": "heroConfig.settings",
+          "name": "Site Settings",
+          "type": "webview"
+        }
+      ]
+    }
+  }
+}

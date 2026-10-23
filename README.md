@@ -6,6 +6,7 @@ Hero is a map-based history quiz built as a static site with Firebase and EdgeOn
 
 - Read [`CONFIG.md`](CONFIG.md) for the configuration map, deployment variables, and project layout.
 - Edit [`js/00-site-config.js`](js/00-site-config.js) for the site name, version, data namespace, tagline, intro, and feature flags.
+- Press **F5** in VS Code to run the local Hero Site Config Editor, then click the **Hero** icon in the left Activity Bar to edit site settings in the sidebar.
 - Edit [`js/02-firebase-config.js`](js/02-firebase-config.js) for the public Firebase web app configuration.
 - Paste [`firestore.rules`](firestore.rules) into the matching Firebase project's Firestore Rules page and publish it.
 - Read [`content/BOUNDARIES.md`](content/BOUNDARIES.md) to export the quiz catalog and build the bundled 10m map boundaries.
