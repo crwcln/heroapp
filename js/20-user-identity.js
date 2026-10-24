@@ -54,7 +54,11 @@
                     ? 'That username is already in use. Choose another one.'
                     : result.error === 'not_authorized'
                         ? 'Firebase could not verify this sign-in. Sign in again and retry.'
-                        : result.error === 'recovery_unavailable' || response.status === 503
+                        : result.error === 'firestore_permission_denied'
+                            ? 'Recovery storage was denied by Firestore. Ask the Firebase project steward to grant this service account Firestore read/write access (roles/datastore.user or an equivalent custom role), then retry.'
+                            : result.error === 'service_account_auth_failed'
+                                ? 'The recovery service could not authenticate its Firebase service account. Ask the steward to check the private key and service-account project settings in EdgeOne.'
+                                : result.error === 'recovery_unavailable' || response.status === 503
                             ? 'The recovery service could not save this code to Firebase. Ask a steward to check the EdgeOne function logs and Firebase service-account permissions.'
                             : response.status === 404
                                 ? 'The account-recovery service is not deployed yet. Ask a steward to deploy the latest site functions.'

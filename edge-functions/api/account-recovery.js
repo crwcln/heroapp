@@ -9,6 +9,15 @@ const AUTH_DOMAIN = 'accounts.hero.invalid';
 let cachedAccessToken = null;
 let cachedAccessTokenExpiry = 0;
 
+class RecoveryOperationError extends Error {
+  constructor(stage, status, message) {
+    super(message);
+    this.name = 'RecoveryOperationError';
+    this.stage = stage;
+    this.status = status;
+  }
+}
+
 function config(env) {
   const clientEmail = String(env.FIREBASE_CLIENT_EMAIL || '');
   const projectId = String(env.FIREBASE_PROJECT_ID || (clientEmail.split('@')[1] || '').split('.')[0] || '');
@@ -71,7 +80,9 @@ async function accessToken(clientEmail, privateKey) {
       assertion,
     }),
   });
-  if (!response.ok) throw new Error(`Could not authorize Firebase Admin access (HTTP ${response.status}).`);
+  if (!response.ok) {
+    throw new RecoveryOperationError('service_account_auth', response.status, `Could not authorize Firebase Admin access (HTTP ${response.status}).`);
+  }
   const token = await response.json();
   if (typeof token.access_token !== 'string' || !Number.isFinite(token.expires_in)) throw new Error('Firebase Admin authorization returned an invalid token.');
   cachedAccessToken = token.access_token;
@@ -140,7 +151,7 @@ async function saveRecoveryCode(body, request, env, settings) {
     return json({ ok: false, error: 'username_unavailable' }, 409);
   }
   if (!existing.response.ok && existing.response.status !== 404) {
-    throw new Error(`Could not read recovery record (Firestore HTTP ${existing.response.status}).`);
+    throw new RecoveryOperationError('firestore', existing.response.status, `Could not read recovery record (Firestore HTTP ${existing.response.status}).`);
   }
 
   const query = existing.response.ok
@@ -156,7 +167,7 @@ async function saveRecoveryCode(body, request, env, settings) {
   });
   if (!saved.response.ok) {
     if (saved.response.status === 409 || saved.response.status === 412) return json({ ok: false, error: 'username_unavailable' }, 409);
-    throw new Error(`Could not save the recovery record (Firestore HTTP ${saved.response.status}).`);
+    throw new RecoveryOperationError('firestore', saved.response.status, `Could not save the recovery record (Firestore HTTP ${saved.response.status}).`);
   }
   return json({ ok: true });
 }
@@ -254,6 +265,12 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: 'bad_request' }, 400);
   } catch (error) {
     console.error('Account recovery operation failed:', error);
+    if (error instanceof RecoveryOperationError && error.stage === 'firestore' && error.status === 403) {
+      return json({ ok: false, error: 'firestore_permission_denied' }, 503);
+    }
+    if (error instanceof RecoveryOperationError && error.stage === 'service_account_auth') {
+      return json({ ok: false, error: 'service_account_auth_failed' }, 503);
+    }
     return json({ ok: false, error: 'recovery_unavailable' }, 503);
   }
 }
