@@ -15,8 +15,14 @@ const INTRO_SCENES = [
  { d: 4200, h: 'Set forth', p: 'Hall of Heroes \u00b7 Clio \u00b7 The Chronicle \u00b7 Your own charts', b: () => `<div class="in-go">Set Forth</div>` }
 ];
 let introTimer = null;
+let introSecretKeyHandler = null;
 function introEnd(showWelcome = false) {
-    clearTimeout(introTimer); document.documentElement.classList.remove('intro-first'); const el = document.getElementById('intro'); if (!el) return;
+    clearTimeout(introTimer);
+    if (introSecretKeyHandler) document.removeEventListener('keydown', introSecretKeyHandler, true);
+    introSecretKeyHandler = null;
+    document.documentElement.classList.remove('intro-first'); const el = document.getElementById('intro'); if (!el || el.dataset.ending) return;
+    el.dataset.ending = '1';
+    const video = el.querySelector('video'); if (video) video.pause();
     window.dispatchEvent(new CustomEvent('hero-intro-state', { detail: { playing: false } }));
     el.classList.add('out'); setTimeout(() => {
         el.remove();
@@ -67,6 +73,20 @@ function introPlay(options = {}) {
     const el = document.createElement('div'); el.id = 'intro';
     el.innerHTML = '<div class="in-stage"></div><div class="in-cap"></div><div class="in-white"></div>';
     document.body.appendChild(el);
+    let typed = '';
+    introSecretKeyHandler = event => {
+        if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+        const target = event.target;
+        if (target?.matches?.('input, textarea, select, [contenteditable="true"]')) { typed = ''; return; }
+        if (/^[a-z]$/i.test(event.key)) {
+            typed = (typed + event.key.toLowerCase()).slice(-4);
+            if (typed === 'skip') {
+                event.preventDefault(); event.stopImmediatePropagation();
+                introEnd(welcomeAfter);
+            }
+        } else if (event.key !== 'Shift') typed = '';
+    };
+    document.addEventListener('keydown', introSecretKeyHandler, true);
     requestAnimationFrame(() => el.classList.add('on'));                    // site fades to white
     const show = i => {
         if (i >= INTRO_SCENES.length) return introEnd(welcomeAfter);
