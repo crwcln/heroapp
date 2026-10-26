@@ -148,13 +148,13 @@ button:not(:disabled):active, a:active, summary:active, [role="button"]:active, 
 :where(button, a, summary, input, select, textarea, [role="button"], [role="tab"]):focus-visible { outline: 2px solid var(--sec); outline-offset: 3px; }
 :where(input, select, textarea) { transition: border-color .18s ease, box-shadow .2s ease, background-color .18s ease; }
 :where(input, select, textarea):focus { border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(var(--brand-rgb),.16); }
-:where(.st-card, .st-chip, .cm-card, .glass-panel, .nav-more-menu button, .nav-more-menu .nav-more-link) { transition: transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
+:where(.st-card, .st-chip, .cm-card, .glass-panel, .nav-more-menu button) { transition: transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
 .st-card:hover, .st-chip:hover, .cm-card:hover { transform: translateY(-2px); }
 .nav-more[open] .nav-more-menu { animation: menuArrive .18s cubic-bezier(.2,.8,.2,1) both; transform-origin: top right; }
 .sw, .sw::after { transition: background-color .2s ease, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease; }
 @keyframes menuArrive { from { opacity: 0; transform: translateY(-5px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
-    :where(button, a, summary, [role="button"], [role="tab"], input, select, textarea, .st-card, .st-chip, .cm-card, .glass-panel, .nav-more-menu button, .nav-more-menu .nav-more-link),
+    :where(button, a, summary, [role="button"], [role="tab"], input, select, textarea, .st-card, .st-chip, .cm-card, .glass-panel, .nav-more-menu button),
     .nav-more[open] .nav-more-menu, #tut-shield i { transition: none !important; animation: none !important; }
     button:not(:disabled):active, a:active, summary:active, [role="button"]:active, [role="tab"]:active,
     .st-card:hover, .st-chip:hover, .cm-card:hover { transform: none; }
@@ -271,18 +271,26 @@ button:not(:disabled):active, a:active, summary:active, [role="button"]:active, 
 .nav-more[open] > summary { background: rgba(148,163,184,.12); }
 .nav-more-menu { position: absolute; z-index: 1000; top: calc(100% + 9px); right: 0; display: grid; min-width: 230px; padding: 7px; border: 1px solid rgba(148,163,184,.25); border-radius: 16px; background: var(--field, #fff); box-shadow: 0 18px 50px rgba(15,23,42,.22); transform-origin:top right; }
 .nav-more[open] > .nav-more-menu { animation: navMenuIn .22s cubic-bezier(.2,.8,.2,1) both; }
-.nav-more[open] .nav-more-menu :is(button, .nav-more-link) { animation: fadeUp .2s ease both; }
-.nav-more[open] .nav-more-menu :is(button, .nav-more-link):nth-child(2) { animation-delay:25ms; }
-.nav-more[open] .nav-more-menu :is(button, .nav-more-link):nth-child(3) { animation-delay:50ms; }
-.nav-more[open] .nav-more-menu :is(button, .nav-more-link):nth-child(4) { animation-delay:75ms; }
-.nav-more[open] .nav-more-menu :is(button, .nav-more-link):nth-child(5) { animation-delay:100ms; }
+.nav-more[open] .nav-more-menu button { animation: fadeUp .2s ease both; }
+.nav-more[open] .nav-more-menu button:nth-child(2) { animation-delay:25ms; }
+.nav-more[open] .nav-more-menu button:nth-child(3) { animation-delay:50ms; }
+.nav-more[open] .nav-more-menu button:nth-child(4) { animation-delay:75ms; }
+.nav-more[open] .nav-more-menu button:nth-child(5) { animation-delay:100ms; }
 @keyframes navMenuIn { from { opacity:0; transform:translateY(-7px) scale(.97); } to { opacity:1; transform:none; } }
 .nav-more:not([open]) > .nav-more-menu { display: none; }
 .dark .nav-more-menu { background: #111827; }
-.nav-more-menu button, .nav-more-menu .nav-more-link { display: flex; min-height: 46px; align-items: center; gap: 13px; padding: 9px 12px; border: 0; border-radius: 10px; background: transparent; color: inherit; text-align: left; cursor: pointer; font-size: 13px; font-weight: 650; }
-.nav-more-menu .nav-more-link { text-decoration: none; }
-.nav-more-menu button:hover, .nav-more-menu button:focus-visible, .nav-more-menu .nav-more-link:hover, .nav-more-menu .nav-more-link:focus-visible { background: rgba(148,163,184,.14); outline: none; }
+.nav-more-menu button { display: flex; min-height: 46px; align-items: center; gap: 13px; padding: 9px 12px; border: 0; border-radius: 10px; background: transparent; color: inherit; text-align: left; cursor: pointer; font-size: 13px; font-weight: 650; }
+.nav-more-menu button:hover, .nav-more-menu button:focus-visible { background: rgba(148,163,184,.14); outline: none; }
 .nav-more-menu svg { width: 20px; height: 20px; flex: 0 0 20px; }
+.sponsor-rant-cta { display:flex; width:min(100%,520px); min-height:72px; align-items:center; gap:14px; margin:0 auto 22px; padding:12px 17px; border:1px solid rgba(var(--sec-rgb),.35); border-radius:18px; color:inherit; text-align:left; text-decoration:none; background:linear-gradient(110deg,rgba(var(--sec-rgb),.14),var(--field) 68%,rgba(var(--brand-rgb),.1)); box-shadow:0 10px 28px rgba(15,23,42,.08); transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+.sponsor-rant-cta:hover,.sponsor-rant-cta:focus-visible { transform:translateY(-2px); border-color:rgba(var(--sec-rgb),.68); box-shadow:0 15px 34px rgba(15,23,42,.14); outline:none; }
+.sponsor-rant-icon { display:grid; width:44px; height:44px; flex:0 0 44px; place-items:center; border:1px solid rgba(var(--sec-rgb),.28); border-radius:14px; color:var(--sec); background:rgba(var(--sec-rgb),.12); }
+.sponsor-rant-icon svg { width:22px; height:22px; }
+.sponsor-rant-copy { display:grid; min-width:0; gap:3px; }
+.sponsor-rant-label { color:var(--ink-500); font-size:9px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
+.sponsor-rant-copy strong { font-size:15px; font-weight:850; line-height:1.25; }
+.sponsor-rant-arrow { width:19px; height:19px; flex:0 0 19px; margin-left:auto; color:var(--sec); }
+@media (prefers-reduced-motion:reduce) { .sponsor-rant-cta { transition:none; } .sponsor-rant-cta:hover,.sponsor-rant-cta:focus-visible { transform:none; } }
 .hero-auth-gate:not(.hidden) { animation: heroGateBackdrop .35s ease-out both; }
 .hero-auth-gate:not(.hidden) .hero-auth-card { animation: heroGateCard .55s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes heroGateBackdrop { from { opacity: 0; } to { opacity: 1; } }

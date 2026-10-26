@@ -74,7 +74,7 @@
         })();
     </script>
     <link rel="stylesheet" href="css/styles.css?v=4c79495de6b1c429">
-    <link rel="stylesheet" href="css/premium.css?v=2864ccb249fa0b6c">
+    <link rel="stylesheet" href="css/premium.css?v=136e1859b961afb3">
     <link rel="stylesheet" href="css/night.css?v=f3c6356f915d7965">
     <link rel="stylesheet" href="css/intro.css?v=463dd5736fc66ec2">
     <link rel="stylesheet" href="css/secret.css?v=10c6819be5306f3e">
@@ -171,7 +171,6 @@
               <button role="menuitem" onclick="switchView('announcements-view');document.getElementById('nav-more').open=false"><i data-lucide="megaphone"></i><span>Announcements</span></button>
               <button role="menuitem" onclick="switchView('changelog-view');document.getElementById('nav-more').open=false"><i data-lucide="scroll"></i><span>The Chronicle</span></button>
               <button role="menuitem" onclick="switchView('about-view');document.getElementById('nav-more').open=false"><i data-lucide="info"></i><span>About</span></button>
-              <a role="menuitem" class="nav-more-link" href="https://agastyaarchive.edgeone.dev" target="_blank" rel="sponsored noopener noreferrer" aria-label="Sponsored: Agastya Archive"><i data-lucide="external-link" aria-hidden="true"></i><span>Sponsored</span></a>
               <button role="menuitem" onclick="openInAboutBlank();document.getElementById('nav-more').open=false"><i data-lucide="external-link"></i><span>Open Blank</span></button>
             </div>
           </details>
@@ -199,6 +198,11 @@
                 <div><span class="beta-spots">Only 2 spots open</span><h3 id="beta-callout-title">Help shape Hero as a beta tester</h3><p>Try new features early and share what works (and what doesn’t). Apply by October 24, 2026.</p></div>
                 <button type="button" onclick="openBetaApplication()">Apply to test <i data-lucide="arrow-right"></i></button>
             </section>
+            <a class="sponsor-rant-cta" href="https://agastyaarchive.edgeone.dev" target="_blank" rel="sponsored noopener noreferrer" aria-label="Sponsored: listen in to today's rant on Agastya Archive">
+                <span class="sponsor-rant-icon"><i data-lucide="headphones" aria-hidden="true"></i></span>
+                <span class="sponsor-rant-copy"><span class="sponsor-rant-label">Sponsored · Agastya Archive</span><strong>Listen in to today's rant</strong></span>
+                <i class="sponsor-rant-arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+            </a>
             <div id="mode-pick" class="flex justify-center gap-2 mb-6 flex-wrap"><button class="st-chip" data-gm="identify" onclick="setGameMode('identify')">Name the Place</button><button class="st-chip" data-gm="find" onclick="setGameMode('find')">Find the Land</button><button class="st-chip" onclick="switchView('review-view')">Revisit the Forgotten <span id="miss-count"></span></button><label class="st-chip cb-wrap" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rand-locs" class="cb-native" onchange="localStorage.setItem('hero_rand', this.checked ? '1' : '')"><span class="cb-box" aria-hidden="true"></span> Random order</label></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <button onclick="startQuiz('default')" class="group relative overflow-hidden flex flex-col items-center p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-indigo-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
