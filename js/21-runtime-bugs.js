@@ -103,7 +103,6 @@
     function render() {
         const box = document.getElementById('runtime-bugs-list');
         if (!box) return;
-        const profiles = window.__heroDeviceProfiles || {};
         const fresh = bugDocs.filter(b => b.status === 'new').length;
         const badge = document.getElementById('atb-bugs');
         if (badge) { badge.textContent = fresh ? String(fresh) : ''; badge.classList.toggle('hidden', !fresh); }
@@ -113,9 +112,8 @@
         bugDocs.forEach(b => {
             const siblings = byFingerprint[b.fingerprint] || [];
             const recurred = b.status !== 'resolved' && siblings.some(s => s !== b && s.status === 'resolved' && (!s.createdAt || !b.createdAt || s.createdAt.toMillis() < b.createdAt.toMillis()));
-            const p = profiles[b.deviceId] || {};
             const card = document.createElement('article'); card.className = 'runtime-bug-card rounded-xl border border-slate-200 dark:border-slate-700 p-4' + (recurred ? ' recurred' : '');
-            const identity = p.username ? `${p.name || 'Hero member'} | @${p.username}` : 'Anonymous browser';
+            const identity = 'Guest browser';
             const heading = document.createElement('div'); heading.className = 'flex flex-wrap items-start justify-between gap-3';
             const details = document.createElement('div'); details.className = 'min-w-0 flex-1';
             const meta = document.createElement('p'); meta.className = 'text-xs text-slate-500'; meta.textContent = `${identity} | ${b.page || '/'} | ${b.appVersion || ''} | ${b.status || 'new'}`;
@@ -145,5 +143,4 @@
     document.addEventListener('DOMContentLoaded', buildPanel);
     window.addEventListener('hero-admin-authenticated', startAdmin);
     window.addEventListener('hero-admin-locked', () => { if (bugUnsub) bugUnsub(); bugUnsub = null; bugDocs = []; render(); });
-    window.addEventListener('hero-profiles-updated', render);
 })();

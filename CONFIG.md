@@ -21,7 +21,7 @@ Use this guide to find the right place for a setting. Public site settings live 
 
 1. In `js/00-site-config.js`, choose a unique `id` and set the site's `name` and other display settings. The `id` separates this site's Firestore records from other copies using the same database.
 2. In `js/02-firebase-config.js`, use the web app values from the Firebase project for this copy.
-3. In Firebase Console, create Firestore, enable the sign-in methods used by the site, add the deployed domain to authorized domains, and publish `firestore.rules`.
+3. In Firebase Console, create Firestore, enable **Anonymous** under Authentication > Sign-in method, add the deployed domain to authorized domains, and publish `firestore.rules`. Keep student email/password and social sign-in providers disabled.
 4. Set the EdgeOne environment variables below. Firebase Admin service-account values must belong to the same project as the browser config.
 
 The Firebase web config is public browser configuration. It is not a service-account credential. Keep service-account private keys, admin passwords, GitHub tokens, and AI provider keys out of the repository and browser code.
@@ -34,21 +34,18 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Yes | Steward/admin sign-in and signing server-side admin sessions |
 | `DEV_ACCESS` | Yes for early access | Unlocks the launch countdown and development mode controls; `DEV_PASSWORD` remains supported as a legacy fallback |
-| `FIREBASE_CLIENT_EMAIL` | Yes for secure admin sign-in and account recovery | Firebase service-account email |
-| `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure admin sign-in and account recovery | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
-| `FIREBASE_API_KEY` | Yes for Clio and account recovery | The public Firebase web API key from `js/02-firebase-config.js`; used by the server-side Firebase Auth verification request |
-| `ACCOUNT_RECOVERY_PEPPER` | Yes for account recovery | A private random value used to HMAC one-time recovery codes; never commit it or reuse it for another purpose |
-| `FIREBASE_SITE_ID` | Optional | Firestore data namespace for account-recovery records; defaults to `hero-2026` and should match `SITE.id` in `js/00-site-config.js` |
+| `FIREBASE_CLIENT_EMAIL` | Yes for secure steward sign-in and push sending | Firebase service-account email |
+| `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure steward sign-in and push sending | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
+| `FIREBASE_API_KEY` | Yes for Clio | The public Firebase web API key from `js/02-firebase-config.js`; used by the server-side Firebase Auth verification request |
 | `DEPLOY_WEBHOOK_URL` | Yes for redeploy | EdgeOne build/deploy webhook URL |
 | `GITHUB_TOKEN` | Yes for redeploy | GitHub token with repository contents read/write access |
 | `GITHUB_REPOSITORY` | Optional | Repository as `owner/name`; defaults to `crwcln/heroapp` |
 | `DEPLOY_BRANCH` | Optional | Branch to commit to; defaults to `main` |
 | `GEMINI_API_KEY` | Optional | Enables Clio AI |
 | `FIREBASE_WEB_PUSH_VAPID_KEY` | Yes for push notifications | Public Web Push certificate key from Firebase Console → Project settings → Cloud Messaging → Web Push certificates |
-| `FIREBASE_PROJECT_ID` | Optional | Firebase project ID; required for account recovery if it cannot be derived from `FIREBASE_CLIENT_EMAIL` |
+| `FIREBASE_PROJECT_ID` | Recommended | Firebase project ID; used by the push sender when it cannot be derived from `FIREBASE_CLIENT_EMAIL` |
 | `GEMINI_MODEL` | Optional | Overrides the model preference list in `edge-functions/api/chat.js` |
 | `FLAPPY_TRIGGER`, `FLAPPY_BIRD_URL`, `FLAPPY_GRAVITY`, `FLAPPY_GAP` | Optional | Overrides for the Flappy Bird feature |
-| `CANVAS_ALLOWED_HOSTS` | Optional | Comma- or space-separated exact hostnames for custom Canvas domains; `*.instructure.com` is allowed by default |
 
 The Steward redeploy action creates an empty Git commit with the message entered in the panel, advances the configured branch, and asks EdgeOne to build it. A successful webhook response means the build request was accepted; check EdgeOne **Build & Deploy** for the final build result.
 
@@ -56,7 +53,7 @@ The construction-screen visitor message can be edited from the admin panel's **D
 
 `edgeone.json` runs `npm run build` on each deployment. The build stamps every local JS/CSS URL with that file's content hash and gives each deployment a unique build ID. Open pages check the uncached HTML every 30 seconds and announce a new deployment before automatically reloading; users can choose **Not now** to stay on the current version. The HTML entry point is served with `no-store` so browsers receive the latest build ID and asset references. This is required because the site serves JavaScript with a one-year immutable browser cache policy. After publishing this change, verify the EdgeOne deployment log includes `Stamped ... local assets` and that `/js/00-site-config.js` has a versioned `?v=` URL in the deployed HTML.
 
-Web push uses Firebase Cloud Messaging HTTP v1. Set `FIREBASE_WEB_PUSH_VAPID_KEY` to the **public** Web Push certificate key from Firebase Console > Project settings > Cloud Messaging > Web Push certificates. Publish the updated `firestore.rules` so verified users can save their own browser tokens.
+Web push uses Firebase Cloud Messaging HTTP v1. Set `FIREBASE_WEB_PUSH_VAPID_KEY` to the **public** Web Push certificate key from Firebase Console > Project settings > Cloud Messaging > Web Push certificates. Publish the updated `firestore.rules` so guest browsers can save their own notification tokens.
 
 To authorize the sender, open Google Cloud Console for the Firebase project used in `js/02-firebase-config.js` (currently `heroapp-cc053`), then go to **IAM & Admin > IAM > Grant access**. Add the service-account email stored in EdgeOne as `FIREBASE_CLIENT_EMAIL` (the `client_email` field in its JSON key). Grant **Firebase Cloud Messaging API Admin** (`roles/firebasecloudmessaging.admin`). This role includes `cloudmessaging.messages.create`; do not grant Owner.
 
@@ -64,20 +61,13 @@ The announcement endpoint also queries opted-in tokens in Firestore. Grant the s
 
 Users opt in under Settings ? Notifications. New announcements are sent to opted-in browsers; editing an announcement does not send a second alert. The sender reports separate errors for Firestore lookup and FCM send permissions, pointing to the IAM setting to check.
 
-## Username accounts and private recovery
+## No student accounts
 
-Hero accounts now use a 3–20 character username (`A–Z`, `a–z`, `0–9`, underscore; case-insensitive) and password. Do not use a real name, school ID, or other identifying detail as a username. Firebase Auth stores the username as an internal address at the reserved, non-deliverable `accounts.hero.invalid` domain; users never enter or see that address. The recovery endpoint stores only an HMAC of each high-entropy, one-time recovery code in a Firestore collection that client rules deny.
+Students do not create a username, password, or profile and do not enter an email address. Hero starts a Firebase Anonymous Authentication session automatically. The random guest ID exists only so Firebase can protect each browser's data and accept its scores; it is not a sign-in that students manage.
 
-Before deploying the username flow:
+Guest progress, streaks, and push-notification preferences follow that browser's local Firebase session. Clearing the browser's site data or moving to another device creates a different guest ID, so progress does not transfer or have account recovery. Existing Firebase Auth users and old Firestore records are left untouched; the site signs old non-steward sessions out and starts a guest session instead.
 
-1. Set `FIREBASE_API_KEY` to the same public API key from `js/02-firebase-config.js`, `FIREBASE_PROJECT_ID` to the Firebase project ID, and `ACCOUNT_RECOVERY_PEPPER` to a newly generated random secret. For example, generate a value locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste it directly into EdgeOne secrets; do not save it in the repository.
-2. Reuse the Firebase service account already configured as `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY_1…N`. Give it `firebaseauth.users.update` to reset passwords and Firestore entity read/write access to save recovery records. The predefined **Cloud Datastore User** role (`roles/datastore.user`) supplies Firestore read/write access; use a narrower custom role if preferred. A read-only role such as Cloud Datastore Viewer is not sufficient. It does not need project Owner. The endpoint uses OAuth server-to-server; no service-account key is sent to browsers.
-3. Publish `firestore.rules` before the site code. Firebase Authentication must allow Email/Password accounts because usernames are implemented as non-deliverable aliases.
-4. Disable the Google provider in Firebase Authentication. The site no longer offers Google sign-in or account migration. Keep the Email/Password provider enabled: Firebase uses it internally for username aliases, even though users sign in with usernames.
-
-New users receive a one-time recovery code, and a successful password reset issues a replacement code. The code is displayed once, so users must save it privately. Without it, Hero cannot automatically recover an account; no security questions or email reset path is used. Account deletion also removes the associated recovery record through the trusted endpoint.
-
-Legacy email/Google accounts are not migrated and cannot sign in through the site. If those accounts and their old email profile data should be removed, first export anything that must be retained, then delete the legacy users in Firebase Authentication and remove legacy `email` fields from `members` and `deviceProfiles` documents in Firestore. Deleting a Firebase Auth user does not delete Firestore data. Do not delete username accounts whose Auth email ends in `@accounts.hero.invalid`. Firebase may retain operational logs/backups; this cleanup cannot guarantee immediate provider-side erasure. Separately supplied email addresses in feedback/contact submissions are not authentication identifiers and are not included in this account cleanup.
+Legacy leaderboards included player names, so those old collections are now steward-only. The Hall of Heroes, Daily Challenge, and Flappy Bird now use guest-only collections and will start with no scores; legacy rows are preserved, not deleted.
 
 ## Project layout
 

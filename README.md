@@ -34,19 +34,17 @@ See [`CONFIG.md`](CONFIG.md) for the full environment variable list, including t
 - Run `npm run setup:git-hooks` once per clone. VS Code commits then get a `v<version>:` prefix from `SITE.version` in `js/00-site-config.js`; any message you type is kept after the prefix.
 - `npm run build:css` rebuilds `css/tailwind.css` from `tailwind.input.css` and `tailwind.config.js`.
 
-## Clio (AI chat) requires a signed-in account
-`/api/chat` now verifies the caller's Firebase ID token server-side before it will spend Gemini quota, so it
-can't be called anonymously from outside the site. In addition to `GEMINI_API_KEY`, set:
+## Guest access and Clio
+Hero has no student accounts, usernames, passwords, or email sign-in. Firebase Anonymous Authentication creates a random guest session in each browser so Firestore can save that browser's scores, streak, settings, and push preferences. It is not a recoverable identity: clearing browser site data or switching devices starts a new guest session.
+
+Enable **Anonymous** under Firebase Console > Authentication > Sign-in method, keep student credential providers disabled, and publish `firestore.rules`. Steward access remains separate and password protected.
+
+`/api/chat` verifies a Firebase guest or steward ID token server-side before it will spend Gemini quota. Because anyone can start a guest session, set EdgeOne rate limits for `/api/chat` if the public endpoint receives abuse. In addition to `GEMINI_API_KEY`, set:
 
     FIREBASE_API_KEY = the same "apiKey" value already in js/02-firebase-config.js
 
 It isn't a secret (Firebase web API keys are public by design), but the edge function needs its own copy
 since environment variables aren't readable from the browser bundle.
-
-Hero accounts use private usernames rather than email addresses. New accounts use a one-time recovery code; existing email/Google accounts are not migrated and cannot sign in through the site. Publish `firestore.rules` and configure the account-recovery environment variables in [`CONFIG.md`](CONFIG.md) before deploying. Account deletion also removes its recovery record. Firebase may retain operational logs/backups beyond account deletion; do not promise immediate provider-side erasure.
-
-## Canvas dashboard
-Students can connect from the Canvas tab with their Canvas school URL and a personal access token. Requests pass through Hero's same-origin EdgeOne relay to avoid browser CORS failures; the token and school URL remain in page memory only and are cleared on refresh, sign-out, or account change. The in-memory dashboard data and rendered Canvas content are cleared when navigating away from the Canvas tab. The relay forwards read-only requests to the student's Canvas host; the application code does not write credentials or Canvas responses to Firestore. Canvas details are not automatically sent to Clio. `*.instructure.com` hosts are allowed by default. For a school's custom Canvas domain, add its exact hostname to the optional `CANVAS_ALLOWED_HOSTS` EdgeOne setting. Schools can still disable personal access tokens or restrict API access; a school-approved OAuth developer key is the right next step if those restrictions apply.
 
 ## Site maintenance
 The construction-page message can be customized in the admin panel's **Dev Mode** card. Leave the field blank to restore its default.

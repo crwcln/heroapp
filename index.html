@@ -148,9 +148,6 @@
             <button aria-label="Personal Practice" title="Personal Practice" onclick="startQuiz('custom')" class="flex items-center gap-2 text-sm font-semibold hover:text-emerald-600 dark:hover:text-emerald-400 transition group">
                 <i data-lucide="compass" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Personal Practice</span>
             </button>
-            <button aria-label="Canvas dashboard" title="Canvas dashboard" onclick="switchView('canvas-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-amber-600 dark:hover:text-amber-400 transition group">
-                <i data-lucide="graduation-cap" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Canvas</span>
-            </button>
             <button aria-label="Clio" title="Clio" onclick="switchView('ai-view')" class="flex items-center gap-2 text-sm font-semibold hover:text-sky-600 dark:hover:text-sky-400 transition group">
                 <i data-lucide="bot" class="w-5 h-5 group-hover:-translate-y-0.5 transition-transform"></i> <span class="hidden sm:inline">Clio</span>
             </button>
@@ -194,7 +191,7 @@
             <p class="text-slate-500 dark:text-slate-400 mb-12 text-lg max-w-xl mx-auto font-medium"><span id="tagline">Studying, Redefined.</span><br>Pin down the places that shaped history. Beat the clock, build a streak, earn your place on the board.</p>
             <figure id="qotd" class="qotd"><blockquote id="qotd-t"></blockquote><figcaption id="qotd-a"></figcaption></figure>
             <section id="daily-challenge-card" class="daily-challenge-card" aria-labelledby="daily-challenge-title">
-                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>Each UTC day, Hero picks up to 7 places from the regular 1 Year tour. Everyone gets the same round, with a separate leaderboard and profile streak.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
+                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>Each UTC day, Hero picks up to 7 places from the regular 1 Year tour. Everyone gets the same round, a separate leaderboard, and a streak saved on this browser.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
                 <div class="daily-challenge-actions"><button id="daily-challenge-start" class="cm-btn go" type="button" onclick="startDailyChallenge()" disabled>Start today's challenge</button><button type="button" class="cm-btn ghost" onclick="openDailyLeaderboard()">Daily leaderboard</button></div>
             </section>
             <section class="beta-callout" aria-labelledby="beta-callout-title">
@@ -242,13 +239,6 @@
                 </div>
             </div>
             <div id="daily-leaderboard-panel" class="hidden"><p id="daily-leaderboard-date" class="text-sm text-slate-500 mb-4"></p><div id="daily-leaderboard-list" class="space-y-3"></div></div>
-        </div>
-    </div>
-    <div id="profile-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
-        <div class="max-w-3xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
-            <button onclick="switchView('home-view')" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-4">Back to Hero</button>
-            <div class="flex items-center justify-between gap-3"><h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Your Hero profile</h2><button class="cm-btn ghost" onclick="window.__heroOpenAccountDialog && window.__heroOpenAccountDialog()">Account settings</button></div>
-            <div id="member-profile-content" class="mt-6"><p class="text-slate-500">Loading your profile...</p></div>
         </div>
     </div>
     <div id="changelog-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
@@ -417,13 +407,10 @@
                     <div style="display:flex;gap:8px;flex:1 1 240px;justify-content:flex-end"><input id="cloak-title" class="fb-input" style="max-width:220px" maxlength="40" placeholder="Home" oninput="setPref('cloak', this.value)"><button class="cm-btn go" onclick="openInAboutBlank()">Open</button></div></div>
             </div>
             <div class="st-sec"><h3>Site repair</h3>
-                <div class="st-row" style="flex-wrap:wrap"><div><div class="font-bold text-sm">Refresh site files</div><div class="text-xs text-slate-500 font-medium">Reload Hero with a fresh page URL and clear saved site caches. Your account and study progress stay saved.</div></div>
+                <div class="st-row" style="flex-wrap:wrap"><div><div class="font-bold text-sm">Refresh site files</div><div class="text-xs text-slate-500 font-medium">Reload Hero with a fresh page URL and clear saved site caches. Study progress on this browser stays saved.</div></div>
                     <button class="cm-btn ghost" type="button" onclick="heroRefreshSite()"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh Hero</button></div>
             </div>
         </div>
-    </div>
-    <div id="canvas-view" class="view-section hidden relative z-10 p-4 sm:p-8 lg:p-12 items-start justify-center">
-        <main class="canvas-dashboard glass-panel w-full" id="canvas-dashboard" aria-live="polite"></main>
     </div>
     <div id="ai-view" class="view-section hidden relative z-10"><div class="ai-shell glass-panel" id="ai-shell"></div></div>
     <div id="review-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center"><div class="max-w-3xl w-full glass-panel p-8 rounded-3xl animate-slide-up">
@@ -648,7 +635,7 @@
                         <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center"><i data-lucide="inbox" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"></i></div>
                         <div>
                             <h3 class="font-bold text-slate-900 dark:text-white">Feedback Inbox</h3>
-                            <p id="inbox-sub" class="text-xs text-slate-500 font-medium">Waiting for secure sign-in...</p>
+                            <p id="inbox-sub" class="text-xs text-slate-500 font-medium">Waiting for steward access...</p>
                         </div>
                     </div>
                     <div class="flex gap-2 flex-wrap">
@@ -700,9 +687,8 @@
                 <div class="text-6xl font-black text-indigo-600 dark:text-indigo-400 font-mono" id="sum-final-score">0</div>
             </div>
             <div id="submit-score-section" class="mb-8 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <p class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Carve your name in the Hall of Heroes!</p>
-                <div class="flex gap-2">
-                    <input type="text" id="player-name" placeholder="Initials/Name" maxlength="15" class="flex-1 p-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-900 dark:text-white font-bold text-center">
+                <p class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Share your score in the Hall of Heroes as a guest.</p>
+                <div class="flex justify-center">
                     <button onclick="submitScore()" id="submit-score-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-lg transition shadow flex items-center gap-2">
                         <i data-lucide="upload" class="w-4 h-4"></i> Submit
                     </button>
@@ -749,7 +735,6 @@
     <nav id="mobile-tabbar" aria-label="Main navigation">
         <span id="mobile-tab-indicator" aria-hidden="true"></span>
         <button data-tab="home-view" onclick="switchView('home-view')"><i data-lucide="landmark"></i><span>Agora</span></button>
-        <button data-tab="canvas-view" onclick="switchView('canvas-view')" aria-label="Canvas dashboard"><i data-lucide="graduation-cap"></i><span>Canvas</span></button>
         <button data-tab="leaderboard-view" onclick="switchView('leaderboard-view')"><i data-lucide="award"></i><span>Heroes</span></button>
         <button data-tab="custom-loc-view" onclick="switchView('custom-loc-view')"><i data-lucide="compass"></i><span>Private Charts</span></button>
         <button data-tab="changelog-view" onclick="switchView('changelog-view')"><i data-lucide="scroll"></i><span>Chronicle</span></button>
@@ -769,7 +754,7 @@
         </div>
     </div>
     <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" alt=""></div>
-    <div id="cookie-banner" class="glass-panel"><p class="text-sm font-semibold text-slate-700 dark:text-slate-200">A Hero account is required for shared features. Accept enables optional analytics and automatic error reports; activity is linked to your account ID. Essential only disables analytics and error reports.</p>
+    <div id="cookie-banner" class="glass-panel"><p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Hero doesn’t ask students for a username, password, or email. It starts an anonymous guest session in this browser to save scores and streaks. Progress won’t transfer to another device, and clearing this site’s data may reset access to it. Accept enables optional analytics and automatic error reports; activity is linked to a random guest ID for this browser. Essential only disables analytics and error reports.</p>
         <div class="flex gap-2 mt-3"><button class="cm-btn go" onclick="setConsent('all')">Accept</button><button class="cm-btn ghost" onclick="setConsent('essential')">Essential only</button></div></div>
     <button id="sherpa-fab" aria-label="Ask Clio" onclick="sherpaToggle()"><i data-lucide="bot"></i><span class="fab-tip">Ask Clio</span></button>
     <div id="sherpa-panel" class="glass-panel"></div>
@@ -815,11 +800,9 @@
     <script src="js/17-features.js?v=6b62f08a65c4b98b"></script>
     <script src="js/18-bulk-select.js?v=1abe9fe3505055ea"></script>
     <script src="js/19-announcements.js?v=0db5c56462afc6f4"></script>
-    <script src="js/20-user-identity.js?v=9c86dac5659cfcf2"></script>
     <script src="js/23-daily-challenge.js?v=92107ed3f0c41e7f"></script>
     <script src="js/22-manoj-cursor.js?v=ff159dae00e39b29"></script>
     <script src="js/24-push-notifications.js?v=c1e4189ea78d61c7"></script>
-    <script src="js/25-canvas-dashboard.js?v=a05fa0ab0ee3f7b6"></script>
     <script src="js/26-update-check.js?v=32c0531013159e58"></script>
 </body>
 </html>

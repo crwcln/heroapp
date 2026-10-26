@@ -113,30 +113,16 @@
             if (user) {
                 // getIdTokenResult() can fall back to a silent network refresh of the token when it's near
                 // expiry. On a slow or flaky connection (mobile data) that refresh can take a long time or
-                // hang outright, which used to leave sign-in stuck on "checking" indefinitely. A short race
+                // hang outright, which used to leave Firebase stuck on "checking" indefinitely. A short race
                 // against a timeout means a slow network degrades to "not admin yet" instead of hanging.
                 try {
                     const claimsPromise = user.getIdTokenResult();
                     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 4000));
                     isAdmin = (await Promise.race([claimsPromise, timeout])).claims.admin === true;
-                } catch (e) { console.warn('Could not read account claims (continuing without admin claim):', e); }
-                if (isAdmin || user.uid === 'admin') {
-                    allowed = true;
-                } else if (!user.isAnonymous && typeof user.email === 'string') {
-                    const domain = '@accounts.hero.invalid';
-                    const email = user.email.toLowerCase();
-                    if (email.endsWith(domain)) {
-                        const username = email.slice(0, -domain.length);
-                        try {
-                            const profile = await db.collection('artifacts').doc(appId).collection('public').doc('data')
-                                .collection('members').doc(user.uid).get();
-                            const profileData = profile.exists ? profile.data() : {};
-                            allowed = profileData.username === username && profileData.recoveryReady === true;
-                        } catch (error) {
-                            console.error('Could not verify username account profile:', error);
-                        }
-                    }
-                }
+                } catch (e) { console.warn('Could not read steward claims (continuing without admin claim):', e); }
+                // Students use an invisible Firebase guest session. Only the steward
+                // custom token can be non-anonymous; no student username or profile is needed.
+                allowed = isAdmin || user.isAnonymous;
             }
             userId = allowed ? user.uid : null;
             if (userId && activeDataUid !== userId) {
@@ -163,7 +149,27 @@
 
                     const beginAuth = () => {
                         window.dispatchEvent(new Event('hero-firebase-ready'));
-                        auth.onAuthStateChanged(async user => { await applyFirebaseUser(user); });
+                        auth.onAuthStateChanged(async user => {
+                            if (!user) {
+                                try { await auth.signInAnonymously(); }
+                                catch (error) {
+                                    console.error('Could not start a guest session. Enable Firebase Anonymous sign-in:', error);
+                                    window.__heroCanAccessApp = false;
+                                    window.__heroAuthResolved = true;
+                                    window.dispatchEvent(new CustomEvent('hero-auth-state', { detail: { user: null, authorized: false, isAdmin: false } }));
+                                    hideCover(true);
+                                    showToast('Guest access is unavailable. A steward needs to enable Anonymous sign-in in Firebase.', 'error');
+                                }
+                                return;
+                            }
+                            if (!user.isAnonymous && user.uid !== 'admin') {
+                                // Clear any old student credential session. The next auth event
+                                // creates a guest session; no legacy sign-in screen is shown.
+                                await auth.signOut().catch(error => console.error('Could not clear an old student session:', error));
+                                return;
+                            }
+                            await applyFirebaseUser(user);
+                        });
                     };
                     // Keep members signed in across browser restarts; fall back only if local persistence is unavailable.
                     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(beginAuth).catch(error => {
@@ -189,7 +195,7 @@
             document.addEventListener('click', event => { if (moreNav && moreNav.open && !moreNav.contains(event.target)) moreNav.open = false; });
             document.addEventListener('keydown', event => { if (event.key === 'Escape' && moreNav) moreNav.open = false; });
             initFirebase();
-            // If Firebase never returns an auth state, reveal the sign-in gate rather than the app.
+            // If Firebase never returns an auth state, reveal the page with a useful error.
             setTimeout(() => {
                 if (window.__heroAuthResolved) return;
                 window.__heroAuthResolved = true;
@@ -197,7 +203,6 @@
                 hideCover(true);
             }, 10000);
             initVanillaParticles();
-            document.getElementById('player-name').value = localStorage.getItem('mq_playerName') || '';
             renderUserCustomList();
         });
 
@@ -243,10 +248,6 @@
         }
 
         function switchView(viewId) {
-            if (window.__heroCanAccessApp === false && !['auth-view'].includes(viewId)) {
-                if (window.__heroShowAuthGate) window.__heroShowAuthGate();
-                return;
-            }
             const views = document.querySelectorAll('.view-section');
             const particles = document.getElementById('particles-bg');
             if (viewId === 'quiz-view') particles.style.display = 'none'; else particles.style.display = 'block';
@@ -307,7 +308,7 @@
                     item.className = `flex justify-between items-center p-4 rounded-2xl border ${idx === 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
                     const mins = String(Math.floor(entry.time / 60)).padStart(2, '0'), secs = String(entry.time % 60).padStart(2, '0');
                     item.innerHTML = `<div class="flex items-center gap-3"><span class="font-bold w-6 text-slate-400">#${idx+1}</span><div class="leaderboard-player-name font-bold text-lg"></div></div><div class="text-right"><div class="font-black text-indigo-600 text-xl font-mono">${Number(entry.score).toLocaleString()} <span class="text-xs">pts</span></div><div class="text-xs text-slate-500">${mins}:${secs}</div></div>`;
-                    item.querySelector('.leaderboard-player-name').textContent = entry.name || 'Hero player';
+                    item.querySelector('.leaderboard-player-name').textContent = 'Guest';
                     list.appendChild(item);
                 });
             });
@@ -796,17 +797,23 @@
 
         function submitScore() {
             if(!db || !userId) return showToast("Offline mode.", "error");
-            const name = (document.getElementById('player-name').value.trim() || localStorage.getItem('hero_member_name') || auth.currentUser?.displayName || 'Hero').slice(0, 15);
-            localStorage.setItem('mq_playerName', name);
-            db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb).add({
-                userId, name, score: finalScore, time: secondsElapsed, tour: QUIZZES[yearMode].label,
+            const scoreRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb).doc(userId);
+            const payload = {
+                userId, score: finalScore, time: secondsElapsed, tour: QUIZZES[yearMode].label,
                 perfect: activeQuizData.length > 0 && solvedCount === activeQuizData.length && Object.values(quizStats).every(q => q.solved && q.mistakes === 0 && q.hintsUsed.length === 0),
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                showToast("Score saved!", "success");
+            };
+            scoreRef.get().then(snapshot => {
+                const previous = snapshot.exists ? snapshot.data() : null;
+                const better = !previous || finalScore > Number(previous.score) || (finalScore === Number(previous.score) && secondsElapsed < Number(previous.time));
+                if (!better) { showToast('You already have a better guest score for this tour.', 'info'); return false; }
+                return scoreRef.set(payload).then(() => true);
+            }).then(saved => {
+                if (!saved) return;
+                showToast("Guest score saved!", "success");
                 window.dispatchEvent(new Event('hero-score-saved'));
                 setTimeout(() => switchView('leaderboard-view'), 1000);
-            }).catch(e => showToast(`Could not save score (${e.code || 'error'}). Sign in to Hero and retry.`, 'error'));
+            }).catch(e => showToast(`Could not save score (${e.code || 'error'}).`, 'error'));
         }
 
         function fireConfetti() {

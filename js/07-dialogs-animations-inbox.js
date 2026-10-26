@@ -137,7 +137,7 @@
             inboxExitTimers.forEach(clearTimeout); inboxExitTimers.clear(); inboxNodeById.clear();
             inboxDocs = [];
             renderInbox();
-            document.getElementById('inbox-sub').innerText = 'Waiting for secure sign-in...';
+            document.getElementById('inbox-sub').innerText = 'Waiting for steward access...';
         }
         function timeAgo(d) {
             const s = Math.floor((Date.now() - d.getTime()) / 1000);

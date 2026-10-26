@@ -33,9 +33,9 @@
         if (!button || !status) return;
         const count = challengeFor((store.default && store.default.locs) || [], dateKey()).length;
         button.disabled = count < 5 || window.__heroCanAccessApp !== true;
-        if (window.__heroCanAccessApp !== true) { status.textContent = 'Sign in to Hero to join the shared challenge.'; return; }
+        if (window.__heroCanAccessApp !== true) { status.textContent = 'Guest challenge is connecting. Try again in a moment.'; return; }
         if (count < 5) { status.textContent = 'The challenge needs at least five places in the 1 Year tour.'; return; }
-        status.textContent = `${dateKey()} UTC · ${count} places · streaks are saved to your profile.`;
+        status.textContent = `${dateKey()} UTC · ${count} places · streak saved on this browser.`;
         currentProgressRef().get().then((doc) => {
             if (!doc.exists || window.__heroCanAccessApp !== true) return;
             const data = doc.data(), day = dateKey();
@@ -84,8 +84,8 @@
         const list = document.getElementById('daily-leaderboard-list');
         date.textContent = `Shared challenge - ${day} UTC`;
         list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Loading today’s standings…</p>';
-        if (!db || !userId) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Sign in to see today’s standings.</p>'; return; }
-        dailyCollection().doc(day).collection('scores').get().then((snapshot) => {
+        if (!db || !userId) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Guest standings are unavailable while offline.</p>'; return; }
+        dailyCollection().doc(day).collection('guestScores').get().then((snapshot) => {
             const rows = snapshot.docs.map((doc) => doc.data()).sort((a, b) => Number(b.score) - Number(a.score) || Number(a.time) - Number(b.time));
             list.innerHTML = '';
             if (!rows.length) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">No scores yet. Be the first Hero today!</p>'; return; }
@@ -94,7 +94,7 @@
                 item.className = `flex justify-between items-center p-4 rounded-2xl border ${index === 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
                 const left = document.createElement('div'); left.className = 'flex items-center gap-3';
                 const rank = document.createElement('span'); rank.className = 'font-bold w-6 text-slate-400'; rank.textContent = `#${index + 1}`;
-                const name = document.createElement('span'); name.className = 'font-bold text-lg'; name.textContent = row.name || 'Hero player'; left.append(rank, name);
+                const name = document.createElement('span'); name.className = 'font-bold text-lg'; name.textContent = 'Guest'; left.append(rank, name);
                 const right = document.createElement('div'); right.className = 'text-right';
                 const score = document.createElement('div'); score.className = 'font-black text-indigo-600 text-xl font-mono'; score.textContent = `${Number(row.score || 0).toLocaleString()} pts`;
                 const time = document.createElement('div'); time.className = 'text-xs text-slate-500'; time.textContent = `${Number(row.time || 0).toLocaleString()} sec`;
@@ -109,12 +109,10 @@
     const originalSubmitScore = submitScore;
     window.submitScore = function () {
         if (!activeDay) return originalSubmitScore();
-        if (!db || !userId) return showToast('Sign in to Hero to save a daily score.', 'error');
+        if (!db || !userId) return showToast('Guest scoring is unavailable while offline.', 'error');
         if (solvedCount !== activeQuizData.length) return showToast('Finish every place to qualify for the daily leaderboard and streak.', 'error');
         const day = activeDay, uid = userId;
-        const name = (document.getElementById('player-name').value.trim() || localStorage.getItem('hero_member_name') || auth.currentUser?.displayName || 'Hero').slice(0, 15);
-        localStorage.setItem('mq_playerName', name);
-        const scoreRef = dailyCollection().doc(day).collection('scores').doc(uid);
+        const scoreRef = dailyCollection().doc(day).collection('guestScores').doc(uid);
         const progressRef = currentProgressRef();
         const hintsUsed = Object.values(quizStats).reduce((total, stat) => total + stat.hintsUsed.length, 0);
         const score = finalScore, time = secondsElapsed;
@@ -124,7 +122,7 @@
             const existing = scoreDoc.exists ? scoreDoc.data() : null;
             const better = !existing || score > Number(existing.score) || (score === Number(existing.score) && time < Number(existing.time));
             if (better) transaction.set(scoreRef, {
-                userId: uid, name, score, time, day, hints: hintsUsed, locations: activeQuizData.length, solved: solvedCount,
+                userId: uid, score, time, day, hints: hintsUsed, locations: activeQuizData.length, solved: solvedCount,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
             const progress = progressDoc.exists ? progressDoc.data() : {};
@@ -177,7 +175,7 @@
             sectionLabel.textContent = 'Add your score to today’s Daily Challenge leaderboard.';
         } else {
             submitButton.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Submit';
-            sectionLabel.textContent = 'Carve your name in the Hall of Heroes!';
+            sectionLabel.textContent = 'Save your score to the Hall of Heroes as a guest.';
         }
         if (window.lucide) lucide.createIcons();
         return result;

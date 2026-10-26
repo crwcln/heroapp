@@ -1,11 +1,11 @@
 // ================= GAME MODES + WEAK SPOTS =================
         let gameMode = localStorage.getItem('hero_gm') === 'find' ? 'find' : 'identify', findQueue = [];
-        let missAccountUid = '', missSyncUnsub = null, missSyncBusy = false;
+        let missGuestUid = '', missSyncUnsub = null, missSyncBusy = false;
         const missModes = ['default', 'twoyear'];
-        const missKey = (mode = yearMode, uid = missAccountUid) => uid ? `hero_miss_${mode}_account_${uid}` : 'hero_miss_' + mode;
+        const missKey = (mode = yearMode, uid = missGuestUid) => uid ? `hero_miss_${mode}_guest_${uid}` : 'hero_miss_' + mode;
         const readMiss = (mode, uid) => { try { return JSON.parse(localStorage.getItem(missKey(mode, uid))) || {}; } catch (e) { return {}; } };
-        const writeMiss = (mode, value, uid = missAccountUid) => localStorage.setItem(missKey(mode, uid), JSON.stringify(value || {}));
-        const getMiss = () => readMiss(yearMode, missAccountUid);
+        const writeMiss = (mode, value, uid = missGuestUid) => localStorage.setItem(missKey(mode, uid), JSON.stringify(value || {}));
+        const getMiss = () => readMiss(yearMode, missGuestUid);
         const mergeMiss = (...maps) => {
             const merged = {};
             maps.forEach(map => Object.entries(map || {}).forEach(([name, stat]) => {
@@ -18,7 +18,7 @@
         const sameMiss = (a, b) => JSON.stringify(Object.entries(a || {}).sort(([x], [y]) => x.localeCompare(y))) === JSON.stringify(Object.entries(b || {}).sort(([x], [y]) => x.localeCompare(y)));
         const missDoc = uid => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('memberStats').doc(uid);
         function reconcileMisses(uid, cloud = {}) {
-            if (!uid || uid !== missAccountUid || missSyncBusy || !window.__heroCanAccessApp) return;
+            if (!uid || uid !== missGuestUid || missSyncBusy || !window.__heroCanAccessApp) return;
             const importingLegacy = localStorage.getItem('hero_miss_legacy_imported') !== '1';
             const local = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(readMiss(mode, uid), importingLegacy ? readMiss(mode, '') : {})]));
             const fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' };
@@ -36,28 +36,28 @@
                 }, { merge: true });
                 return next;
             }).then(next => {
-                if (uid !== missAccountUid) return;
+                if (uid !== missGuestUid) return;
                 missModes.forEach(mode => writeMiss(mode, next[mode], uid));
                 localStorage.setItem('hero_miss_legacy_imported', '1');
                 missBadge(); renderReview();
-            }).catch(error => console.warn('Could not sync weak spots to the Hero account:', error)).finally(() => { missSyncBusy = false; });
+            }).catch(error => console.warn('Could not sync weak spots for this guest session:', error)).finally(() => { missSyncBusy = false; });
         }
-        function syncMissAccount(event) {
+        function syncGuestWeakSpots(event) {
             const detail = event?.detail || {};
-            const uid = detail.authorized && detail.user && !detail.user.isAnonymous ? detail.user.uid : '';
-            if (uid === missAccountUid) return;
+            const uid = detail.authorized && detail.user ? detail.user.uid : '';
+            if (uid === missGuestUid) return;
             if (missSyncUnsub) missSyncUnsub();
-            missSyncUnsub = null; missAccountUid = uid; missSyncBusy = false;
+            missSyncUnsub = null; missGuestUid = uid; missSyncBusy = false;
             missBadge(); renderReview();
             if (!uid || !window.__heroCanAccessApp) return;
             missSyncUnsub = missDoc(uid).onSnapshot(snapshot => {
-                if (uid !== missAccountUid) return;
+                if (uid !== missGuestUid) return;
                 reconcileMisses(uid, snapshot.exists ? snapshot.data() : {});
-            }, error => console.warn('Could not load account weak spots:', error));
+            }, error => console.warn('Could not load weak spots for this guest session:', error));
         }
-        window.addEventListener('hero-auth-state', syncMissAccount);
+        window.addEventListener('hero-auth-state', syncGuestWeakSpots);
         function recordMiss(name) {
-            const mode = yearMode, uid = missAccountUid, local = getMiss();
+            const mode = yearMode, uid = missGuestUid, local = getMiss();
             local[name] = { n: ((local[name] && local[name].n) || 0) + 1, t: Date.now() };
             writeMiss(mode, local, uid); missBadge();
             if (!uid || !window.__heroCanAccessApp) return;
@@ -72,8 +72,8 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 return next;
-            }).then(next => { if (uid === missAccountUid) writeMiss(mode, next, uid); })
-                .catch(error => console.warn('Could not save a weak spot to the Hero account:', error));
+            }).then(next => { if (uid === missGuestUid) writeMiss(mode, next, uid); })
+                .catch(error => console.warn('Could not save a weak spot for this guest session:', error));
         }
         const topMissed = () => Object.entries(getMiss()).sort((a, b) => b[1].n - a[1].n || b[1].t - a[1].t).slice(0, 12);
         function missBadge() { const n = Object.keys(getMiss()).length; document.getElementById('miss-count').textContent = n ? `(${n})` : ''; }
@@ -85,7 +85,7 @@
             rows.forEach(([name, v]) => { const r = document.createElement('div'); r.className = 'rv-row'; r.innerHTML = `<span style="min-width:120px"></span><div class="bar"><i style="width:${Math.round(v.n / max * 100)}%"></i></div><span>${v.n}\u00d7</span>`; r.firstChild.textContent = name; list.appendChild(r); });
         }
         async function clearMisses() {
-            const uid = missAccountUid, message = uid ? 'This clears the missed places for this tour from your Hero account on all devices.' : 'This forgets your missed places for this quiz on this device.';
+            const uid = missGuestUid, message = uid ? 'This clears the missed places for this tour from this browser’s guest session.' : 'This forgets your missed places for this quiz on this device.';
             if (!(await customConfirm({ title: 'Clear weak spots?', message, confirmText: 'Clear', danger: true }))) return;
             if (uid && window.__heroCanAccessApp) {
                 const mode = yearMode, fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' }, ref = missDoc(uid);
@@ -99,7 +99,7 @@
                         }, { merge: true });
                     });
                     localStorage.removeItem(missKey(mode, uid));
-                } catch (error) { showToast(`Could not clear account weak spots (${error.code || 'error'}).`, 'error'); return; }
+                } catch (error) { showToast(`Could not clear weak spots (${error.code || 'error'}).`, 'error'); return; }
             } else localStorage.removeItem(missKey(yearMode, ''));
             renderReview(); missBadge();
         }

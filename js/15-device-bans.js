@@ -1,7 +1,7 @@
 // ===== DEVICE BANS =====
 // Privacy-friendlier than matching names to IP addresses: each browser gets a random id in localStorage on first load.
-// The admin can ban a browser id or a Hero account id. Browser ids are random and stored only in that browser.
-// The site does not collect IP addresses. Username profiles are admin-only; network-level abuse can
+// Stewards can ban a browser ID. IDs are random and stored only in that browser.
+// The site does not collect IP addresses; network-level abuse can
 // be handled with EdgeOne rate limiting / WAF rules without this site storing an address.
 const deviceId = () => { let id = localStorage.getItem('hero_device'); if (!id) { id = 'd_' + crypto.randomUUID().slice(0, 12); localStorage.setItem('hero_device', id); } return id; };
 window.__heroDeviceId = deviceId();
@@ -38,7 +38,7 @@ function showBanScreen(ban) {
     const expiry = banExpiryMs(ban), temporary = expiry > 0;
     const el = document.createElement('div'); el.id = 'ban-screen'; el.className = 'timeout-overlay';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'timeout-title');
-    el.innerHTML = '<main class="timeout-card"><div class="timeout-orbit timeout-orbit-one"></div><div class="timeout-orbit timeout-orbit-two"></div><header class="timeout-brand"><span class="timeout-brand-mark">H</span><span>HERO <i>TIMEOUT</i></span></header><div class="timeout-icon"><i data-lucide="shield-alert"></i></div><p class="timeout-eyebrow">A NOTE FROM THE STEWARDS</p><h1 id="timeout-title">You\'re on a timeout</h1><p class="timeout-intro">Access is paused for this browser or account. If this is temporary, you\'ll be let back in when the timer ends.</p><section class="timeout-details"><div class="timeout-detail"><span>TIME REMAINING</span><strong id="timeout-countdown">Checking...</strong><small id="timeout-end"></small></div><div class="timeout-detail"><span>REASON</span><strong id="timeout-reason"></strong></div></section><section class="timeout-game"><div class="timeout-game-head"><div><span class="timeout-eyebrow">TIMEOUT MINI-GAME</span><h2>Catch the atlas star</h2></div><div class="timeout-score">SCORE <b id="timeout-score">0</b></div></div><p id="timeout-game-status">Tap start, then catch as many stars as you can in 20 seconds.</p><div id="timeout-game-board" class="timeout-game-board"><button id="timeout-star" class="timeout-star hidden" aria-label="Catch the star"><i data-lucide="sparkles"></i></button></div><button id="timeout-game-start" class="timeout-start">Start game</button></section><p class="timeout-footer">The game is just for the wait. It does not change the suspension.</p></main>';
+    el.innerHTML = '<main class="timeout-card"><div class="timeout-orbit timeout-orbit-one"></div><div class="timeout-orbit timeout-orbit-two"></div><header class="timeout-brand"><span class="timeout-brand-mark">H</span><span>HERO <i>TIMEOUT</i></span></header><div class="timeout-icon"><i data-lucide="shield-alert"></i></div><p class="timeout-eyebrow">A NOTE FROM THE STEWARDS</p><h1 id="timeout-title">You\'re on a timeout</h1><p class="timeout-intro">Access is paused for this browser. If this is temporary, you\'ll be let back in when the timer ends.</p><section class="timeout-details"><div class="timeout-detail"><span>TIME REMAINING</span><strong id="timeout-countdown">Checking...</strong><small id="timeout-end"></small></div><div class="timeout-detail"><span>REASON</span><strong id="timeout-reason"></strong></div></section><section class="timeout-game"><div class="timeout-game-head"><div><span class="timeout-eyebrow">TIMEOUT MINI-GAME</span><h2>Catch the atlas star</h2></div><div class="timeout-score">SCORE <b id="timeout-score">0</b></div></div><p id="timeout-game-status">Tap start, then catch as many stars as you can in 20 seconds.</p><div id="timeout-game-board" class="timeout-game-board"><button id="timeout-star" class="timeout-star hidden" aria-label="Catch the star"><i data-lucide="sparkles"></i></button></div><button id="timeout-game-start" class="timeout-start">Start game</button></section><p class="timeout-footer">The game is just for the wait. It does not change the suspension.</p></main>';
     document.body.appendChild(el);
     if (window.lucide) lucide.createIcons();
     const reason = el.querySelector('#timeout-reason');
@@ -79,7 +79,6 @@ function refreshOwnBanScreen() {
 function checkOwnBan() {
     if (!db || !auth || !auth.currentUser) return;
     const ids = [deviceId()];
-    if (!auth.currentUser.isAnonymous && auth.currentUser.uid !== 'admin') ids.push('u_' + auth.currentUser.uid);
     const key = ids.join('|');
     if (key === ownBanKey) return;
     ownBanUnsubs.forEach(unsub => unsub()); ownBanUnsubs = []; ownBanEntries = new Map(); ownBanKey = key;
@@ -117,17 +116,16 @@ function startBanAdmin() {
 }
 function stopBanAdmin() { if (banUnsub) banUnsub(); banUnsub = null; clearInterval(banAdminTimer); banAdminTimer = null; banList = []; renderBans(); }
 async function banDevice(id, reason = '', durationKey) {
-    const isAccount = String(id).startsWith('u_');
     const key = durationKey || (document.getElementById('ban-duration') && document.getElementById('ban-duration').value) || 'permanent';
     const [durationLabel, durationMs] = BAN_DURATIONS[key] || BAN_DURATIONS.permanent;
     const why = String(reason || '').trim();
     if (why.length > 240) { showToast('Keep the reason under 240 characters.', 'error'); return false; }
-    const message = `${isAccount ? 'Account' : 'Browser'} "${id}" will be ${durationMs ? `suspended for ${durationLabel}` : 'permanently banned'} and blocked from Hero.${why ? ` Reason: ${why}` : ' No reason will be recorded.'}`;
+    const message = `Browser "${id}" will be ${durationMs ? `suspended for ${durationLabel}` : 'permanently banned'} and blocked from Hero.${why ? ` Reason: ${why}` : ' No reason will be recorded.'}`;
     if (!(await customConfirm({ title: durationMs ? 'Suspend access?' : 'Permanently ban access?', message, confirmText: durationMs ? 'Suspend' : 'Ban permanently', danger: true }))) return false;
     try {
         const expiresAt = durationMs ? firebase.firestore.Timestamp.fromMillis(Date.now() + durationMs) : null;
         await bansCol().doc(id).set({ reason: why, durationLabel: durationMs ? durationLabel : '', durationMs, bannedAt: firebase.firestore.FieldValue.serverTimestamp(), expiresAt });
-        showToast(durationMs ? `${isAccount ? 'Account' : 'Browser'} suspended for ${durationLabel}.` : `${isAccount ? 'Account' : 'Browser'} permanently banned.`, 'success');
+        showToast(durationMs ? `Browser suspended for ${durationLabel}.` : 'Browser permanently banned.', 'success');
         return true;
     } catch (e) { showToast(`Could not apply suspension (${e.code || 'error'}).`, 'error'); return false; }
 }
@@ -139,14 +137,14 @@ function banDeviceManual() {
     const input = document.getElementById('ban-id-input'), reason = document.getElementById('ban-reason-input');
     if (!input || !reason) return showToast('The ban form is not available right now.', 'error');
     const id = input.value.trim();
-    if (!id) return showToast('Enter a browser ID or an account ID beginning with u_.', 'error');
+    if (!id) return showToast('Enter a browser ID.', 'error');
     banDevice(id, reason.value.trim()).then(ok => { if (ok) { input.value = ''; reason.value = ''; } });
 }
 // admin card, created here so index.html stays clean; lives on the "Site" tab
 (function () {
     const card = document.createElement('div'); card.dataset.atab = 'site';
     card.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mt-6';
-            card.innerHTML = '<div class="p-5 border-b border-slate-200 dark:border-slate-700"><h3 class="font-bold text-slate-900 dark:text-white">Bans & suspensions</h3><p class="text-xs text-slate-500 font-medium mt-1">Ban a browser ID or Hero account ID. Temporary suspensions end automatically. Your browser ID: <span class="font-mono" id="my-device"></span></p><div class="ban-admin-form"><input id="ban-id-input" class="fb-input" placeholder="Browser ID or account ID (u_…)"><select id="ban-duration" class="fb-input" aria-label="Suspension duration"><option value="10m">10 minutes</option><option value="1h">1 hour</option><option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option><option value="permanent" selected>Permanent ban</option></select><input id="ban-reason-input" class="fb-input" maxlength="240" placeholder="Reason (optional)"><button class="cm-btn go" onclick="banDeviceManual()">Apply</button></div><p class="text-xs text-slate-500 mt-2">Reason is optional. Missing reasons appear as “none given” here and rotate through lighthearted messages on the timeout screen.</p></div><div id="ban-list" class="ban-admin-list"></div>';
+            card.innerHTML = '<div class="p-5 border-b border-slate-200 dark:border-slate-700"><h3 class="font-bold text-slate-900 dark:text-white">Bans & suspensions</h3><p class="text-xs text-slate-500 font-medium mt-1">Ban a browser ID. Temporary suspensions end automatically. Your browser ID: <span class="font-mono" id="my-device"></span></p><div class="ban-admin-form"><input id="ban-id-input" class="fb-input" placeholder="Browser ID"><select id="ban-duration" class="fb-input" aria-label="Suspension duration"><option value="10m">10 minutes</option><option value="1h">1 hour</option><option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option><option value="permanent" selected>Permanent ban</option></select><input id="ban-reason-input" class="fb-input" maxlength="240" placeholder="Reason (optional)"><button class="cm-btn go" onclick="banDeviceManual()">Apply</button></div><p class="text-xs text-slate-500 mt-2">Reason is optional. Missing reasons appear as “none given” here and rotate through lighthearted messages on the timeout screen.</p></div><div id="ban-list" class="ban-admin-list"></div>';
     document.getElementById('admin-panel').appendChild(card); document.getElementById('my-device').textContent = deviceId(); renderBans();
     if (window.csWireSelect) csWireSelect(document.getElementById('ban-duration'));
     setAdminTab(sessionStorage.getItem('mq_atab') || 'quiz');

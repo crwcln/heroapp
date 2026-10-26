@@ -2,14 +2,10 @@
   service cloud.firestore {
     match /databases/{database}/documents {
       function isAdmin()  { return request.auth != null && request.auth.token.admin == true; }
-      // Shared app access requires a signed-in account; anonymous sessions remain local-only.
-      function signedIn() { return isAdmin() || (request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'); }
-      function ownsUsername(username) {
-        return request.auth != null
-          && request.auth.token.email is string
-          && request.auth.token.email.matches('[A-Za-z0-9_]{3,20}@accounts[.]hero[.]invalid')
-          && request.auth.token.email.split('@')[0].lower() == username.lower();
-      }
+      // Students use an invisible Firebase guest session. Only anonymous visitors and stewards
+      // can access shared data; students have no username, password, or profile document.
+      function isGuest() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+      function signedIn() { return isAdmin() || isGuest(); }
 
       match /artifacts/{appId}/public/data {
 
@@ -29,31 +25,47 @@
             && request.resource.data.visits == resource.data.visits + 1);
         }
 
-        // Leaderboards: anyone signed in can read and post a well-formed score; only admin can delete
+        // Old named scoreboards stay steward-only; public boards contain guest rows without names.
         match /{board}/{entryId} {
-          allow read: if signedIn() && board in ['leaderboard', 'leaderboardTwoYear'];
-          allow create: if signedIn() && board in ['leaderboard', 'leaderboardTwoYear']
-            && request.resource.data.keys().hasOnly(['userId', 'name', 'score', 'time', 'timestamp', 'tour', 'perfect'])
+          allow read: if (isAdmin() && board in ['leaderboard', 'leaderboardTwoYear', 'guestLeaderboardOneYear', 'guestLeaderboardTwoYear'])
+            || (signedIn() && board in ['guestLeaderboardOneYear', 'guestLeaderboardTwoYear']);
+          allow create: if signedIn() && board in ['guestLeaderboardOneYear', 'guestLeaderboardTwoYear']
+            && entryId == request.auth.uid
+            && request.resource.data.keys().hasOnly(['userId', 'score', 'time', 'timestamp', 'tour', 'perfect'])
             && request.resource.data.userId == request.auth.uid
-            && request.resource.data.name is string && request.resource.data.name.size() <= 15
             && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
             && request.resource.data.time is number && request.resource.data.time >= 0
             && (!('tour' in request.resource.data) || request.resource.data.tour in ['1 Year', '2 Year'])
             && (!('perfect' in request.resource.data) || request.resource.data.perfect is bool);
-          allow delete: if board in ['leaderboard', 'leaderboardTwoYear']
-            && (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid));
+          allow update: if signedIn() && board in ['guestLeaderboardOneYear', 'guestLeaderboardTwoYear']
+            && entryId == request.auth.uid
+            && request.resource.data.keys().hasOnly(['userId', 'score', 'time', 'timestamp', 'tour', 'perfect'])
+            && request.resource.data.userId == resource.data.userId
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
+            && request.resource.data.time is number && request.resource.data.time >= 0
+            && (!('tour' in request.resource.data) || request.resource.data.tour in ['1 Year', '2 Year'])
+            && (!('perfect' in request.resource.data) || request.resource.data.perfect is bool)
+            && (request.resource.data.score > resource.data.score
+              || (request.resource.data.score == resource.data.score && request.resource.data.time < resource.data.time));
+          allow delete: if (isAdmin() && board in ['leaderboard', 'leaderboardTwoYear', 'guestLeaderboardOneYear', 'guestLeaderboardTwoYear'])
+            || (signedIn() && board in ['guestLeaderboardOneYear', 'guestLeaderboardTwoYear'] && resource.data.userId == request.auth.uid);
         }
 
-        // A separate date-scoped board keeps each shared Daily Challenge independent.
+        // Keep legacy named Daily Challenge scores visible to stewards only.
         match /dailyChallenges/{day}/scores/{memberId} {
+          allow read, write: if isAdmin();
+        }
+
+        // A date-scoped anonymous board keeps each shared Daily Challenge independent.
+        match /dailyChallenges/{day}/guestScores/{memberId} {
           allow read: if signedIn();
           allow create: if signedIn()
             && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
             && memberId == request.auth.uid
-            && request.resource.data.keys().hasOnly(['userId', 'name', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
-            && request.resource.data.keys().hasAll(['userId', 'name', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
+            && request.resource.data.keys().hasOnly(['userId', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
+            && request.resource.data.keys().hasAll(['userId', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
             && request.resource.data.userId == request.auth.uid
-            && request.resource.data.name is string && request.resource.data.name.size() <= 15
             && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
             && request.resource.data.time is number && request.resource.data.time >= 0
             && request.resource.data.day == day
@@ -65,9 +77,8 @@
             && memberId == request.auth.uid
             && request.resource.data.userId == resource.data.userId
             && request.resource.data.day == resource.data.day
-            && request.resource.data.keys().hasOnly(['userId', 'name', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
-            && request.resource.data.keys().hasAll(['userId', 'name', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
-            && request.resource.data.name is string && request.resource.data.name.size() <= 15
+            && request.resource.data.keys().hasOnly(['userId', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
+            && request.resource.data.keys().hasAll(['userId', 'score', 'time', 'day', 'hints', 'locations', 'solved', 'timestamp'])
             && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
             && request.resource.data.time is number && request.resource.data.time >= 0
             && request.resource.data.hints is number && request.resource.data.hints >= 0 && request.resource.data.hints <= 20
@@ -78,7 +89,7 @@
           allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
         }
 
-        // Profile streaks are private to their owner and updated with each completed daily round.
+        // Guest-session streaks are private to their browser UID and update after each daily round.
         match /dailyChallengeProgress/{memberId} {
           allow get: if isAdmin() || (signedIn() && request.auth.uid == memberId);
           allow list: if isAdmin();
@@ -94,7 +105,7 @@
           allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
         }
 
-        // Per-account weak spots replace the old device-only missed-place history.
+        // Per-browser guest weak spots replace the old device-only missed-place history.
         match /memberStats/{memberId} {
           function ownsStats() { return signedIn() && request.auth.uid == memberId; }
           function validMisses(field) { return request.resource.data[field] is map && request.resource.data[field].keys().size() <= 1000; }
@@ -125,29 +136,11 @@
           allow delete: if isAdmin() || (signedIn() && (presenceId == request.auth.uid || resource.data.userId == request.auth.uid));
         }
 
-        // Private account profile. Role and achievements are never accepted from client writes.
+        // Student profile documents are disabled. Guest-only push tokens remain private to each browser UID.
         match /members/{memberId} {
-          allow get: if isAdmin() || (signedIn() && request.auth.uid == memberId);
-          allow list: if isAdmin();
-          allow create, update: if signedIn()
-            && request.auth.uid == memberId
-            && request.resource.data.keys().hasOnly(['userId', 'name', 'username', 'recoveryReady', 'updatedAt', 'photoURL'])
-            && request.resource.data.keys().hasAll(['userId', 'name', 'username', 'recoveryReady', 'updatedAt'])
-            && request.resource.data.userId == request.auth.uid
-            && (isAdmin() || request.auth.uid == 'admin' || ownsUsername(request.resource.data.username))
-            && request.resource.data.username is string
-            && request.resource.data.username.matches('[A-Za-z0-9_]{3,20}')
-            && request.resource.data.recoveryReady is bool
-            && request.resource.data.name is string
-            && request.resource.data.name.size() >= 2
-            && request.resource.data.name.size() <= 40
-            && (!('photoURL' in request.resource.data)
-              || (request.resource.data.photoURL is string
-                && request.resource.data.photoURL.size() <= 150000
-                && (request.resource.data.photoURL == '' || request.resource.data.photoURL.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'))));
-          allow delete: if isAdmin() || (signedIn() && request.auth.uid == memberId);
+          allow read, write: if isAdmin();
 
-          // Each account can register and remove only its own browser push tokens.
+          // Each guest browser can register and remove only its own push tokens.
           match /pushTokens/{tokenId} {
             allow get, list: if isAdmin() || (signedIn() && request.auth.uid == memberId);
             allow create, update: if signedIn()
@@ -163,27 +156,13 @@
           }
         }
 
-        // A signed-in user may link a name/username to the random id stored by this browser.
-        // Only stewards can list these mappings; the owner can create or update this browser's record.
+        // Legacy account-to-device mappings are read-only to stewards; student writes are disabled.
         match /deviceProfiles/{deviceId} {
-          allow create, update: if signedIn()
-            && request.resource.data.keys().hasOnly(['deviceId', 'userId', 'name', 'username', 'updatedAt'])
-            && request.resource.data.keys().hasAll(['deviceId', 'userId', 'name', 'username', 'updatedAt'])
-            && request.resource.data.deviceId == deviceId
-            && deviceId.matches('d_[A-Za-z0-9-]{12}')
-            && request.resource.data.userId == request.auth.uid
-            && (isAdmin() || request.auth.uid == 'admin' || ownsUsername(request.resource.data.username))
-            && request.resource.data.username is string
-            && request.resource.data.username.matches('[A-Za-z0-9_]{3,20}')
-            && request.resource.data.name is string
-            && request.resource.data.name.size() >= 2
-            && request.resource.data.name.size() <= 40;
-          allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-          allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+          allow read, write: if isAdmin();
         }
 
-        // Recovery hashes and username mappings are available only through the trusted Edge Function.
-        match /accountRecovery/{username} {
+        // Legacy recovery records remain inaccessible; student recovery is not supported.
+        match /accountRecovery/{legacyRecordId} {
           allow read, write: if false;
         }
 
@@ -219,12 +198,21 @@
           allow get: if signedIn();
           allow list, write: if isAdmin();
         }
-        // Flappy Bird board
+        // Flappy Bird stores one anonymous best score per guest UID, without a display name.
         match /flappy/{id} {
+          allow read, write: if isAdmin();
+        }
+        match /guestFlappy/{id} {
           allow read: if signedIn();
-          allow create: if signedIn() && request.resource.data.keys().hasOnly(['name', 'score', 'userId', 'ts'])
-            && request.resource.data.userId == request.auth.uid && request.resource.data.name is string && request.resource.data.name.size() <= 15
+          allow create: if signedIn() && id == request.auth.uid
+            && request.resource.data.keys().hasOnly(['score', 'userId', 'ts'])
+            && request.resource.data.userId == request.auth.uid
             && request.resource.data.score is number && request.resource.data.score >= 1 && request.resource.data.score <= 500;
+          allow update: if signedIn() && id == request.auth.uid
+            && request.resource.data.keys().hasOnly(['score', 'userId', 'ts'])
+            && request.resource.data.userId == resource.data.userId
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.score is number && request.resource.data.score >= resource.data.score && request.resource.data.score <= 500;
           allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
         }
 

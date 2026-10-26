@@ -1,16 +1,16 @@
 // ===== FLAPPY BIRD (easter egg) =====
 // Type the trigger phrase to Clio (default "JEEMIN?!"). Bird picture: replace media/bird.png, or set FLAPPY_BIRD_URL (see
-// edge-functions/api/config.js). Pipe gap, gravity and the trigger can be tuned there too. Scores post to their own board
-// (Firestore collection "flappy"), separate from the Hall of Heroes.
+// edge-functions/api/config.js). Pipe gap, gravity and the trigger can be tuned there too. Guest best scores post to
+// Firestore collection "flappy", separate from the Hall of Heroes.
 const FLAPPY_DEFAULTS = { flappyTrigger: 'JEEMIN?!', flappyBirdUrl: 'media/bird.png', flappyGravity: 0.45, flappyGap: 160 };
 let flCfg = Object.assign({}, FLAPPY_DEFAULTS);
 fetch('/api/config').then(r => r.ok ? r.json() : null).then(d => { if (d) flCfg = Object.assign(flCfg, d); }).catch(() => { /* defaults */ });
-const flCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('flappy');
+const flCol = () => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('guestFlappy');
 let flState = null;
 function flOpen() {
     if (document.getElementById('flappy')) return;
     const el = document.createElement('div'); el.id = 'flappy';
-    el.innerHTML = '<div class="fl-wrap"><button class="fl-close">Close \u2715</button><div class="fl-hud">0</div><canvas width="360" height="560" aria-label="Flappy Bird game. Tap, click, or press Space to start and flap."></canvas><div class="fl-over"><h3>Game over</h3><div class="fl-score"></div><div class="fl-row"><input maxlength="15" placeholder="Your name"><button class="cm-btn go fl-submit">Post score</button></div><div class="fl-board">Loading best runs...</div><button class="cm-btn ghost fl-again">Play again</button></div></div>';
+    el.innerHTML = '<div class="fl-wrap"><button class="fl-close">Close \u2715</button><div class="fl-hud">0</div><canvas width="360" height="560" aria-label="Flappy Bird game. Tap, click, or press Space to start and flap."></canvas><div class="fl-over"><h3>Game over</h3><div class="fl-score"></div><div class="fl-row"><button class="cm-btn go fl-submit">Post guest best</button></div><div class="fl-board">Loading best runs...</div><button class="cm-btn ghost fl-again">Play again</button></div></div>';
     document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('open'));
     el.querySelector('.fl-close').onclick = flClose; document.addEventListener('keydown', flKeys);
     const cv = el.querySelector('canvas'), img = new Image(); img.src = flCfg.flappyBirdUrl;
@@ -27,14 +27,18 @@ function flFlap() { if (!flState || flState.dead) return; flState.started = true
 function flClose() { if (flState) cancelAnimationFrame(flState.raf); document.removeEventListener('keydown', flKeys); flState = null; const el = document.getElementById('flappy'); if (el) { el.classList.remove('open'); setTimeout(() => el.remove(), 400); } }
 async function flBoard() {
     const box = document.querySelector('#flappy .fl-board'); if (!box) return;
-    try { const s = await flCol().orderBy('score', 'desc').limit(5).get(); box.innerHTML = ''; s.docs.forEach((d, i) => { const r = document.createElement('div'); r.innerHTML = '<span></span><b></b>'; r.firstChild.textContent = `${i + 1}. ${d.data().name}`; r.lastChild.textContent = d.data().score; box.appendChild(r); }); if (!s.size) box.textContent = 'No scores yet. Be the first!'; }
+    try { const s = await flCol().orderBy('score', 'desc').limit(5).get(); box.innerHTML = ''; s.docs.forEach((d, i) => { const r = document.createElement('div'); r.innerHTML = '<span></span><b></b>'; r.firstChild.textContent = `${i + 1}. Guest`; r.lastChild.textContent = d.data().score; box.appendChild(r); }); if (!s.size) box.textContent = 'No scores yet. Be the first!'; }
     catch (e) { box.textContent = 'Leaderboard unavailable right now.'; }
 }
 async function flPost() {
     const s = flState; if (!s || s.posted || !s.score) return showToast(s && s.posted ? 'Already posted.' : 'Score at least 1 to post.', 'info');
-    const nameInput = document.querySelector('#flappy input');
-    const name = (nameInput?.value.trim() || 'Anonymous').slice(0, 15);
-    try { await flCol().add({ name, score: s.score, userId, ts: firebase.firestore.FieldValue.serverTimestamp() }); s.posted = true; showToast('Score posted!', 'success'); flBoard(); } catch (e) { showToast(`Could not post (${e.code || 'error'}).`, 'error'); }
+    if (!userId) return showToast('Guest scoring is unavailable while offline.', 'error');
+    try {
+        const ref = flCol().doc(userId), previous = await ref.get();
+        if (previous.exists && Number(previous.data().score) >= s.score) { s.posted = true; showToast('Your best guest score is already on the board.', 'info'); return; }
+        await ref.set({ score: s.score, userId, ts: firebase.firestore.FieldValue.serverTimestamp() });
+        s.posted = true; showToast('Guest best posted!', 'success'); flBoard();
+    } catch (e) { showToast(`Could not post (${e.code || 'error'}).`, 'error'); }
 }
 function flDie() { const s = flState; s.dead = true; const el = document.getElementById('flappy'); el.classList.add('over'); el.querySelector('.fl-score').textContent = `Score: ${s.score}`; flBoard(); }
 function flLoop() {

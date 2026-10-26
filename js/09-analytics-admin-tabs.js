@@ -117,7 +117,6 @@
             anRender();
         };
         function stopAnalyticsAdmin() { anUnsubs.forEach(u => u()); anUnsubs = []; clearInterval(anTimer); anPresence = []; anDays = []; }
-        window.addEventListener('hero-profiles-updated', () => anRender());
         const anLabel = k => ({ ios:'iOS', osx:'macOS', mac:'macOS', chromeos:'Chrome OS', twoyear:'2 Year', default:'1 Year' }[k] || String(k).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
         const anBars = entries => {
             const rows = entries.filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0);
@@ -159,8 +158,7 @@
             document.getElementById('an-split').innerHTML = [['Devices', anSum('d_', period)], ['Operating systems', anSum('o_', period)], ['Browsers', anSum('b_', period)], ['Tour mode', anSum('m_', period)]].map(([t, e]) => `<section class="an-box"><h4>${t}<small>Last ${anRange} days</small></h4>${anBars(e)}</section>`).join('');
             const maxQuiz = Math.max(started, done, quit, 1);
             document.getElementById('an-funnel').innerHTML = `<h4>Quiz activity<small>Last ${anRange} days</small></h4><p class="an-funnel-note">See how sessions turn into completed journeys.</p><div class="an-funnel-row"><span>Started</span><div><i style="--bar-width:${Math.max(2, Math.round(started / maxQuiz * 100))}%"></i></div><b>${started.toLocaleString()}</b></div><div class="an-funnel-row"><span>Completed</span><div><i style="--bar-width:${Math.max(done ? 2 : 0, Math.round(done / maxQuiz * 100))}%"></i></div><b>${done.toLocaleString()}</b></div><div class="an-funnel-row"><span>Left early</span><div><i class="is-quiet" style="--bar-width:${Math.max(quit ? 2 : 0, Math.round(quit / maxQuiz * 100))}%"></i></div><b>${quit.toLocaleString()}</b></div><div class="an-funnel-foot">Completion rate <strong>${completion}%</strong></div>`;
-            const profiles = window.__heroDeviceProfiles || {};
             document.getElementById('an-live-count').textContent = `${live.length} online`;
-            document.getElementById('an-live').innerHTML = live.length ? `<table class="an-table"><thead><tr><th>Visitor</th><th>Device</th><th>Current page</th><th>Tour</th><th>Active</th></tr></thead><tbody>${live.slice(0, 30).map(p => { const profile = profiles[p.deviceId]; return `<tr><td><span class="an-visitor-dot"></span>${profile ? esc(profile.name) : 'Guest'}</td><td>${esc(anLabel(p.device))}</td><td>${esc(String(p.view || 'Home').replace('-view', '').replace(/[-_]/g, ' '))}</td><td>${p.mode === 'twoyear' ? '2 Year' : '1 Year'}</td><td>${Math.max(0, Math.round((now - p.lastSeen.toMillis()) / 1000))}s ago</td></tr>`; }).join('')}</tbody></table>` : '<p class="an-empty-live">Nobody online right now. Live visitors appear here while they explore.</p>';
+            document.getElementById('an-live').innerHTML = live.length ? `<table class="an-table"><thead><tr><th>Visitor</th><th>Device</th><th>Current page</th><th>Tour</th><th>Active</th></tr></thead><tbody>${live.slice(0, 30).map(p => `<tr><td><span class="an-visitor-dot"></span>Guest</td><td>${esc(anLabel(p.device))}</td><td>${esc(String(p.view || 'Home').replace('-view', '').replace(/[-_]/g, ' '))}</td><td>${p.mode === 'twoyear' ? '2 Year' : '1 Year'}</td><td>${Math.max(0, Math.round((now - p.lastSeen.toMillis()) / 1000))}s ago</td></tr>`).join('')}</tbody></table>` : '<p class="an-empty-live">Nobody online right now. Live visitors appear here while they explore.</p>';
         }
         initAdminTabs();

@@ -1,4 +1,4 @@
-// Account-linked browser push: announcement notifications only, with opt-in permission.
+// Browser-linked push: announcement notifications only, with opt-in permission.
 (function () {
     const buttonId = 'push-notification-toggle';
     const statusId = 'push-notification-status';
@@ -52,7 +52,7 @@
 
     async function enable() {
         const user = auth && auth.currentUser;
-        if (!user || user.isAnonymous) throw new Error('Sign in to a Hero account before enabling notifications.');
+        if (!user || !window.__heroCanAccessApp) throw new Error('Guest notifications are unavailable while offline.');
         if (!('Notification' in window)) throw new Error('This browser does not support notifications.');
         const config = await getConfig();
         const serviceWorker = await registration();
@@ -70,7 +70,7 @@
         }, { merge: true });
         currentUid = user.uid;
         enabled = true;
-        status('On. Hero will notify this account when a new announcement is posted.');
+        status('On for this browser. Hero will notify you when a new announcement is posted.');
         setButton('Turn off notifications');
     }
 
@@ -99,11 +99,11 @@
     };
 
     window.addEventListener('hero-auth-state', async (event) => {
-        const user = event.detail && event.detail.authorized && event.detail.user && !event.detail.user.isAnonymous
+        const user = event.detail && event.detail.authorized && event.detail.user
             ? event.detail.user : null;
         if (!user) {
             currentUid = ''; enabled = false;
-            status('Sign in to sync notifications across your devices.');
+            status('Guest notifications are unavailable while offline.');
             setButton('Enable notifications', true);
             return;
         }
@@ -127,7 +127,7 @@
                     const snapshot = await ref.get();
                     if (snapshot.exists && snapshot.data().enabled === true) {
                         enabled = true;
-                        status('On. Hero will notify this account when a new announcement is posted.');
+                        status('On. This browser will be notified when a new announcement is posted.');
                         setButton('Turn off notifications');
                     } else {
                         enabled = false;
