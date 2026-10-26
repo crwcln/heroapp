@@ -3,7 +3,7 @@ const TILE_HOT = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
 // Esri World Imagery is satellite/aerial imagery; OSM remains available as a no-key street map layer.
 const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 // ===== MAP HIGHLIGHT + PREMIUM EXTRAS =====
-// Curated Natural Earth 10m and historical boundaries are built into one local GeoJSON file.
+// Curated Natural Earth and historical boundaries are bundled into one local GeoJSON file.
 // No map-boundary data is requested from a CDN while a player is using the site.
 let hlLocations = {}, hlFeatures = {}, hlLoading = null, hlLayers = [], hlTok = 0, hlMissingWarned = false;
 const hlNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -16,7 +16,7 @@ function hlLoad() {
         hlLocations = data.locations || {};
         hlFeatures = Object.fromEntries((data.features || []).map(feature => [feature.id || feature.properties?.heroBoundaryId, feature]));
     }).catch(error => {
-        console.warn('Hero boundary bundle could not load. Run npm run build:boundaries after exporting the quiz catalog.', error);
+        console.warn('Hero boundary bundle could not load. A steward can rebuild it from the Quiz tab.', error);
         hlLocations = {}; hlFeatures = {};
     });
     return hlLoading;
@@ -63,7 +63,7 @@ function hlShow(loc) {
             // outline is missing; the location catalog can be exported and rebuilt by a steward.
             if (!hlMissingWarned) {
                 hlMissingWarned = true;
-                console.warn('No curated geographic outline matched this location. Export the active location catalog and run npm run build:boundaries.');
+                console.warn('No curated geographic outline matched this location. A steward can use Rebuild borders now in the Quiz tab.');
             }
         }
     });

@@ -542,7 +542,12 @@
                         <button onclick="importJSON('admin')" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition shadow">Import JSON</button>
                         <p class="text-xs text-slate-500 mt-3">Add <code>year</code> to historical entries so Hero can select the right empire map.</p>
                         <button type="button" onclick="downloadBoundaryCatalog()" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition shadow">Export boundary build catalog</button>
-                        <p class="text-xs text-slate-500 mt-2 leading-relaxed">To build map outlines: export this live catalog, save it as <code>content/location-catalog.json</code>, then run <code>npm run build:boundaries</code>. Review <code>content/location-boundaries-unmatched.json</code> before deploying.</p>
+                        <p class="text-xs text-slate-500 mt-2 leading-relaxed">For a local full-detail build, export the live locations and run the boundary builder from a computer. The server button below works from Chromebooks and deploys the result for you.</p>
+                        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <button type="button" id="rebuild-borders-btn" onclick="rebuildBordersNow()" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3 rounded-lg transition shadow flex items-center justify-center gap-2"><i data-lucide="map-pinned" class="w-4 h-4"></i> <span id="rebuild-borders-label">Rebuild borders now</span></button>
+                            <p class="text-xs text-slate-500 mt-2 leading-relaxed">Reads the live 1 Year and 2 Year locations, matches them against Natural Earth 50m and historical maps, then commits and asks EdgeOne to deploy. Nothing to download or run.</p>
+                            <div id="rebuild-borders-status" class="hidden mt-3 text-xs rounded-lg p-3 border" aria-live="polite"></div>
+                        </div>
                     </div>
                     <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                         <div class="flex justify-between items-center mb-4">

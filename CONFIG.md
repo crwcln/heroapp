@@ -34,20 +34,22 @@ Set these in the EdgeOne Pages project settings. Never commit real values.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Yes | Steward/admin sign-in and signing server-side admin sessions |
 | `DEV_ACCESS` | Yes for early access | Unlocks the launch countdown and development mode controls; `DEV_PASSWORD` remains supported as a legacy fallback |
-| `FIREBASE_CLIENT_EMAIL` | Yes for secure steward sign-in and push sending | Firebase service-account email |
-| `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure steward sign-in and push sending | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
+| `FIREBASE_CLIENT_EMAIL` | Yes for secure steward sign-in, push sending, and server boundary builds | Firebase service-account email |
+| `FIREBASE_PRIVATE_KEY_1` … `FIREBASE_PRIVATE_KEY_N` | Yes for secure steward sign-in, push sending, and server boundary builds | Private key split into chunks no longer than 450 characters; one `FIREBASE_PRIVATE_KEY` value is also supported |
 | `FIREBASE_API_KEY` | Yes for Clio | The public Firebase web API key from `js/02-firebase-config.js`; used by the server-side Firebase Auth verification request |
-| `DEPLOY_WEBHOOK_URL` | Yes for redeploy | EdgeOne build/deploy webhook URL |
-| `GITHUB_TOKEN` | Yes for redeploy | GitHub token with repository contents read/write access |
-| `GITHUB_REPOSITORY` | Optional | Repository as `owner/name`; defaults to `crwcln/heroapp` |
+| `DEPLOY_WEBHOOK_URL` | Yes for redeploy and boundary rebuild | EdgeOne build/deploy webhook URL |
+| `GITHUB_TOKEN` | Yes for redeploy and boundary rebuild | GitHub token with repository contents read/write access |
+| `GITHUB_REPOSITORY` | Yes for redeploy and boundary rebuild | Repository as `owner/name` |
 | `DEPLOY_BRANCH` | Optional | Branch to commit to; defaults to `main` |
 | `GEMINI_API_KEY` | Optional | Enables Clio AI |
 | `FIREBASE_WEB_PUSH_VAPID_KEY` | Yes for push notifications | Public Web Push certificate key from Firebase Console → Project settings → Cloud Messaging → Web Push certificates |
-| `FIREBASE_PROJECT_ID` | Recommended | Firebase project ID; used by the push sender when it cannot be derived from `FIREBASE_CLIENT_EMAIL` |
+| `FIREBASE_PROJECT_ID` | Recommended | Firebase project ID; used by the push sender and boundary builder when it cannot be derived from `FIREBASE_CLIENT_EMAIL` |
 | `GEMINI_MODEL` | Optional | Overrides the model preference list in `edge-functions/api/chat.js` |
 | `FLAPPY_TRIGGER`, `FLAPPY_BIRD_URL`, `FLAPPY_GRAVITY`, `FLAPPY_GAP` | Optional | Overrides for the Flappy Bird feature |
 
 The Steward redeploy action creates an empty Git commit with the message entered in the panel, advances the configured branch, and asks EdgeOne to build it. A successful webhook response means the build request was accepted; check EdgeOne **Build & Deploy** for the final build result.
+
+The Stewards panel's **Quiz** tab has a **Rebuild borders now** action. Its EdgeOne function reads both live location lists from Firestore, uses Natural Earth 50m plus historical maps, commits the generated boundary bundle and review list together, then requests an EdgeOne deployment. Grant the service account in `FIREBASE_CLIENT_EMAIL` the **Cloud Datastore Viewer** role (`roles/datastore.viewer`) on the Firebase project; this endpoint only reads Firestore. The local `npm run build:boundaries` command remains available for Natural Earth 10m detail on a computer. See [`content/BOUNDARIES.md`](content/BOUNDARIES.md) for setup and review details.
 
 The construction-screen visitor message can be edited from the admin panel's **Dev Mode** card after unlocking it. Leave it blank to restore the default.
 

@@ -469,6 +469,93 @@ async function resetVisitCounter() {
                 else setDeployBtn(true, `Redeploy again in ${left}s`);
             }, 1000);
         }
+        const rbEsc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        let rebuildBordersBusy = false;
+        function rebuildReviewLabel(item) {
+            const requested = item.requestedYear ?? item.year;
+            if (item.status === 'missing-historical-year') return 'Add a historical year';
+            if (item.status === 'historical-year-review') return `Uses ${item.selectedYear}; check against requested year ${requested}`;
+            if (item.status === 'point-fallback-review') return `Using the surrounding ${item.suggestedBoundary || 'region'} outline; check for a closer match`;
+            if (item.status === 'historical-name-not-found') return 'No historical boundary matched; check the name, aliases, and year';
+            if (item.status === 'manual-feature-not-found') return `Manual outline not found in ${item.file || 'the configured file'}`;
+            if (item.status === 'not-matched') return 'No boundary matched; check the name or add a manual outline';
+            return String(item.status || 'Needs review').replace(/-/g, ' ');
+        }
+        function setRebuildBordersStatus(message, tone) {
+            const box = document.getElementById('rebuild-borders-status'); if (!box) return;
+            box.classList.remove('hidden', 'border-rose-300', 'text-rose-600', 'border-emerald-300', 'text-emerald-700', 'border-slate-200', 'text-slate-600', 'dark:border-rose-800', 'dark:text-rose-400', 'dark:border-emerald-800', 'dark:text-emerald-400', 'dark:border-slate-700', 'dark:text-slate-400');
+            const tones = { error: 'border-rose-300 text-rose-600 dark:border-rose-800 dark:text-rose-400', success: 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400', info: 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-400' };
+            box.className = 'mt-3 text-xs rounded-lg p-3 border ' + (tones[tone] || tones.info);
+            box.innerHTML = message;
+        }
+        async function rebuildBordersNow() {
+            if (rebuildBordersBusy) return;
+            if (!adminToken) { setRebuildBordersStatus('Steward session is missing or expired. Sign in again.', 'error'); return; }
+            if (!(await customConfirm({ title: 'Rebuild map borders?', message: 'The server will read your live 1 Year and 2 Year locations, match them to map data, commit the result, and ask EdgeOne to deploy. This can take a little while.', confirmText: 'Rebuild now' }))) return;
+            rebuildBordersBusy = true;
+            const btn = document.getElementById('rebuild-borders-btn'), label = document.getElementById('rebuild-borders-label');
+            if (btn) btn.disabled = true;
+            if (label) label.textContent = 'Rebuilding…';
+            setRebuildBordersStatus('Fetching map data and matching your live locations. The server will commit and trigger a deployment when it finishes.', 'info');
+            try {
+                const r = await fetch('/api/build-boundaries', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: adminToken, appId: SITE.id })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (r.status === 401) { lockAdmin(); throw new Error('Steward session expired. Sign in again.'); }
+                if (!r.ok) {
+                    if (d.commitCreated) {
+                        const commit = rbEsc((d.commitSha || '').slice(0, 7));
+                        const hookMessage = d.error === 'hook_failed'
+                            ? `EdgeOne rejected the deployment request (HTTP ${d.status || 'unknown'}).`
+                            : 'The deployment service could not be reached.';
+                        throw new Error(`Boundary files were committed (${commit}), but ${hookMessage} Check DEPLOY_WEBHOOK_URL or start a deployment from EdgeOne.`);
+                    }
+                    const msg = {
+                        not_configured: `Missing EdgeOne environment variable${d.missing?.length === 1 ? '' : 's'}: ${(d.missing || []).join(', ')}.`,
+                        no_locations: 'No locations found for this site yet — add some first.',
+                        missing_app_id: 'Could not determine this site’s id.',
+                        invalid_boundary_overrides: d.detail || 'The boundary overrides file is not a valid list.',
+                        invalid_manual_boundary_path: d.detail || 'A manual boundary must be inside content/manual/.',
+                        invalid_manual_boundary: d.detail || 'A manual boundary file is not valid GeoJSON.',
+                        google_auth_failed: 'The server could not authenticate its Firebase service account. Check the service account email and private key in EdgeOne settings.',
+                        invalid_firebase_project: 'The Firebase project id is missing or invalid. Set FIREBASE_PROJECT_ID in EdgeOne settings.',
+                        invalid_github_config: 'Check GITHUB_REPOSITORY and DEPLOY_BRANCH in EdgeOne settings.',
+                        github_failed: d.status === 403
+                            ? 'GitHub denied the write. Check that GITHUB_TOKEN can write repository contents and that the branch allows updates.'
+                            : `GitHub could not commit the boundary files (HTTP ${d.status || r.status}${d.detail ? `: ${d.detail}` : ''}). Check GITHUB_TOKEN, GITHUB_REPOSITORY, and DEPLOY_BRANCH.`,
+                        build_failed: `Could not build the boundaries: ${d.detail || 'unknown error'}`,
+                    }[d.error] || (r.status === 404
+                        ? 'Add edge-functions/api/build-boundaries.js and deploy the site once.'
+                        : r.status === 504
+                            ? 'The boundary build timed out. Check EdgeOne and GitHub for a commit before retrying; the server time limit may need the work split into smaller steps.'
+                            : `Rebuild failed (HTTP ${r.status}).`);
+                    throw new Error(msg);
+                }
+                const missing = Math.max(0, d.total - d.matched);
+                const review = Array.isArray(d.unmatched) ? d.unmatched : [];
+                const lines = [`<strong>${d.matched} of ${d.total}</strong> locations have a matched boundary. <strong>${review.length}</strong> need review; <strong>${missing}</strong> still have no match.`];
+                if (review.length) {
+                    lines.push(`<details open class="mt-2"><summary class="font-bold cursor-pointer">Review these ${review.length} locations</summary>`);
+                    lines.push('<ul class="mt-1 space-y-1 list-disc list-inside max-h-52 overflow-y-auto break-words">' + review.map((item) => `<li>${rbEsc(item.name || 'Unnamed location')} — ${rbEsc(rebuildReviewLabel(item))}</li>`).join('') + '</ul></details>');
+                } else lines.push('<div class="mt-2">Every location matched and none need review.</div>');
+                lines.push(`<div class="mt-2">Commit ${rbEsc((d.commitSha || '').slice(0, 7))} created. EdgeOne accepted the deployment request; the new map will appear after its build finishes.</div>`);
+                setRebuildBordersStatus(lines.join(''), review.length ? 'info' : 'success');
+                showToast('Borders committed; EdgeOne accepted the deployment request.', 'success');
+            } catch (err) {
+                console.error('Rebuild borders failed:', err);
+                const message = err instanceof TypeError
+                    ? 'Could not reach the boundary builder. Check EdgeOne and GitHub for a commit before retrying; the server may have finished after the connection closed.'
+                    : err.message || 'Something went wrong.';
+                setRebuildBordersStatus(rbEsc(message), 'error');
+                showToast(message, 'error');
+            } finally {
+                rebuildBordersBusy = false;
+                if (btn) btn.disabled = false;
+                if (label) label.textContent = 'Rebuild borders now';
+            }
+        }
         async function triggerRedeploy() {
             if (deployBusy) return;
             if (!adminToken) {
