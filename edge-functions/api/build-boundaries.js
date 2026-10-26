@@ -64,16 +64,31 @@ async function googleAccessToken(email, pk, scope) {
   const header = { alg: 'RS256', typ: 'JWT' };
   const payload = { iss: email, scope, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 };
   const unsigned = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
-  const key = await importPrivateKey(pk);
-  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(unsigned));
+  let key, sig;
+  try {
+    key = await importPrivateKey(pk);
+    sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(unsigned));
+  } catch (error) {
+    const detail = `Could not read or sign with FIREBASE_PRIVATE_KEY: ${String(error?.message || error).slice(0, 180)}`;
+    throw Object.assign(new Error(detail), { code: 'google_auth_failed', detail });
+  }
   const assertion = `${unsigned}.${b64url(sig)}`;
-  const r = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${assertion}`,
-  });
+  let r;
+  try {
+    r = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${assertion}`,
+    });
+  } catch (error) {
+    const detail = `Could not connect to Google OAuth: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'google_auth_failed', detail });
+  }
   const data = await r.json().catch(() => ({}));
-  if (!r.ok || !data.access_token) throw new Error(`google_oauth_failed:${r.status}:${data.error || ''}`);
+  if (!r.ok || !data.access_token) {
+    const detail = [data.error, data.error_description].filter(Boolean).join(': ') || `OAuth token exchange failed (HTTP ${r.status}).`;
+    throw Object.assign(new Error(detail), { code: 'google_auth_failed', status: r.status, detail });
+  }
   return data.access_token;
 }
 
@@ -91,22 +106,40 @@ function fsValue(v) {
 function fsFields(fields) { const out = {}; for (const k of Object.keys(fields)) out[k] = fsValue(fields[k]); return out; }
 async function firestoreGetDoc(projectId, token, docPath) {
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  let r;
+  try { r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } }); }
+  catch (error) {
+    const detail = `Could not connect to Firestore for project ${projectId}: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'firestore_unavailable', detail });
+  }
   if (r.status === 404) return null;
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`firestore_read_failed:${r.status}:${data.error?.status || ''}:${data.error?.message || ''}`);
+  if (!r.ok) {
+    const detail = data.error?.message || `Firestore request failed (HTTP ${r.status}).`;
+    const reasons = (data.error?.details || []).map((item) => item.reason || item.metadata?.reason || '').filter(Boolean);
+    throw Object.assign(new Error(detail), {
+      code: 'firestore_read_failed', status: r.status,
+      googleStatus: data.error?.status || '', googleReason: reasons.join(', '), detail, docPath,
+    });
+  }
   return fsFields(data.fields || {});
 }
 
 // ---------- GitHub Contents API ----------
 async function ghGetFile(repository, branch, token, filePath) {
   const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-  const r = await fetch(`https://api.github.com/repos/${repository}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`, {
-    headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'hero-build-boundaries', Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-  });
+  let r;
+  try {
+    r = await fetch(`https://api.github.com/repos/${repository}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`, {
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'hero-build-boundaries', Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    });
+  } catch (error) {
+    const detail = `Could not connect to GitHub while reading ${filePath}: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'github_read_failed', detail });
+  }
   if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`github_read_failed:${r.status}`);
-  const data = await r.json();
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.message || `GitHub file read failed (HTTP ${r.status}).`), { code: 'github_read_failed', status: r.status, detail: data.message || '' });
   let text;
   if (data.encoding === 'base64' && data.content) {
     const binary = atob(data.content.replace(/\n/g, ''));
@@ -169,9 +202,15 @@ async function ghCommitFiles(repository, branch, token, files, message) {
 }
 
 const fetchJson = async (url) => {
-  const r = await fetch(url, { headers: { 'User-Agent': 'Hero-boundary-curator/1.0' } });
-  if (!r.ok) throw new Error(`Could not download map data (${url.split('/').pop()}, HTTP ${r.status}).`);
-  return r.json();
+  let r;
+  try { r = await fetch(url, { headers: { 'User-Agent': 'Hero-boundary-curator/1.0' } }); }
+  catch (error) {
+    const detail = `Could not connect to ${url.split('/').pop()}: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'map_data_fetch_failed', detail });
+  }
+  if (!r.ok) throw Object.assign(new Error(`Map data download failed for ${url.split('/').pop()} (HTTP ${r.status}).`), { code: 'map_data_fetch_failed', status: r.status, detail: `Source returned HTTP ${r.status}.` });
+  try { return await r.json(); }
+  catch { throw Object.assign(new Error(`Map data file ${url.split('/').pop()} was not valid JSON.`), { code: 'map_data_invalid', detail: url.split('/').pop() }); }
 };
 
 // ---------- matching engine, ported from scripts/build-boundaries.mjs ----------
@@ -357,27 +396,55 @@ export async function onRequestPost(context) {
     const projectId = configuredProject || serviceAccountProject;
     const appId = typeof body.appId === 'string' ? body.appId : '';
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(appId)) return json({ ok: false, error: 'missing_app_id' }, 400);
-    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId || '')) return json({ ok: false, error: 'invalid_firebase_project' }, 500);
-    // Firestore documents.get accepts the datastore scope; the IAM Viewer role keeps this token read-only.
-    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/datastore');
+    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId || '')) {
+      return json({ ok: false, error: 'invalid_firebase_project', detail: 'Could not derive a valid Firebase project id from FIREBASE_CLIENT_EMAIL. Set FIREBASE_PROJECT_ID to the Firebase project id.' }, 500);
+    }
+    // Firestore documents.get accepts cloud-platform; IAM still limits the service account's actual permissions.
+    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/cloud-platform');
 
     const base = `artifacts/${appId}/public/data`;
     const [defaultQuiz, twoYearQuiz] = await Promise.all([
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/defaultQuiz`),
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/twoYearQuiz`),
     ]).catch((error) => {
-      const match = String(error?.message || '').match(/^firestore_read_failed:403:([^:]*):(.*)$/);
-      if (match) {
-        const googleDetail = match[2] ? ` Google says: ${match[2].slice(0, 240)}` : '';
-        throw new Error(`Firestore denied the read in project ${projectId}. Confirm this exact project's IAM grants the service account Cloud Datastore Viewer, and that the Firestore API is enabled.${googleDetail}`);
+      if (error?.code !== 'firestore_read_failed') throw error;
+      const googleText = `${error.googleStatus} ${error.googleReason} ${error.detail}`.toLowerCase();
+      let code = 'firestore_read_failed', message = `Firestore read failed in project ${projectId} (HTTP ${error.status}).`;
+      if (error.status === 403 && /service_disabled|has not been used|api.*not enabled|api.*disabled/.test(googleText)) {
+        code = 'firestore_api_disabled';
+        message = `Google says the Firestore API is disabled for project ${projectId}. Enable firestore.googleapis.com for that project.`;
+      } else if (error.status === 403 && /scope|insufficient authentication/.test(googleText)) {
+        code = 'firestore_scope_denied';
+        message = `Google rejected the OAuth scope while reading ${error.docPath || 'the quiz document'} in project ${projectId}. This source requests Firestore's documented cloud-platform scope. Deploy this version of edge-functions/api/build-boundaries.js to EdgeOne; if this message persists, the deployed function is still using a different scope or older code.`;
+      } else if (error.status === 403) {
+        code = 'firestore_permission_denied';
+        message = `Firestore returned PERMISSION_DENIED reading "${error.docPath || 'the quiz document'}" in project "${projectId}" for service account "${email}". Grant Cloud Datastore Viewer (roles/datastore.viewer) to this exact service account on the Google Cloud project that contains the Firestore database. If the role is already granted, check that FIREBASE_PROJECT_ID points to that database's project and allow a few minutes for the IAM change to propagate.`;
+      } else if (error.status === 401) {
+        code = 'firestore_auth_failed';
+        message = `Firestore rejected the Google access token for project ${projectId}. Check the service-account private key and redeploy the EdgeOne function.`;
+      } else if (error.status === 404) {
+        code = 'firestore_path_not_found';
+        message = `Firestore could not find the requested quiz document in project ${projectId}. Check the app id and globalSettings quiz documents.`;
+      } else if (error.status === 429 || error.status >= 500) {
+        code = 'firestore_unavailable';
+        message = `Firestore could not serve the read for project ${projectId} (HTTP ${error.status}). Try again shortly.`;
       }
-      throw error;
+      if (error.detail) message += ` Google API detail: ${String(error.detail).slice(0, 240)}`;
+      throw Object.assign(new Error(message), { code, status: error.status, detail: error.detail });
     });
     const locations = [
       ...((Array.isArray(defaultQuiz?.locations) ? defaultQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'default' }))),
       ...((Array.isArray(twoYearQuiz?.locations) ? twoYearQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'twoyear' }))),
     ];
-    if (!locations.length) return json({ ok: false, error: 'no_locations' }, 400);
+    if (!locations.length) {
+      const quizStatus = (doc, path) => doc
+        ? `${path} exists, but its locations field is missing, empty, or not an array.`
+        : `${path} was not found.`;
+      return json({
+        ok: false, error: 'no_locations',
+        detail: `No quiz locations were read. 1 Year: ${quizStatus(defaultQuiz, `${base}/globalSettings/defaultQuiz`)} 2 Year: ${quizStatus(twoYearQuiz, `${base}/globalSettings/twoYearQuiz`)}`,
+      }, 400);
+    }
 
     const overridesFile = await ghGetFile(repository, branch, githubToken, 'content/location-boundary-overrides.json');
     let overrides = [];
@@ -419,16 +486,16 @@ export async function onRequestPost(context) {
 
     let deployResponse;
     try { deployResponse = await fetch(hook, { method: 'POST' }); }
-    catch {
-      return json({ ok: false, error: 'hook_unreachable', commitCreated: true, commitSha }, 502);
+    catch (error) {
+      return json({ ok: false, error: 'hook_unreachable', commitCreated: true, commitSha, detail: String(error?.message || error).slice(0, 160) }, 502);
     }
     if (!deployResponse.ok) return json({ ok: false, error: 'hook_failed', status: deployResponse.status, commitCreated: true, commitSha }, 502);
 
     return json({ ok: true, commitSha, branch, total: locations.length, matched, direct, unmatched: unmatched.locations });
   } catch (e) {
-    const detail = String((e && e.message) || e).slice(0, 300);
-    const code = detail.startsWith('google_oauth_failed:') ? 'google_auth_failed' : 'build_failed';
-    return json({ ok: false, error: code, detail }, 500);
+    const detail = String(e?.message || e).slice(0, 500);
+    const code = e?.code || 'build_failed';
+    return json({ ok: false, error: code, status: e?.status || 0, detail }, 500);
   }
 }
 

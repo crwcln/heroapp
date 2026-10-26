@@ -502,36 +502,60 @@ async function resetVisitCounter() {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token: adminToken, appId: SITE.id })
                 });
-                const d = await r.json().catch(() => ({}));
+                const responseText = await r.text();
+                let d;
+                try { d = JSON.parse(responseText); }
+                catch {
+                    const responseDetail = responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 260);
+                    d = responseDetail ? { detail: responseDetail } : {};
+                }
                 if (r.status === 401) { lockAdmin(); throw new Error('Steward session expired. Sign in again.'); }
                 if (!r.ok) {
                     if (d.commitCreated) {
                         const commit = rbEsc((d.commitSha || '').slice(0, 7));
                         const hookMessage = d.error === 'hook_failed'
                             ? `EdgeOne rejected the deployment request (HTTP ${d.status || 'unknown'}).`
-                            : 'The deployment service could not be reached.';
+                            : `The deployment service could not be reached. ${d.detail || ''}`;
                         throw new Error(`Boundary files were committed (${commit}), but ${hookMessage} Check DEPLOY_WEBHOOK_URL or start a deployment from EdgeOne.`);
                     }
                     const msg = {
                         not_configured: `Missing EdgeOne environment variable${d.missing?.length === 1 ? '' : 's'}: ${(d.missing || []).join(', ')}.`,
-                        no_locations: 'No locations found for this site yet — add some first.',
+                        no_locations: d.detail || 'Both shared quiz lists are empty or missing. Check the saved locations in the Quiz tab.',
                         missing_app_id: 'Could not determine this site’s id.',
                         invalid_boundary_overrides: d.detail || 'The boundary overrides file is not a valid list.',
                         invalid_manual_boundary_path: d.detail || 'A manual boundary must be inside content/manual/.',
                         invalid_manual_boundary: d.detail || 'A manual boundary file is not valid GeoJSON.',
-                        google_auth_failed: 'The server could not authenticate its Firebase service account. Check the service account email and private key in EdgeOne settings.',
-                        invalid_firebase_project: 'The Firebase project id is missing or invalid. Set FIREBASE_PROJECT_ID in EdgeOne settings.',
+                        google_auth_failed: `Google rejected the service-account token request (HTTP ${d.status || 'unknown'}): ${d.detail || 'Check FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY_1..N in EdgeOne.'}`,
+                        invalid_firebase_project: d.detail || 'The Firebase project id is missing or invalid. Set FIREBASE_PROJECT_ID in EdgeOne settings.',
                         firebase_project_mismatch: `EdgeOne FIREBASE_PROJECT_ID (${d.configuredProject}) does not match the project in FIREBASE_CLIENT_EMAIL (${d.serviceAccountProject}). Set it to ${d.serviceAccountProject}, or remove the override.`,
                         invalid_github_config: 'Check GITHUB_REPOSITORY and DEPLOY_BRANCH in EdgeOne settings.',
-                        github_failed: d.status === 403
-                            ? 'GitHub denied the write. Check that GITHUB_TOKEN can write repository contents and that the branch allows updates.'
-                            : `GitHub could not commit the boundary files (HTTP ${d.status || r.status}${d.detail ? `: ${d.detail}` : ''}). Check GITHUB_TOKEN, GITHUB_REPOSITORY, and DEPLOY_BRANCH.`,
+                        firestore_api_disabled: d.detail || 'Enable the Firestore API (firestore.googleapis.com) for the Firebase project.',
+                        firestore_scope_denied: d.detail || 'Deploy the latest boundary function; this error indicates the deployed function is using an unsupported Google OAuth scope.',
+                        firestore_permission_denied: d.detail || 'Firestore denied the service-account read. Confirm Cloud Datastore Viewer is granted to FIREBASE_CLIENT_EMAIL on this exact project.',
+                        firestore_auth_failed: d.detail || 'Firestore rejected the access token. Check the service-account key and redeploy the function.',
+                        firestore_unavailable: d.detail || `Firestore is temporarily unavailable (HTTP ${d.status || 'unknown'}). Try again shortly.`,
+                        firestore_path_not_found: d.detail || 'Firestore could not find the quiz document. Check the app id and saved quiz documents.',
+                        firestore_read_failed: `${d.detail || 'Firestore read failed.'} (HTTP ${d.status || 'unknown'})`,
+                        github_read_failed: d.status === 401 || d.status === 403
+                            ? `GitHub denied reading the repository (HTTP ${d.status}). Check GITHUB_TOKEN access and Contents: Read permission for the configured repository. ${d.detail || ''}`
+                            : `Could not read the boundary files from GitHub (HTTP ${d.status || 'unknown'}). Check GITHUB_REPOSITORY, DEPLOY_BRANCH, and the repository path. ${d.detail || ''}`,
+                        github_failed: !d.status
+                            ? `Could not connect to GitHub while committing the boundary files. ${d.detail || 'Check EdgeOne outbound network access and its function logs.'}`
+                            : d.status === 401 || d.status === 403
+                                ? `GitHub denied the write (HTTP ${d.status}). Check that GITHUB_TOKEN has Contents: Read and write access to the configured repository, and that the branch allows updates.`
+                                : d.status === 404
+                                    ? 'GitHub could not find GITHUB_REPOSITORY or DEPLOY_BRANCH. Check the owner/repository and branch names in EdgeOne settings.'
+                                    : d.status === 409 || d.status === 422
+                                        ? `GitHub could not advance the branch (HTTP ${d.status}). It may be protected or have changed during the rebuild. ${d.detail || ''}`
+                                        : `GitHub could not commit the boundary files (HTTP ${d.status || r.status}${d.detail ? `: ${d.detail}` : ''}). Check GITHUB_TOKEN, GITHUB_REPOSITORY, and DEPLOY_BRANCH.`,
+                        map_data_fetch_failed: `Could not download a required Natural Earth or historical map file. Check the server network access and retry. ${d.detail || ''}`,
+                        map_data_invalid: `A downloaded Natural Earth or historical map file was invalid. ${d.detail || ''}`,
                         build_failed: `Could not build the boundaries: ${d.detail || 'unknown error'}`,
                     }[d.error] || (r.status === 404
                         ? 'Add edge-functions/api/build-boundaries.js and deploy the site once.'
                         : r.status === 504
                             ? 'The boundary build timed out. Check EdgeOne and GitHub for a commit before retrying; the server time limit may need the work split into smaller steps.'
-                            : `Rebuild failed (HTTP ${r.status}).`);
+                            : `Rebuild failed (HTTP ${r.status})${d.detail ? `: ${d.detail}` : '.'}`);
                     throw new Error(msg);
                 }
                 const missing = Math.max(0, d.total - d.matched);
