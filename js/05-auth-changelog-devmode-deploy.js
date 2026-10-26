@@ -521,6 +521,7 @@ async function resetVisitCounter() {
                         invalid_manual_boundary: d.detail || 'A manual boundary file is not valid GeoJSON.',
                         google_auth_failed: 'The server could not authenticate its Firebase service account. Check the service account email and private key in EdgeOne settings.',
                         invalid_firebase_project: 'The Firebase project id is missing or invalid. Set FIREBASE_PROJECT_ID in EdgeOne settings.',
+                        firebase_project_mismatch: `EdgeOne FIREBASE_PROJECT_ID (${d.configuredProject}) does not match the project in FIREBASE_CLIENT_EMAIL (${d.serviceAccountProject}). Set it to ${d.serviceAccountProject}, or remove the override.`,
                         invalid_github_config: 'Check GITHUB_REPOSITORY and DEPLOY_BRANCH in EdgeOne settings.',
                         github_failed: d.status === 403
                             ? 'GitHub denied the write. Check that GITHUB_TOKEN can write repository contents and that the branch allows updates.'

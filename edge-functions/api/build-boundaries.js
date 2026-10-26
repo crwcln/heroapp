@@ -93,8 +93,8 @@ async function firestoreGetDoc(projectId, token, docPath) {
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`firestore_read_failed:${r.status}`);
-  const data = await r.json();
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`firestore_read_failed:${r.status}:${data.error?.status || ''}:${data.error?.message || ''}`);
   return fsFields(data.fields || {});
 }
 
@@ -349,20 +349,26 @@ export async function onRequestPost(context) {
   if (!(await validToken(body && body.token, secret))) return json({ ok: false, error: 'unauthorized' }, 401);
 
   try {
-    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/datastore.readonly');
     const serviceAccountProject = (email.split('@')[1] || '').split('.')[0];
-    const projectId = env.FIREBASE_PROJECT_ID || serviceAccountProject;
+    const configuredProject = String(env.FIREBASE_PROJECT_ID || '').trim();
+    if (configuredProject && serviceAccountProject && configuredProject !== serviceAccountProject) {
+      return json({ ok: false, error: 'firebase_project_mismatch', configuredProject, serviceAccountProject }, 409);
+    }
+    const projectId = configuredProject || serviceAccountProject;
     const appId = typeof body.appId === 'string' ? body.appId : '';
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(appId)) return json({ ok: false, error: 'missing_app_id' }, 400);
     if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId || '')) return json({ ok: false, error: 'invalid_firebase_project' }, 500);
+    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/datastore.readonly');
 
     const base = `artifacts/${appId}/public/data`;
     const [defaultQuiz, twoYearQuiz] = await Promise.all([
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/defaultQuiz`),
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/twoYearQuiz`),
     ]).catch((error) => {
-      if (String(error?.message || '').includes('firestore_read_failed:403')) {
-        throw new Error('Firestore denied the read. Grant the service account Cloud Datastore Viewer on the Firebase project.');
+      const match = String(error?.message || '').match(/^firestore_read_failed:403:([^:]*):(.*)$/);
+      if (match) {
+        const googleDetail = match[2] ? ` Google says: ${match[2].slice(0, 240)}` : '';
+        throw new Error(`Firestore denied the read in project ${projectId}. Confirm this exact project's IAM grants the service account Cloud Datastore Viewer, and that the Firestore API is enabled.${googleDetail}`);
       }
       throw error;
     });
