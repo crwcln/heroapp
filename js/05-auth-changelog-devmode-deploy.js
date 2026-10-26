@@ -502,6 +502,7 @@ async function resetVisitCounter() {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token: adminToken, appId: SITE.id })
                 });
+                const edgeLogId = r.headers.get('EO-LOG-UUID') || r.headers.get('x-eo-log-uuid') || '';
                 const responseText = await r.text();
                 let d;
                 try { d = JSON.parse(responseText); }
@@ -553,6 +554,8 @@ async function resetVisitCounter() {
                         build_failed: `Could not build the boundaries: ${d.detail || 'unknown error'}`,
                     }[d.error] || (r.status === 404
                         ? 'Add edge-functions/api/build-boundaries.js and deploy the site once.'
+                        : r.status === 545
+                            ? `EdgeOne's boundary function crashed while running${edgeLogId ? ` (request ID ${edgeLogId})` : ''}. This is a server runtime exception, not a Firestore permission response. Check the EdgeOne function execution logs for the stack trace${d.detail ? `; response: ${d.detail}` : ''}.`
                         : r.status === 504
                             ? 'The boundary build timed out. Check EdgeOne and GitHub for a commit before retrying; the server time limit may need the work split into smaller steps.'
                             : `Rebuild failed (HTTP ${r.status})${d.detail ? `: ${d.detail}` : '.'}`);

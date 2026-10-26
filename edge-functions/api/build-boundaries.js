@@ -267,7 +267,7 @@ const kindOf = (loc) => {
   if (/region|continent/.test(label)) return 'region';
   return 'land';
 };
-const layerPriority = (kind) => ({ land: ['countries', 'provinces', 'regions', 'lakes', 'marine', 'rivers'], region: ['regions', 'provinces', 'countries', 'lakes', 'marine', 'rivers'], lake: ['lakes', 'rivers', 'marine'], river: ['rivers', 'lakes', 'marine'], marine: ['marine', 'lakes', 'rivers'], route: [], historic: [] }[kind] || []);
+const layerPriority = (kind) => ({ land: ['countries', 'provinces', 'regions'], region: ['regions', 'provinces', 'countries'], lake: ['lakes', 'rivers', 'marine'], river: ['rivers', 'lakes', 'marine'], marine: ['marine', 'lakes', 'rivers'], route: [], historic: [] }[kind] || []);
 const aliasesFrom = (loc, override) => [...new Set([loc.name, ...(Array.isArray(loc.aliases) ? loc.aliases : []), ...(Array.isArray(override?.aliases) ? override.aliases : [])].map(normalize).filter(Boolean))];
 const regionHint = (loc, feature) => {
   const p = feature?.properties || {};
@@ -282,14 +282,24 @@ const regionHint = (loc, feature) => {
 
 async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
   const findOverride = (loc) => overrides.find((row) => (row.locationId && row.locationId === loc.id) || (row.name && normalize(row.name) === normalize(loc.name)));
-  const naturalEarth = Object.fromEntries(await Promise.all(Object.entries(NE_FILES).map(async ([layer, file]) => [layer, await fetchJson(`${NE_ROOT}${file}`)])));
-  const historicalIndex = await fetchJson(HISTORICAL_INDEX);
+  const neededLayers = new Set();
+  for (const loc of locations) {
+    const override = findOverride(loc);
+    if (override?.file || override?.source === 'historical' || kindOf(loc) === 'historic') continue;
+    for (const layer of layerPriority(kindOf(loc))) neededLayers.add(layer);
+  }
+  const naturalEarth = Object.fromEntries(await Promise.all([...neededLayers].map(async (layer) => [layer, await fetchJson(`${NE_ROOT}${NE_FILES[layer]}`)])));
+  const historicalLocations = locations.filter((loc) => {
+    const override = findOverride(loc);
+    return !override?.file && (kindOf(loc) === 'historic' || override?.source === 'historical') && hasYear(override?.year ?? loc.year);
+  });
+  const historicalIndex = historicalLocations.length ? await fetchJson(HISTORICAL_INDEX) : [];
   const historicByYear = new Map();
   for (const entry of Array.isArray(historicalIndex) ? historicalIndex : historicalIndex.years || historicalIndex.maps || []) {
     const year = Number(entry.year);
     if (Number.isInteger(year) && entry.filename) historicByYear.set(year, entry.filename);
   }
-  const yearsNeeded = new Set(locations.filter((loc) => { const o = findOverride(loc); return (kindOf(loc) === 'historic' || o?.source === 'historical') && hasYear(o?.year ?? loc.year); }).map((loc) => Number(findOverride(loc)?.year ?? loc.year)));
+  const yearsNeeded = new Set(historicalLocations.map((loc) => Number(findOverride(loc)?.year ?? loc.year)));
   const closestHistoricalYear = (year) => [...historicByYear.keys()].sort((a, b) => Math.abs(a - year) - Math.abs(b - year) || a - b)[0];
   const historicalFiles = new Map();
   for (const year of yearsNeeded) {
