@@ -358,7 +358,8 @@ export async function onRequestPost(context) {
     const appId = typeof body.appId === 'string' ? body.appId : '';
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(appId)) return json({ ok: false, error: 'missing_app_id' }, 400);
     if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId || '')) return json({ ok: false, error: 'invalid_firebase_project' }, 500);
-    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/datastore.readonly');
+    // Firestore documents.get accepts the datastore scope; the IAM Viewer role keeps this token read-only.
+    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/datastore');
 
     const base = `artifacts/${appId}/public/data`;
     const [defaultQuiz, twoYearQuiz] = await Promise.all([
