@@ -74,7 +74,7 @@
         })();
     </script>
     <link rel="stylesheet" href="css/styles.css?v=4c79495de6b1c429">
-    <link rel="stylesheet" href="css/premium.css?v=136e1859b961afb3">
+    <link rel="stylesheet" href="css/premium.css?v=be0f76daeec65d99">
     <link rel="stylesheet" href="css/night.css?v=f3c6356f915d7965">
     <link rel="stylesheet" href="css/intro.css?v=463dd5736fc66ec2">
     <link rel="stylesheet" href="css/secret.css?v=10c6819be5306f3e">
@@ -188,21 +188,8 @@
                     The Grand Tour
                 </h2>
             </div>
-            <p class="text-slate-500 dark:text-slate-400 mb-12 text-lg max-w-xl mx-auto font-medium"><span id="tagline">Studying, Redefined.</span><br>Pin down the places that shaped history. Beat the clock, build a streak, earn your place on the board.</p>
+            <p class="text-slate-500 dark:text-slate-400 mb-8 text-lg max-w-xl mx-auto font-medium"><span id="tagline">Studying, Redefined.</span><br>Pin down the places that shaped history. Beat the clock, build a streak, earn your place on the board.</p>
             <figure id="qotd" class="qotd"><blockquote id="qotd-t"></blockquote><figcaption id="qotd-a"></figcaption></figure>
-            <section id="daily-challenge-card" class="daily-challenge-card" aria-labelledby="daily-challenge-title">
-                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>Each UTC day, Hero picks up to 7 places from the regular 1 Year tour. Everyone gets the same round, a separate leaderboard, and a streak saved on this browser.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
-                <div class="daily-challenge-actions"><button id="daily-challenge-start" class="cm-btn go" type="button" onclick="startDailyChallenge()" disabled>Start today's challenge</button><button type="button" class="cm-btn ghost" onclick="openDailyLeaderboard()">Daily leaderboard</button></div>
-            </section>
-            <section class="beta-callout" aria-labelledby="beta-callout-title">
-                <div><span class="beta-spots">Only 2 spots open</span><h3 id="beta-callout-title">Help shape Hero as a beta tester</h3><p>Try new features early and share what works (and what doesn’t). Apply by October 24, 2026.</p></div>
-                <button type="button" onclick="openBetaApplication()">Apply to test <i data-lucide="arrow-right"></i></button>
-            </section>
-            <a class="sponsor-rant-cta" href="https://agastyaarchive.edgeone.dev" target="_blank" rel="sponsored noopener noreferrer" aria-label="Sponsored: listen in to today's rant on Agastya Archive">
-                <span class="sponsor-rant-icon"><i data-lucide="headphones" aria-hidden="true"></i></span>
-                <span class="sponsor-rant-copy"><span class="sponsor-rant-label">Sponsored · Agastya Archive</span><strong>Listen in to today's rant</strong></span>
-                <i class="sponsor-rant-arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
-            </a>
             <div id="mode-pick" class="flex justify-center gap-2 mb-6 flex-wrap"><button class="st-chip" data-gm="identify" onclick="setGameMode('identify')">Name the Place</button><button class="st-chip" data-gm="find" onclick="setGameMode('find')">Find the Land</button><button class="st-chip" onclick="switchView('review-view')">Revisit the Forgotten <span id="miss-count"></span></button><label class="st-chip cb-wrap" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rand-locs" class="cb-native" onchange="localStorage.setItem('hero_rand', this.checked ? '1' : '')"><span class="cb-box" aria-hidden="true"></span> Random order</label></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <button onclick="startQuiz('default')" class="group relative overflow-hidden flex flex-col items-center p-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-indigo-500 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -226,6 +213,12 @@
                     </button>
                 </div>
             </div>
+            <section id="home-custom-cards" class="home-custom-cards" aria-label="Featured cards"></section>
+            <section id="daily-challenge-card" class="daily-challenge-card" aria-labelledby="daily-challenge-title">
+                <div class="daily-challenge-copy"><div class="daily-challenge-kicker"><i data-lucide="calendar-days" class="w-4 h-4"></i> EVERYONE GETS THE SAME ROUND</div><h3 id="daily-challenge-title">Daily Challenge</h3><p>A shared set of up to 7 places from the 1 Year tour, with its own leaderboard and a streak saved on this browser.</p><div id="daily-challenge-status" class="daily-challenge-status">Loading today's challenge...</div></div>
+                <div class="daily-challenge-actions"><button id="daily-challenge-start" class="cm-btn go" type="button" onclick="startDailyChallenge()" disabled>Start today's challenge</button><button type="button" class="cm-btn ghost" onclick="openDailyLeaderboard()">Daily leaderboard</button></div>
+            </section>
+
         </div>
     </div>
                 <div id="leaderboard-view" class="view-section hidden p-6 sm:p-12 relative z-10 items-center">
@@ -814,5 +807,6 @@
     <script src="js/22-manoj-cursor.js?v=ff159dae00e39b29"></script>
     <script src="js/24-push-notifications.js?v=c1e4189ea78d61c7"></script>
     <script src="js/26-update-check.js?v=32c0531013159e58"></script>
+    <script src="js/27-home-cards.js?v=7cdec2b2a95189b6"></script>
 </body>
 </html>
