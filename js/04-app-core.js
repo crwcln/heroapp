@@ -99,6 +99,9 @@
 
         // ================= FIREBASE SETUP =================
         let db = null, auth = null;
+        window.__heroFirebaseAppReady = false;
+        window.__heroFirebaseInitError = '';
+        window.__heroFirebaseProjectId = '';
         window.__heroCanAccessApp = false;
         window.__heroAuthResolved = false;
         let globalLocations = [];
@@ -143,9 +146,13 @@
             if (typeof window.__firebase_config !== 'undefined' && window.__firebase_config) {
                 try {
                     const firebaseConfig = JSON.parse(window.__firebase_config);
-                    firebase.initializeApp(firebaseConfig);
-                    auth = firebase.auth();
-                    db = firebase.firestore();
+                    const existingDefaultApp = firebase.apps && firebase.apps.find(app => app.name === '[DEFAULT]');
+                    const firebaseApp = existingDefaultApp || firebase.initializeApp(firebaseConfig);
+                    auth = firebase.auth(firebaseApp);
+                    db = firebase.firestore(firebaseApp);
+                    window.__heroFirebaseProjectId = firebaseApp.options.projectId || '';
+                    window.__heroFirebaseAppReady = !!(auth && db);
+                    if (!window.__heroFirebaseAppReady) throw new Error('Firebase Auth or Firestore did not initialize.');
 
                     const beginAuth = () => {
                         window.dispatchEvent(new Event('hero-firebase-ready'));
@@ -178,6 +185,8 @@
                     });
                 } catch (e) {
                     console.error("Firebase init failed:", e);
+                    window.__heroFirebaseAppReady = false;
+                    window.__heroFirebaseInitError = String(e && (e.message || e.code) || e).slice(0, 240);
                     enableLocalMode();
                 }
             } else enableLocalMode();
