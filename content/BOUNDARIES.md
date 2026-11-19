@@ -31,7 +31,7 @@ The CLI uses Natural Earth v5.1.2 at 1:10m scale. It downloads map data only dur
 
 ## Overrides and review
 
-Add aliases or historical years in `content/location-boundary-overrides.json`. Hand-traced features for things such as trade routes can be stored as GeoJSON under `content/manual/` and referenced by an override:
+Add aliases, corrected map coordinates, or historical years in `content/location-boundary-overrides.json`. Corrected coordinates are used only to choose the surrounding boundary; they do not change the quiz location itself. Hand-traced features for things such as trade routes can be stored as GeoJSON under `content/manual/` and referenced by an override:
 
 ```json
 [

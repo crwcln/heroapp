@@ -340,6 +340,10 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
 
   for (let locIndex = 0; locIndex < locations.length; locIndex++) {
     const loc = locations[locIndex], kind = kindOf(loc), locKey = locationKey(loc, locIndex), override = findOverride(loc);
+    const overrideLat = Number(override?.lat), overrideLng = Number(override?.lng);
+    const boundaryLoc = Number.isFinite(overrideLat) && Number.isFinite(overrideLng)
+      ? { ...loc, lat: overrideLat, lng: overrideLng }
+      : loc;
     const year = hasYear(override?.year) ? Number(override.year) : hasYear(loc.year) ? Number(loc.year) : null;
     if (override?.file) {
       const manual = manualFeatureFiles[override.file];
@@ -357,8 +361,8 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
       const aliases = aliasesFrom(loc, override);
       const matches = rows.filter((row) => aliases.some((alias) => row.names.has(alias) || [...row.names].some((candidate) => simplify(candidate) === simplify(alias))));
       if (matches.length) {
-        const selected = matches.sort((a, b) => Number(contains(b.feature, loc)) - Number(contains(a.feature, loc)))[0];
-        addFeature(loc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion);
+        const selected = matches.sort((a, b) => Number(contains(b.feature, boundaryLoc)) - Number(contains(a.feature, boundaryLoc)))[0];
+        addFeature(boundaryLoc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion);
         if (availableYear !== year) review.push({ id: loc.id || '', name: loc.name, requestedYear: year, selectedYear: availableYear, status: 'historical-year-review' });
       } else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year, status: 'historical-name-not-found' });
       continue;
@@ -373,14 +377,14 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
       const soft = !exact && [...row.names].some((candidate) => simplifiedAliases.has(simplify(candidate)));
       if (!exact && !soft) continue;
       const categoryBoost = preferred.includes(layer) ? (preferred.length - preferred.indexOf(layer)) * 10 : 0;
-      matches.push({ ...row, score: (exact ? 10000 : 7000) + (contains(row.feature, loc) ? 5000 : 0) + categoryBoost });
+      matches.push({ ...row, score: (exact ? 10000 : 7000) + (contains(row.feature, boundaryLoc) ? 5000 : 0) + categoryBoost });
     }
-    if (matches.length) { matches.sort((a, b) => b.score - a.score || a.layer.localeCompare(b.layer)); addFeature(loc, locKey, matches[0], 'name', kind, null, override?.hintRegion); continue; }
+    if (matches.length) { matches.sort((a, b) => b.score - a.score || a.layer.localeCompare(b.layer)); addFeature(boundaryLoc, locKey, matches[0], 'name', kind, null, override?.hintRegion); continue; }
 
     const isLegendary = /legend|lost (city|cities|continent)|phantom|mythical|fictional/.test(`${loc.name} ${loc.category}`.toLowerCase());
     const noPointFallback = isLegendary || kind === 'historic' || kind === 'route' || /river|lake|sea|ocean|gulf|bay|strait|marine|water/.test(`${loc.name} ${loc.category}`.toLowerCase());
-    const pointFeature = noPointFallback ? null : ['provinces', 'countries'].flatMap((layer) => layerRows.find((row) => row[0] === layer)?.[1] || []).find((row) => contains(row.feature, loc));
-    if (pointFeature) { addFeature(loc, locKey, pointFeature, 'point-fallback', kind, null, override?.hintRegion); review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', status: 'point-fallback-review', suggestedBoundary: getProperty(pointFeature.feature.properties || {}, ['NAME_1', 'ADM0_NAME', 'ADMIN', 'NAME']) }); }
+    const pointFeature = noPointFallback ? null : ['provinces', 'countries'].flatMap((layer) => layerRows.find((row) => row[0] === layer)?.[1] || []).find((row) => contains(row.feature, boundaryLoc));
+    if (pointFeature) { addFeature(boundaryLoc, locKey, pointFeature, 'point-fallback', kind, null, override?.hintRegion); review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', status: 'point-fallback-review', suggestedBoundary: getProperty(pointFeature.feature.properties || {}, ['NAME_1', 'ADM0_NAME', 'ADMIN', 'NAME']) }); }
     else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year: year ?? undefined, status: 'not-matched' });
   }
 

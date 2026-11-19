@@ -1,1 +1,8 @@
-﻿[]
+[
+  { "name": "Chang'an", "lat": 34.3416, "lng": 108.9398 },
+  { "name": "Pataliputra", "lat": 25.5941, "lng": 85.1376 },
+  { "name": "Persepolis", "lat": 29.9350, "lng": 52.8910 },
+  { "name": "Athens", "lat": 37.9838, "lng": 23.7275 },
+  { "name": "Sparta", "lat": 37.0745, "lng": 22.4301 },
+  { "name": "Rome", "lat": 41.9028, "lng": 12.4964 }
+]
