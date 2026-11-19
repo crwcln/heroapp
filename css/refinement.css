@@ -1,0 +1,171 @@
+/* Hero visual system: quiet cartography, clear type, and solid surfaces. */
+:root {
+  --bg-base: #f3f0e7;
+  --field: #fffdf7;
+  --line: #d8d0bd;
+  --ink-900: #17243a;
+  --ink-500: #667085;
+  --panel: #fffdf7;
+  --panel-raised: #f8f5ed;
+  --hero-radius-card: 12px;
+  --hero-radius-control: 8px;
+  --hero-shadow-card: 0 2px 8px rgba(23, 36, 58, .07);
+}
+
+html.dark {
+  --bg-base: #0b1424;
+  --field: #111e32;
+  --line: rgba(212, 175, 55, .2);
+  --ink-900: #f3eee0;
+  --ink-500: #a8b1c1;
+  --panel: #111d30;
+  --panel-raised: #16243a;
+  --hero-shadow-card: 0 3px 14px rgba(0, 0, 0, .2);
+}
+
+html, body {
+  background: var(--bg-base) !important;
+  color: var(--ink-900);
+}
+
+body::before { display: none !important; }
+#fx-a { opacity: .1 !important; }
+html.dark #fx-a { opacity: .17 !important; }
+
+/* Solid panels replace the stacked blur, shine, and deep shadows. */
+.glass-panel,
+html.dark .glass-panel {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--hero-shadow-card) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.glass-panel::before { display: none !important; }
+.bg-white.dark\:bg-slate-800,
+.bg-white.dark\:bg-slate-900 {
+  background-color: var(--panel) !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+
+#top-nav,
+html.dark #top-nav {
+  background: var(--panel) !important;
+  border-bottom: 1px solid var(--line) !important;
+  box-shadow: 0 1px 0 rgba(212, 175, 55, .22);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+#top-nav h1 {
+  color: var(--brand-700) !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+html.dark #top-nav h1 { color: #e5c45d !important; }
+#top-nav > div:first-child > svg { box-shadow: none !important; }
+
+/* Use one compact corner language across cards and controls. */
+.rounded-3xl { border-radius: 14px !important; }
+.rounded-2xl { border-radius: 12px !important; }
+.rounded-xl { border-radius: 9px !important; }
+.rounded-lg { border-radius: 7px !important; }
+
+/* Brand buttons are navy with a restrained gold edge; semantic colors stay semantic. */
+button.bg-indigo-600,
+a.bg-indigo-600,
+button.bg-indigo-600:hover,
+a.bg-indigo-600:hover {
+  color: #101a2b !important;
+  background: #d4af37 !important;
+  border-color: #c7a22f !important;
+  box-shadow: none !important;
+}
+button.bg-indigo-600:hover,
+a.bg-indigo-600:hover { background: #e0bd4c !important; }
+button.bg-rose-600,
+button.bg-emerald-600 { box-shadow: none !important; }
+button:not(:disabled):active { transform: none !important; }
+
+button, a, input, textarea, select { transition-duration: .14s !important; }
+button:not(:disabled):hover,
+a:hover { filter: brightness(.97); }
+
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  border-color: var(--line) !important;
+  border-radius: 7px !important;
+  background-color: var(--field) !important;
+  color: var(--ink-900) !important;
+  box-shadow: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--sec) !important;
+  box-shadow: 0 0 0 2px rgba(var(--sec-rgb), .18) !important;
+}
+::placeholder { color: var(--ink-500) !important; opacity: .8; }
+:focus-visible { outline: 2px solid var(--sec) !important; outline-offset: 2px; }
+
+/* Home screen: let the title and two tour choices carry the page. */
+#global-quiz-title {
+  color: var(--brand-700) !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-shadow: none !important;
+}
+html.dark #global-quiz-title { color: #e5c45d !important; }
+#home-view .glass-panel { max-width: 760px; }
+#home-view .grid > button {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+#home-view .grid > button:hover {
+  border-color: var(--sec) !important;
+  box-shadow: 0 3px 12px rgba(23, 36, 58, .08) !important;
+}
+#home-view .grid > button > .absolute { display: none !important; }
+
+/* Keep map controls legible without dressing up the map itself. */
+.quiz-toolbar { box-shadow: 0 2px 10px rgba(0, 0, 0, .22) !important; }
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+html.dark .leaflet-popup-content-wrapper,
+html.dark .leaflet-popup-tip {
+  background: var(--panel) !important;
+  border-color: var(--line) !important;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .22) !important;
+}
+
+/* Remove decorative entrance movement while keeping functional game feedback. */
+.view-section:not(.hidden) { animation: none !important; }
+.animate-slide-up { animation: none !important; }
+
+#mobile-tabbar,
+html.dark #mobile-tabbar {
+  background: var(--panel) !important;
+  border-top-color: var(--line) !important;
+}
+#mobile-tabbar button.active,
+html.dark #mobile-tabbar button.active {
+  color: var(--brand-700) !important;
+  background: rgba(var(--sec-rgb), .17) !important;
+}
+html.dark #mobile-tabbar button.active { color: #e5c45d !important; }
+
+@media (max-width: 640px) {
+  .glass-panel,
+  html.dark .glass-panel { border-radius: 10px !important; }
+  .is-mobile .glass-panel.rounded-3xl { padding: 18px !important; border-radius: 10px !important; }
+  #home-view .grid > button { min-height: 118px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
