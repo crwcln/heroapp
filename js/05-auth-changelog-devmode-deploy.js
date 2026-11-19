@@ -549,19 +549,19 @@ async function resetVisitCounter() {
                             ? `GitHub denied reading the repository (HTTP ${d.status}). Check GITHUB_TOKEN access and Contents: Read permission for the configured repository. ${d.detail || ''}`
                             : `Could not read the boundary files from GitHub (HTTP ${d.status || 'unknown'}). Check GITHUB_REPOSITORY, DEPLOY_BRANCH, and the repository path. ${d.detail || ''}`,
                         github_failed: !d.status
-                            ? `Could not connect to GitHub while committing the boundary files. ${d.detail || 'Check EdgeOne outbound network access and its function logs.'}`
+                            ? `Could not connect to GitHub while committing the boundary files. ${d.detail || 'Check the Cloud Function request log.'}`
                             : d.status === 401 || d.status === 403
-                                ? `GitHub denied the write (HTTP ${d.status}). Check that GITHUB_TOKEN has Contents: Read and write access to the configured repository, and that the branch allows updates.`
+                                ? `GitHub denied ${d.operation || 'the write'} (HTTP ${d.status}). Confirm the token has Contents: Read and write access and that the branch allows updates.${d.detail ? ` GitHub says: ${d.detail}` : ''}`
                                 : d.status === 404
-                                    ? 'GitHub could not find GITHUB_REPOSITORY or DEPLOY_BRANCH. Check the owner/repository and branch names in EdgeOne settings.'
+                                    ? `GitHub returned 404 while trying to ${d.operation || 'commit the boundary files'} in ${d.repository || 'the configured repository'} on branch ${d.branch || 'main'}. Confirm the Cloud Function has the intended repository, branch, and token.${d.detail ? ` GitHub says: ${d.detail}` : ''}`
                                     : d.status === 409 || d.status === 422
-                                        ? `GitHub could not advance the branch (HTTP ${d.status}). It may be protected or have changed during the rebuild. ${d.detail || ''}`
-                                        : `GitHub could not commit the boundary files (HTTP ${d.status || r.status}${d.detail ? `: ${d.detail}` : ''}). Check GITHUB_TOKEN, GITHUB_REPOSITORY, and DEPLOY_BRANCH.`,
+                                        ? `GitHub could not ${d.operation || 'advance the branch'} (HTTP ${d.status}). The branch may be protected or may have changed during the rebuild.${d.detail ? ` GitHub says: ${d.detail}` : ''}`
+                                        : `GitHub could not ${d.operation || 'commit the boundary files'} (HTTP ${d.status || r.status}).${d.detail ? ` GitHub says: ${d.detail}` : ''}`,
                         map_data_fetch_failed: `Could not download a required Natural Earth or historical map file. Check the server network access and retry. ${d.detail || ''}`,
                         map_data_invalid: `A downloaded Natural Earth or historical map file was invalid. ${d.detail || ''}`,
                         build_failed: `Could not build the boundaries: ${d.detail || 'unknown error'}`,
                     }[d.error] || (r.status === 404
-                        ? 'Add edge-functions/api/build-boundaries.js and deploy the site once.'
+                        ? 'The boundary builder route was not found. Confirm cloud-functions/api/build-boundaries.js is included in the EdgeOne deployment and that the project has finished deploying.'
                         : r.status === 545
                             ? `EdgeOne's boundary function crashed while running${edgeLogId ? ` (request ID ${edgeLogId})` : ''}. This is a server runtime exception, not a Firestore permission response. Check the EdgeOne function execution logs for the stack trace${d.detail ? `; response: ${d.detail}` : ''}.`
                         : r.status === 504

@@ -166,7 +166,7 @@ function b64(input) {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
 }
-async function ghApi(repository, token, path, options = {}) {
+async function ghApi(repository, token, path, options = {}, operation = path) {
   const r = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
     ...options,
     headers: {
@@ -179,19 +179,19 @@ async function ghApi(repository, token, path, options = {}) {
     },
   });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(data.message || 'GitHub request failed'), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(data.message || `GitHub request failed while trying to ${operation} (HTTP ${r.status}).`), { status: r.status, operation, detail: data.message || '' });
   return data;
 }
 async function ghCommitFiles(repository, branch, token, files, message) {
   const refPath = `git/ref/heads/${encodeURIComponent(branch)}`;
-  const ref = await ghApi(repository, token, refPath);
+  const ref = await ghApi(repository, token, refPath, {}, `read branch ref ${branch}`);
   const parentSha = ref.object.sha;
-  const parent = await ghApi(repository, token, `git/commits/${parentSha}`);
+  const parent = await ghApi(repository, token, `git/commits/${parentSha}`, {}, 'read the current branch commit');
   const blobs = await Promise.all(files.map(async ({ path, text }) => ({
     path,
     sha: (await ghApi(repository, token, 'git/blobs', {
       method: 'POST', body: JSON.stringify({ content: b64(text), encoding: 'base64' }),
-    })).sha,
+    }, `upload ${path}`)).sha,
   })));
   const tree = await ghApi(repository, token, 'git/trees', {
     method: 'POST',
@@ -199,11 +199,11 @@ async function ghCommitFiles(repository, branch, token, files, message) {
       base_tree: parent.tree.sha,
       tree: blobs.map(({ path, sha }) => ({ path, mode: '100644', type: 'blob', sha })),
     }),
-  });
+  }, 'create the boundary commit tree');
   const commit = await ghApi(repository, token, 'git/commits', {
     method: 'POST', body: JSON.stringify({ message, tree: tree.sha, parents: [parentSha] }),
-  });
-  await ghApi(repository, token, refPath, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: false }) });
+  }, 'create the boundary commit');
+  await ghApi(repository, token, refPath, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: false }) }, `update branch ${branch}`);
   return commit.sha;
 }
 
@@ -527,7 +527,9 @@ export async function onRequestPost(context) {
         { path: 'content/location-boundaries-unmatched.json', text: JSON.stringify(unmatched, null, 2) },
       ], 'Rebuild location boundaries (from the Stewards panel)');
     } catch (error) {
-      return json({ ok: false, error: 'github_failed', status: error.status || 0, detail: String(error.message || error).slice(0, 220) }, 502);
+      const detail = String(error.detail || error.message || error).slice(0, 220);
+      console.error('[boundary-build] GitHub commit failed:', error.operation || 'unknown GitHub operation', error.status || 0, detail);
+      return json({ ok: false, error: 'github_failed', status: error.status || 0, operation: error.operation || '', repository, branch, detail }, 502);
     }
 
     if (hook) {
