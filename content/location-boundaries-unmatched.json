@@ -1,83 +1,48 @@
 {
-  "generatedAt": "2026-11-19T03:16:12.742Z",
-  "reviewed": 11,
+  "generatedAt": "2026-11-19T05:37:15.842Z",
+  "reviewed": 6,
   "locations": [
     {
       "id": "loc_uudvovex1",
       "name": "Chang'an",
       "category": "Major Cities and/or City States",
-      "year": 1999,
-      "status": "historical-name-not-found"
+      "status": "point-fallback-review",
+      "suggestedBoundary": ""
     },
     {
       "id": "loc_rwph01gvj",
       "name": "Pataliputra",
       "category": "Major Cities and/or City States",
-      "year": 1999,
-      "status": "historical-name-not-found"
+      "status": "point-fallback-review",
+      "suggestedBoundary": ""
     },
     {
       "id": "loc_t2rnpz6n1",
       "name": "Persepolis",
       "category": "Major Cities and/or City States",
-      "year": 1999,
-      "status": "historical-name-not-found"
+      "status": "point-fallback-review",
+      "suggestedBoundary": "United States of America"
     },
     {
       "id": "loc_xyobpvsqv",
       "name": "Athens",
       "category": "Major Cities and/or City States",
-      "year": 2000,
-      "status": "historical-name-not-found"
+      "status": "point-fallback-review",
+      "suggestedBoundary": "United States of America"
     },
     {
       "id": "loc_1gzysem3t",
       "name": "Sparta",
       "category": "Major Cities and/or City States",
-      "year": 1998,
-      "status": "historical-name-not-found"
+      "status": "point-fallback-review",
+      "suggestedBoundary": "United States of America"
     },
     {
       "id": "loc_ldibo93au",
       "name": "Rome",
       "category": "Major Cities and/or City States",
-      "year": 1999,
-      "status": "historical-name-not-found"
-    },
-    {
-      "id": "loc_w9k2ymmzx",
-      "name": "Mediterranean Sea",
-      "category": "Waterways",
-      "year": 1999,
-      "status": "historical-name-not-found"
-    },
-    {
-      "id": "loc_89vwdkozz",
-      "name": "Adriatic Sea",
-      "category": "Waterways",
-      "year": 1999,
-      "status": "historical-name-not-found"
-    },
-    {
-      "id": "loc_hvzvpsdne",
-      "name": "Black Sea",
-      "category": "Waterways",
-      "year": 1999,
-      "status": "historical-name-not-found"
-    },
-    {
-      "id": "loc_ivh7m0zp2",
-      "name": "Tyrrhenian Sea",
-      "category": "Waterways",
-      "year": 1999,
-      "status": "historical-name-not-found"
-    },
-    {
-      "id": "loc_475pnsqqy",
-      "name": "Ionian Sea",
-      "category": "Waterways",
-      "year": 1976,
-      "status": "historical-name-not-found"
+      "status": "point-fallback-review",
+      "suggestedBoundary": "United States of America"
     }
   ]
 }
