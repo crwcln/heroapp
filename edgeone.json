@@ -1,4 +1,9 @@
 {
+  "cloudFunctions": {
+    "nodejs": {
+      "maxDuration": 120
+    }
+  },
   "buildCommand": "npm run build",
   "headers": [
     {

@@ -387,6 +387,7 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
 }
 
 export async function onRequestPost(context) {
+  let stage = 'checking configuration';
   const env = context.env || {};
   const secret = env.ADMIN_PASSWORD,
         githubToken = env.GITHUB_TOKEN,
@@ -416,9 +417,17 @@ export async function onRequestPost(context) {
 
   let body;
   try { body = await context.request.json(); } catch { return json({ ok: false, error: 'bad_request' }, 400); }
-  if (!(await validToken(body && body.token, secret))) return json({ ok: false, error: 'unauthorized' }, 401);
+  let authorized;
+  try { authorized = await validToken(body && body.token, secret); }
+  catch (error) {
+    const detail = String(error?.message || error).slice(0, 220);
+    console.error('[boundary-build] token validation failed:', detail);
+    return json({ ok: false, error: 'token_validation_failed', detail }, 500);
+  }
+  if (!authorized) return json({ ok: false, error: 'unauthorized' }, 401);
 
   try {
+    stage = 'validating Firebase project configuration';
     const serviceAccountProject = (email.split('@')[1] || '').split('.')[0];
     const configuredProject = String(env.FIREBASE_PROJECT_ID || '').trim();
     if (configuredProject && serviceAccountProject && configuredProject !== serviceAccountProject) {
@@ -431,8 +440,10 @@ export async function onRequestPost(context) {
       return json({ ok: false, error: 'invalid_firebase_project', detail: 'Could not derive a valid Firebase project id from FIREBASE_CLIENT_EMAIL. Set FIREBASE_PROJECT_ID to the Firebase project id.' }, 500);
     }
 
+    stage = 'authenticating with Google';
     const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/cloud-platform');
 
+    stage = 'reading quiz locations from Firestore';
     const base = `artifacts/${appId}/public/data`;
     const [defaultQuiz, twoYearQuiz] = await Promise.all([
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/defaultQuiz`),
@@ -478,6 +489,7 @@ export async function onRequestPost(context) {
       }, 400);
     }
 
+    stage = 'reading boundary overrides from GitHub';
     const overridesFile = await ghGetFile(repository, branch, githubToken, 'content/location-boundary-overrides.json');
     let overrides = [];
     try {
@@ -503,11 +515,13 @@ export async function onRequestPost(context) {
       catch { return json({ ok: false, error: 'invalid_manual_boundary', detail: `${file} is not valid GeoJSON JSON.` }, 400); }
     }
 
+    stage = 'downloading map data and matching boundaries';
     const { bundle, unmatched } = await buildBoundaries({ locations, overrides, manualFeatureFiles });
     const direct = Object.values(bundle.locations).filter((e) => e.matchType === 'name' || e.matchType === 'manual').length;
     const matched = Object.keys(bundle.locations).length;
     let commitSha;
     try {
+      stage = 'committing boundary files to GitHub';
       commitSha = await ghCommitFiles(repository, branch, githubToken, [
         { path: 'content/location-boundaries.geojson', text: JSON.stringify(bundle) },
         { path: 'content/location-boundaries-unmatched.json', text: JSON.stringify(unmatched, null, 2) },
@@ -528,6 +542,7 @@ export async function onRequestPost(context) {
   } catch (e) {
     const detail = String(e?.message || e).slice(0, 500);
     const code = e?.code || 'build_failed';
-    return json({ ok: false, error: code, status: e?.status || 0, detail }, 500);
+    console.error('[boundary-build] failed:', stage, code, detail);
+    return json({ ok: false, error: code, status: e?.status || 0, stage, detail: `${stage}: ${detail}` }, 500);
   }
 }
