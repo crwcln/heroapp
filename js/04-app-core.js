@@ -351,7 +351,9 @@
                     renderUserCustomList(); 
                 }
                 
-                showToast(`Imported ${mapped.length} locations successfully!`, 'success');
+                showToast(type === 'admin'
+                    ? `Imported ${mapped.length} locations. Save the tour, then rebuild borders to check map matches.`
+                    : `Imported ${mapped.length} locations successfully!`, 'success');
                 document.getElementById(textareaId).value = '';
             } catch(e) { 
                 showToast('Invalid JSON format. Please check your syntax.', 'error'); 
@@ -359,20 +361,26 @@
         }
 
         function copyAIPrompt() {
-            const input = document.getElementById('ai-prompt-text');
-            if (!input) return showToast('The prompt field is not available right now.', 'error');
-            input.select();
-            input.setSelectionRange(0, 99999);
+            const output = document.getElementById('ai-prompt-text');
+            const topic = document.getElementById('ai-topic-input')?.value.trim();
+            const countInput = document.getElementById('ai-count-input');
+            const count = Number(countInput?.value);
+            if (!output || !countInput) return showToast('The AI prompt controls are not available right now.', 'error');
+            if (!topic) return showToast('Describe the places or historical period you want first.', 'error');
+            if (!Number.isInteger(count) || count < 1 || count > 100) return showToast('Choose between 1 and 100 locations.', 'error');
+            output.value = `Generate exactly ${count} geographic quiz locations for this topic: ${topic}\n\nReturn a JSON array only, with no markdown or explanation. Prefer places that have their own named polygon outline in Natural Earth or the historical basemaps (countries, states/provinces, regions, lakes, seas, rivers, and historical empires or kingdoms). Use the standard English map-data name and accurate coordinates inside the outline. Use a specific category such as Countries, Rivers, Regions, or Historical Empires. For every historical place, include an integer year when it existed; for an empire without a year in the topic, choose a well documented year and use the territory at that time. Include aliases only for common alternate names that help match map data. Do not invent names, coordinates, years, or aliases. Use objects in this format, with year and aliases optional: [{"name":"Roman Empire","category":"Historical Empires","lat":41.9,"lng":12.5,"year":117,"aliases":["Imperium Romanum"]}].`;
+            output.select();
+            output.setSelectionRange(0, output.value.length);
             try {
-                navigator.clipboard.writeText(input.value).then(() => {
-                    showToast('Prompt copied to clipboard!', 'success');
+                navigator.clipboard.writeText(output.value).then(() => {
+                    showToast('Your topic-specific AI prompt was copied.', 'success');
                 }).catch(() => {
                     document.execCommand("copy");
-                    showToast('Prompt copied! (Fallback)', 'success');
+                    showToast('Your topic-specific AI prompt was copied.', 'success');
                 });
             } catch (err) {
                 document.execCommand("copy");
-                showToast('Prompt copied! (Fallback)', 'success');
+                showToast('Your topic-specific AI prompt was copied.', 'success');
             }
         }
 

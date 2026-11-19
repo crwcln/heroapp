@@ -490,19 +490,19 @@
                     <i data-lucide="cloud-upload" class="w-5 h-5"></i> <span>Deploy to World</span>
                 </button>
             </div>
-            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 mb-8 space-y-3">
                 <div>
                     <h4 class="font-extrabold text-sm text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
                         <i data-lucide="bot" class="w-4 h-4"></i> AI Location Generator Prompt
                     </h4>
-                    <p class="text-xs text-indigo-700 dark:text-indigo-400 mt-1 font-medium">Copy this and give it to an AI to generate bulk coordinates fast.</p>
+                    <p class="text-xs text-indigo-700 dark:text-indigo-400 mt-1 font-medium">Describe what you want, copy the tailored prompt into an AI, then import its JSON below. It will request border-friendly places and historical years for empires.</p>
                 </div>
-                <div class="flex w-full sm:w-auto gap-2">
-                    <input type="text" id="ai-prompt-text" readonly value='Generate 15 geographic quiz locations as a JSON array. Prefer places with named polygon outlines in Natural Earth (countries, states/provinces, lakes, seas, rivers, and regions). Use each place&#39;s standard English map-data name and accurate coordinates inside its outline. Give each place a specific category such as Countries, Rivers, or Regions. For historical empires or kingdoms, include an integer year. Include aliases only when they are common alternate map-data names. Use this schema: [{"name":"Nile","category":"Rivers","lat":15.6,"lng":32.5,"aliases":["Nahr an Nil"]}]. Output raw JSON only, with no markdown or explanation.' class="text-xs p-3 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 dark:text-indigo-200 flex-1 w-full sm:w-72 outline-none font-mono">
-                    <button onclick="copyAIPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-bold transition shadow-sm whitespace-nowrap">
-                        Copy
-                    </button>
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_110px_auto] gap-2">
+                    <input type="text" id="ai-topic-input" maxlength="240" placeholder="What should the quiz cover? e.g. Roman Empire at 117 CE, African capitals" class="text-sm p-3 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 dark:text-white w-full outline-none">
+                    <input type="number" id="ai-count-input" min="1" max="100" value="15" aria-label="Number of locations" class="text-sm p-3 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 dark:text-white w-full outline-none">
+                    <button type="button" onclick="copyAIPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-bold transition shadow-sm whitespace-nowrap">Copy AI prompt</button>
                 </div>
+                <textarea id="ai-prompt-text" readonly rows="3" aria-label="Generated AI prompt" placeholder="Your tailored prompt will appear here after you describe a topic and click Copy AI prompt." class="text-xs p-3 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-800 dark:text-indigo-200 w-full outline-none font-mono"></textarea>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="space-y-6">
