@@ -24,15 +24,19 @@
             const err = target === 'dev' ? lastDevAuthErr : lastAuthErr;
             if (err === 'not_configured') return target === 'dev' ? 'Early access is not configured. Set DEV_ACCESS in EdgeOne environment variables and redeploy.' : 'The login server has no admin password. Add ADMIN_PASSWORD in EdgeOne environment variables and redeploy.';
             if (err === '404') return 'The /api/auth endpoint is missing from this deployment. Deploy edge-functions/api/auth.js and try again.';
+            if (err === 'timeout') return 'The login server did not respond within 15 seconds. Check the site connection and deployment, then try again.';
             if (err === 'network') return 'Could not reach /api/auth. Check the site connection and deployment.';
             return `Early access check failed (${err || 'unknown error'}). Check the EdgeOne deployment.`;
         };
         async function checkPassword(target, password) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
             try {
                 const r = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target, password })
+                    body: JSON.stringify({ target, password }),
+                    signal: controller.signal
                 });
                 if (r.status === 401) { if (target === 'admin') lastAuthErr = ''; else lastDevAuthErr = ''; return false; }
                 if (!r.ok) { const er = await r.json().catch(() => ({})); const msg = er.error || String(r.status); if (target === 'admin') lastAuthErr = msg; else lastDevAuthErr = msg; return null; }
@@ -40,7 +44,11 @@
                 if (target === 'admin') { lastAuthToken = d.token || null; lastAuthErr = ''; }
                 else lastDevAuthErr = '';
                 return d.ok === true;
-            } catch (err) { if (target === 'admin') lastAuthErr = 'network'; else lastDevAuthErr = 'network'; return null; }
+            } catch (err) {
+                const reason = err.name === 'AbortError' ? 'timeout' : 'network';
+                if (target === 'admin') lastAuthErr = reason; else lastDevAuthErr = reason;
+                return null;
+            } finally { clearTimeout(timeout); }
         }
 
         // ================= PUBLIC LAUNCH GATE =================

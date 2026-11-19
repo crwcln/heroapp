@@ -336,6 +336,9 @@
                     category: a.category || 'Imported',
                     lat: parseFloat(a.lat), 
                     lng: parseFloat(a.lng),
+                    ...(Array.isArray(a.aliases) ? { aliases: a.aliases.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) } : {}),
+                    ...(typeof a.boundaryType === 'string' && a.boundaryType.trim() ? { boundaryType: a.boundaryType.trim() } : {}),
+                    ...(typeof a.region === 'string' && a.region.trim() ? { region: a.region.trim() } : {}),
                     ...(a.year != null && a.year !== '' && Number.isInteger(Number(a.year)) ? { year: Number(a.year) } : {})
                 }));
 
@@ -431,16 +434,19 @@
             const btn = document.getElementById('admin-enter-btn');
             const origLabel = btn ? btn.textContent : '';
             if (btn) { btn.disabled = true; btn.textContent = 'Checking\u2026'; }
-            const ok = await checkPassword('admin', val);
-            adminChecking = false;
-            if (btn) { btn.disabled = false; btn.textContent = origLabel; }
-            if (ok === true) {
-                adminToken = lastAuthToken; onAdminUnlocked();
-                document.getElementById('admin-lock').classList.add('hidden');
-                document.getElementById('admin-panel').classList.remove('hidden');
-                input.value = '';
-            } else if (ok === false) { showToast("Incorrect password.", "error"); badInput(input); }
-            else showToast(authFailMsg(), "error");
+            try {
+                const ok = await checkPassword('admin', val);
+                if (ok === true) {
+                    adminToken = lastAuthToken; onAdminUnlocked();
+                    document.getElementById('admin-lock').classList.add('hidden');
+                    document.getElementById('admin-panel').classList.remove('hidden');
+                    input.value = '';
+                } else if (ok === false) { showToast("Incorrect password.", "error"); badInput(input); }
+                else showToast(authFailMsg(), "error");
+            } finally {
+                adminChecking = false;
+                if (btn) { btn.disabled = false; btn.textContent = origLabel; }
+            }
         }
 
         async function geocodeAndAddPlace() {
