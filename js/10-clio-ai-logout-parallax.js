@@ -281,18 +281,7 @@
             wrap.append(out, save); lucide.createIcons();
         })();
 
-        // ================= LIGHT/DARK TRANSITION + MOUSE PARALLAX =================
-        const _tdm = toggleDarkMode;
-        toggleDarkMode = function () {
-            const calm = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'off';
-            if (calm) return _tdm();
-            if (!document.startViewTransition) { document.documentElement.classList.add('theme-fade'); _tdm(); return setTimeout(() => document.documentElement.classList.remove('theme-fade'), 700); }
-            const b = document.getElementById('theme-btn').getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
-            const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-            document.startViewTransition(() => _tdm()).ready.then(() => document.documentElement.animate(
-                { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${R}px at ${x}px ${y}px)`] },
-                { duration: 750, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' }));
-        };
+        // ================= INSTANT APPEARANCE SWITCH + MOUSE PARALLAX =================
         (function () {
             let tx = 0, ty = 0, cx = 0, cy = 0, run = false; const root = document.documentElement;
             const fxMove = (x, y) => {

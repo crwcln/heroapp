@@ -752,3 +752,16 @@ input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus
     corner-shape: squircle;
   }
 }
+
+/* Keep the complete icon set crisp, quiet, and visually consistent. */
+:where(svg.lucide) {
+  flex: 0 0 auto;
+  vertical-align: middle;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }

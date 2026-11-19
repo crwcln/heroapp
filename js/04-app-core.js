@@ -50,16 +50,16 @@
             const html = document.documentElement;
             const moon = document.getElementById('theme-icon-moon');
             const sun = document.getElementById('theme-icon-sun');
-            
-            if (html.classList.contains('dark')) {
-                html.classList.remove('dark');
-                moon.classList.remove('hidden'); sun.classList.add('hidden');
-                localStorage.setItem('theme', 'light');
-            } else {
-                html.classList.add('dark');
-                sun.classList.remove('hidden'); moon.classList.add('hidden');
-                localStorage.setItem('theme', 'dark');
-            }
+            const isDark = !html.classList.contains('dark');
+            html.classList.add('theme-switching');
+            html.classList.toggle('dark', isDark);
+            html.style.colorScheme = isDark ? 'dark' : 'light';
+            moon.classList.toggle('hidden', isDark);
+            sun.classList.toggle('hidden', !isDark);
+            document.getElementById('theme-btn')?.setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} appearance`);
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            if (typeof syncFaviconToTheme === 'function') syncFaviconToTheme();
+            requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove('theme-switching')));
         }
 
         // Open in about:blank cloaking function
@@ -92,9 +92,13 @@
 
         if (localStorage.getItem('theme') !== 'light') {
             document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
             document.getElementById('theme-icon-sun').classList.remove('hidden');
+            document.getElementById('theme-btn')?.setAttribute('aria-label', 'Switch to light appearance');
         } else {
+            document.documentElement.style.colorScheme = 'light';
             document.getElementById('theme-icon-moon').classList.remove('hidden');
+            document.getElementById('theme-btn')?.setAttribute('aria-label', 'Switch to dark appearance');
         }
 
         // ================= FIREBASE SETUP =================
