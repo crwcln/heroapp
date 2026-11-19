@@ -218,6 +218,7 @@
             row.addEventListener('dragend', () => { row.classList.remove('is-dragging'); document.querySelectorAll('.hc-editor-card').forEach(el => el.classList.remove('is-drop-target')); hcDragId = ''; });
             row.querySelector('.hc-card-preview').appendChild(hcCardElement(card, true));
             list.appendChild(row);
+            if (window.csWireSelect) row.querySelectorAll('select').forEach(window.csWireSelect);
         });
         if (window.lucide) lucide.createIcons({ root: list });
     }

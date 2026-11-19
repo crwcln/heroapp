@@ -353,6 +353,7 @@ button:not(:disabled):active, a:active, summary:active, [role="button"]:active, 
 .hc-field { display:grid; min-width:0; gap:5px; color:#64748b; font-size:10px; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }
 .dark .hc-field { color:#aab5ca; }
 .hc-field input,.hc-field select { width:100%; min-width:0; min-height:39px; padding:9px 10px; border:1px solid rgba(148,163,184,.28); border-radius:10px; background:rgba(255,255,255,.7); color:#172033; font-size:13px; font-weight:600; letter-spacing:normal; text-transform:none; outline:none; }
+.hc-field .cs-btn { width:100%; min-height:39px; padding:9px 10px; text-align:left; font-size:13px; font-weight:600; letter-spacing:normal; text-transform:none; }
 .dark .hc-field input,.dark .hc-field select { background:#111827; color:#f8fafc; }
 .hc-field input:focus,.hc-field select:focus,.hc-rich-edit:focus { border-color:#818cf8; box-shadow:0 0 0 3px rgba(99,102,241,.13); }
 .hc-rich-label { margin:13px 0 6px; color:#64748b; font-size:10px; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }
@@ -760,3 +761,12 @@ input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus
 
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
+
+/* Reveal the selected appearance outward from the theme control. */
+@keyframes heroThemeReveal {
+  from { clip-path: circle(0 at var(--theme-x, calc(100% - 24px)) var(--theme-y, 24px)); }
+  to { clip-path: circle(var(--theme-radius, 150vmax) at var(--theme-x, calc(100% - 24px)) var(--theme-y, 24px)); }
+}
+::view-transition-old(root) { animation: none; z-index: 0; }
+::view-transition-new(root) { animation: heroThemeReveal .62s cubic-bezier(.2,.72,.2,1) both; z-index: 1; }
+@media(prefers-reduced-motion:reduce) { ::view-transition-new(root) { animation: none; } }

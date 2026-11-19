@@ -4,11 +4,37 @@
 //   GEMINI_MODEL        optional, default: fastest Flash model available
 //   FIREBASE_API_KEY    required; the public "apiKey" value already in js/02-firebase-config.js.
 //                        It verifies the Firebase ID token server-side, so Gemini quota is used
-//                        only for valid guest or steward sessions. Add EdgeOne rate limits if
-//                        the public guest endpoint receives abuse.
+//                        only for valid guest or steward sessions. This function adds a best-effort
+//                        per-user burst/daily backstop; the browser also keeps a 12-question daily cap.
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+
+// Per-isolate backstop. The browser also keeps a stricter per-account daily budget; this
+// protects against bursts and normal multi-tab use without needing an additional paid service.
+const CLIO_DAILY_MAX = 20;
+const CLIO_MINUTE_MAX = 4;
+const CLIO_USAGE = new Map();
+function takeClioAllowance(uid, now = Date.now()) {
+  let usage = CLIO_USAGE.get(uid);
+  if (!usage || now >= usage.dayEndsAt) usage = { dayEndsAt: now + 24 * 60 * 60 * 1000, dailyCount: 0, requests: [] };
+  usage.requests = usage.requests.filter((time) => now - time < 60 * 1000);
+  if (usage.requests.length >= CLIO_MINUTE_MAX) {
+    CLIO_USAGE.set(uid, usage);
+    return { allowed: false, error: 'rate_limited', retryAfter: Math.max(1, Math.ceil((usage.requests[0] + 60 * 1000 - now) / 1000)) };
+  }
+  if (usage.dailyCount >= CLIO_DAILY_MAX) {
+    CLIO_USAGE.set(uid, usage);
+    return { allowed: false, error: 'daily_limit', retryAfter: Math.max(1, Math.ceil((usage.dayEndsAt - now) / 1000)), limit: CLIO_DAILY_MAX };
+  }
+  usage.requests.push(now);
+  usage.dailyCount += 1;
+  CLIO_USAGE.set(uid, usage);
+  if (CLIO_USAGE.size > 5000) {
+    for (const [key, entry] of CLIO_USAGE) if (now >= entry.dayEndsAt) CLIO_USAGE.delete(key);
+  }
+  return { allowed: true, remaining: CLIO_DAILY_MAX - usage.dailyCount };
+}
 
 // gemini-2.5-flash has been returning 404 since Sep 2026; the *-latest alias follows Google's current Flash model.
 const DEFAULT_MODELS = ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite-preview', 'gemini-flash-latest', 'gemini-3.5-flash']; // fastest first
@@ -73,6 +99,9 @@ export async function onRequestPost(context) {
       return parts.length ? { role: m.role === 'model' ? 'model' : 'user', parts } : null;
     }).filter(Boolean);
   if (!contents.length || contents[contents.length - 1].role !== 'user') return json({ ok: false, error: 'bad_request' }, 400);
+
+  const allowance = takeClioAllowance(caller.user.localId);
+  if (!allowance.allowed) return json({ ok: false, ...allowance }, 429);
 
   const ctx = typeof body.ctx === 'string' ? body.ctx.slice(0, 3000) : '';
   const models = [...new Set([context.env.GEMINI_MODEL, ...DEFAULT_MODELS].filter(Boolean))];

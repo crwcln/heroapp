@@ -305,17 +305,60 @@
             }
             wrap.classList.add('cs-wrap'); sel.classList.add('cs-native');
             const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fb-input cs-btn'; btn.style.cssText = sel.style.cssText;
-            const menu = document.createElement('div'); menu.className = 'cs-menu';
-            const sync = () => { btn.textContent = sel.options[sel.selectedIndex].textContent; menu.querySelectorAll('.cs-opt').forEach((o, i) => o.classList.toggle('on', i === sel.selectedIndex)); };
-            [...sel.options].forEach((op, i) => { const o = document.createElement('div'); o.className = 'cs-opt'; o.style.animationDelay = (i * 18) + 'ms'; o.textContent = op.textContent; o.onclick = () => { sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); sync(); wrap.classList.remove('open'); }; menu.appendChild(o); });
-            btn.onclick = e => { e.stopPropagation(); document.querySelectorAll('.cs-wrap.open').forEach(w => w !== wrap && w.classList.remove('open')); sync(); wrap.classList.toggle('open'); };
+            const menu = document.createElement('div'); menu.className = 'cs-menu'; menu.setAttribute('role', 'listbox');
+            const menuId = `hero-select-${++csDropdownId}`; menu.id = menuId;
+            btn.setAttribute('role', 'combobox'); btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-controls', menuId); btn.setAttribute('aria-expanded', 'false');
+            if (sel.getAttribute('aria-label')) btn.setAttribute('aria-label', sel.getAttribute('aria-label'));
+            if (sel.getAttribute('aria-labelledby')) btn.setAttribute('aria-labelledby', sel.getAttribute('aria-labelledby'));
+            const options = [...sel.options].map((op, i) => {
+                const option = document.createElement('div'); option.className = 'cs-opt'; option.setAttribute('role', 'option'); option.dataset.index = String(i);
+                option.style.animationDelay = (i * 18) + 'ms'; option.textContent = op.textContent; option.setAttribute('aria-disabled', String(op.disabled));
+                option.onclick = () => choose(i); option.onmouseenter = () => setActive(i); menu.appendChild(option); return option;
+            });
+            let activeIndex = Math.max(0, sel.selectedIndex);
+            const sync = () => {
+                btn.textContent = sel.options[sel.selectedIndex]?.textContent || 'Choose an option';
+                options.forEach((option, i) => { const selected = i === sel.selectedIndex; option.classList.toggle('on', selected); option.setAttribute('aria-selected', String(selected)); option.tabIndex = i === activeIndex ? 0 : -1; });
+            };
+            const close = (returnFocus = false) => { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (returnFocus) btn.focus(); };
+            const setActive = i => {
+                if (!options.length) return;
+                let step = ((i % options.length) + options.length) % options.length;
+                for (let tries = 0; tries < options.length && sel.options[step]?.disabled; tries++) step = (step + (i < activeIndex ? options.length - 1 : 1)) % options.length;
+                activeIndex = step; sync(); options[activeIndex]?.focus();
+                options[activeIndex]?.scrollIntoView({ block: 'nearest' });
+            };
+            const choose = i => {
+                if (!sel.options[i] || sel.options[i].disabled) return;
+                sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); sync(); close(true);
+            };
+            const open = () => {
+                document.querySelectorAll('.cs-wrap.open').forEach(w => w !== wrap && w.classList.remove('open'));
+                activeIndex = Math.max(0, sel.selectedIndex); wrap.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); sync();
+            };
+            btn.onclick = e => { e.stopPropagation(); if (wrap.classList.contains('open')) close(); else open(); };
+            btn.onkeydown = e => {
+                if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' '].includes(e.key)) e.preventDefault(); else return;
+                if (!wrap.classList.contains('open')) { open(); if (e.key === 'ArrowUp' || e.key === 'End') setActive(options.length - 1); else if (e.key === 'ArrowDown' || e.key === 'Home') setActive(0); return; }
+                if (e.key === 'ArrowDown') setActive(activeIndex + 1); else if (e.key === 'ArrowUp') setActive(activeIndex - 1);
+                else if (e.key === 'Home') setActive(0); else if (e.key === 'End') setActive(options.length - 1); else setActive(activeIndex), choose(activeIndex);
+            };
+            menu.onkeydown = e => {
+                if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
+                else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setActive(e.key === 'Home' ? 0 : options.length - 1); }
+                else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(activeIndex); }
+                else if (e.key === 'Escape') { e.preventDefault(); close(true); }
+            };
+            sel.addEventListener('change', sync);
             wrap.append(btn, menu); wrap._sync = sync; sync();
         }
+        let csDropdownId = 0;
         window.csWireSelect = csWireSelect;
         if (CS_ENABLED) {
-            document.querySelectorAll('select.fb-input').forEach(csWireSelect);
-            document.addEventListener('click', () => document.querySelectorAll('.cs-wrap.open').forEach(w => w.classList.remove('open')));
-            document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.cs-wrap.open').forEach(w => w.classList.remove('open')); });
+            document.querySelectorAll('select').forEach(csWireSelect);
+            document.addEventListener('click', () => document.querySelectorAll('.cs-wrap.open').forEach(w => { w.classList.remove('open'); w.querySelector('.cs-btn')?.setAttribute('aria-expanded', 'false'); }));
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.cs-wrap.open').forEach(w => { w.classList.remove('open'); w.querySelector('.cs-btn')?.setAttribute('aria-expanded', 'false'); w.querySelector('.cs-btn')?.focus(); }); });
         }
         const _sv3 = switchView; switchView = function (id) { _sv3(id); if (id === 'review-view') renderReview(); csSyncAll(); missBadge(); if (id === 'editor-view') { const pw = document.getElementById('admin-password'); if (pw && !pw._enterBound) { pw._enterBound = true; pw.addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); }); } } };
         const _ym = setYearMode; setYearMode = function (k) { _ym(k); missBadge(); };

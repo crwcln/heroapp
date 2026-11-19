@@ -4,6 +4,17 @@
         sessionStorage.removeItem('hero_clio_owner_session');
         const sh = { msgs: [], pendingImages: [], busy: false, last: 0, streamText: null, streamReceived: '', typingQueue: '', typingTimer: 0, typingDone: null };
         let shAuthResolved = false, shUid = null, shRequestGeneration = 0, shRequestController = null;
+        const SH_DAILY_MAX = 12, SH_MIN_GAP_MS = 5000, SH_USAGE_KEY = 'hero_clio_usage_v1';
+        function shReserveUsage() {
+            const now = Date.now(), day = new Date(now).toISOString().slice(0, 10);
+            let usage = { day, count: 0, lastAt: 0 };
+            try { const saved = JSON.parse(localStorage.getItem(SH_USAGE_KEY) || 'null'); if (saved && saved.day === day) usage = saved; } catch (_) { }
+            if (now - Number(usage.lastAt || 0) < SH_MIN_GAP_MS) return { ok: false, wait: Math.ceil((SH_MIN_GAP_MS - (now - Number(usage.lastAt || 0))) / 1000) };
+            if (Number(usage.count || 0) >= SH_DAILY_MAX) return { ok: false, daily: true };
+            usage.count = Number(usage.count || 0) + 1; usage.lastAt = now;
+            try { localStorage.setItem(SH_USAGE_KEY, JSON.stringify(usage)); } catch (_) { }
+            return { ok: true, remaining: SH_DAILY_MAX - usage.count };
+        }
         const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
         const shFmt = t => {
             const source = document.createElement('template');
@@ -188,6 +199,12 @@
             }
             const images = sh.pendingImages.splice(0);
             if ((!text && !images.length) || sh.busy || Date.now() - sh.last < 1000) { sh.pendingImages.unshift(...images); return; }
+            const allowance = shReserveUsage();
+            if (!allowance.ok) {
+                sh.pendingImages.unshift(...images);
+                sh.msgs.push({ r: 'model', t: allowance.daily ? `You've reached Clio's limit of ${SH_DAILY_MAX} questions for today on this browser. It resets at midnight UTC.` : `Give Clio ${allowance.wait} second${allowance.wait === 1 ? '' : 's'} before sending another question.`, err: true });
+                shRender(); return;
+            }
             const requestGeneration = shRequestGeneration;
             const requestController = new AbortController();
             shRequestController = requestController;
@@ -258,7 +275,7 @@
             } catch (e) {
                 if (requestGeneration !== shRequestGeneration) return;
                 clearTimeout(sh.typingTimer); sh.typingTimer = 0; sh.typingQueue = ''; sh.typingDone = null; sh.streamText = null;
-                const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", server_not_configured: 'Clio needs FIREBASE_API_KEY set in EdgeOne env vars (the same public value already in js/02-firebase-config.js), then redeploy.', signed_out: 'Hero could not start this browser’s guest session. Reload the page and try again.', not_verified: 'Hero could not verify this browser session. Reload the page and try again.', rate_limited: 'Clio is busy right now. Try again in a moment.', upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, upstream_unreachable: "Clio's connection to Google's AI service was interrupted. Please try again.", empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
+                const D = e.d || {}; const m = { not_configured: "Clio isn't set up yet. Add GEMINI_API_KEY in EdgeOne env vars and redeploy.", server_not_configured: 'Clio needs FIREBASE_API_KEY set in EdgeOne env vars (the same public value already in js/02-firebase-config.js), then redeploy.', signed_out: 'Hero could not start this browser’s guest session. Reload the page and try again.', not_verified: 'Hero could not verify this browser session. Reload the page and try again.', daily_limit: `Clio's server limit is ${D.limit || 20} questions per day for this session. Try again after the limit resets.`, rate_limited: `Clio is getting requests too quickly. Try again in about ${D.retryAfter || 60} seconds.`, upstream_error: [429, 503].includes(D.status) ? "Google's AI is overloaded right now. Clio tried several models. Try again in a few seconds." : `The AI service rejected the request (HTTP ${D.status}${D.detail ? ': ' + D.detail : ''}). Check GEMINI_API_KEY.`, upstream_unreachable: "Clio's connection to Google's AI service was interrupted. Please try again.", empty_reply: `Clio got an empty answer (${D.detail || 'unknown'}). Try rephrasing.`, 404: 'Add edge-functions/api/chat.js and redeploy.', 'Failed to fetch': "Couldn't reach /api/chat." }[e.message];
                 const networkFailure = /network|fetch|connection|stream/i.test(String(e && e.message || ''));
                 sh.msgs.push({ r: 'model', t: m || (networkFailure ? "Clio lost its connection while answering. Please try again." : `Clio couldn't answer just now${e && e.message ? ` (${String(e.message).slice(0, 140)})` : ''}. Please try again, and use \u201cSend a Word\u201d if it keeps happening.`), err: true });
             }

@@ -51,15 +51,34 @@
             const moon = document.getElementById('theme-icon-moon');
             const sun = document.getElementById('theme-icon-sun');
             const isDark = !html.classList.contains('dark');
-            html.classList.add('theme-switching');
-            html.classList.toggle('dark', isDark);
-            html.style.colorScheme = isDark ? 'dark' : 'light';
-            moon.classList.toggle('hidden', isDark);
-            sun.classList.toggle('hidden', !isDark);
-            document.getElementById('theme-btn')?.setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} appearance`);
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            if (typeof syncFaviconToTheme === 'function') syncFaviconToTheme();
-            requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove('theme-switching')));
+            const apply = () => {
+                html.classList.add('theme-switching');
+                html.classList.toggle('dark', isDark);
+                html.style.colorScheme = isDark ? 'dark' : 'light';
+                moon.classList.toggle('hidden', isDark);
+                sun.classList.toggle('hidden', !isDark);
+                document.getElementById('theme-btn')?.setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} appearance`);
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                if (typeof syncFaviconToTheme === 'function') syncFaviconToTheme();
+            };
+            const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (!reduced && document.startViewTransition) {
+                const rect = document.getElementById('theme-btn')?.getBoundingClientRect();
+                const x = rect ? rect.left + rect.width / 2 : innerWidth - 24;
+                const y = rect ? rect.top + rect.height / 2 : 24;
+                html.style.setProperty('--theme-x', `${x}px`);
+                html.style.setProperty('--theme-y', `${y}px`);
+                html.style.setProperty('--theme-radius', `${Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))}px`);
+                const transition = document.startViewTransition(apply);
+                const cleanup = () => {
+                    html.classList.remove('theme-switching');
+                    html.style.removeProperty('--theme-x'); html.style.removeProperty('--theme-y'); html.style.removeProperty('--theme-radius');
+                };
+                transition.finished.then(cleanup, cleanup);
+            } else {
+                apply();
+                requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove('theme-switching')));
+            }
         }
 
         // Open in about:blank cloaking function
