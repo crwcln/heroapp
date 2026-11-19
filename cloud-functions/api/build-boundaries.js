@@ -183,7 +183,9 @@ async function ghApi(repository, token, path, options = {}, operation = path) {
   return data;
 }
 async function ghCommitFiles(repository, branch, token, files, message) {
-  const refPath = `git/ref/heads/${encodeURIComponent(branch)}`;
+  const encodedBranch = encodeURIComponent(branch);
+  const refPath = `git/ref/heads/${encodedBranch}`;
+  const updateRefPath = `git/refs/heads/${encodedBranch}`;
   const ref = await ghApi(repository, token, refPath, {}, `read branch ref ${branch}`);
   const parentSha = ref.object.sha;
   const parent = await ghApi(repository, token, `git/commits/${parentSha}`, {}, 'read the current branch commit');
@@ -203,7 +205,7 @@ async function ghCommitFiles(repository, branch, token, files, message) {
   const commit = await ghApi(repository, token, 'git/commits', {
     method: 'POST', body: JSON.stringify({ message, tree: tree.sha, parents: [parentSha] }),
   }, 'create the boundary commit');
-  await ghApi(repository, token, refPath, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: false }) }, `update branch ${branch}`);
+  await ghApi(repository, token, updateRefPath, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: false }) }, `update branch ${branch}`);
   return commit.sha;
 }
 
