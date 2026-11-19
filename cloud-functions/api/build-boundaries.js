@@ -264,11 +264,13 @@ const contains = (feature, loc) => {
 const getProperty = (p, keys) => { for (const key of keys) if (typeof p[key] === 'string' && p[key].trim()) return p[key].trim(); return ''; };
 const kindOf = (loc) => {
   const label = `${loc.name || ''} ${loc.category || ''} ${loc.boundaryType || ''}`.toLowerCase();
-  if (hasYear(loc.year) || /empire|kingdom|dynasty|caliphate|sultanate|historical|historic|ancient/.test(label)) return 'historic';
+  // Quiz years can describe when a city or sea appears in a question; they do
+  // not by themselves mean the requested outline is a historical empire.
+  if (/empire|kingdom|dynasty|caliphate|sultanate|historical|historic|ancient|polity|civilization/.test(label)) return 'historic';
   if (/route|road|trade|silk/.test(label)) return 'route';
   if (/river|stream/.test(label)) return 'river';
   if (/lake|reservoir/.test(label)) return 'lake';
-  if (/sea|ocean|gulf|bay|strait|channel|current|marine/.test(label)) return 'marine';
+  if (/sea|ocean|gulf|bay|strait|channel|current|marine|waterway/.test(label)) return 'marine';
   if (/region|continent/.test(label)) return 'region';
   return 'land';
 };
