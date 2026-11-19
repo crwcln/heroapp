@@ -28,6 +28,14 @@ path.hl-lake { fill: #38bdf8; stroke: var(--brand-700); }
 path.hl-region { fill: #f59e0b; stroke: #b45309; } path.hl-empire { fill: #a855f7; stroke: #7e22ce; } path.hl-route { fill: #fb923c; stroke: #c2410c; }
 path.hl-river { fill: none; stroke: var(--sec); stroke-width: 4; stroke-dasharray: 14 8; animation: hlFlow 1.2s linear infinite; }
 
+.location-border-status { display:inline-flex; align-items:center; border-radius:999px; padding:2px 7px; font-size:9px; font-weight:800; line-height:1.4; white-space:nowrap; }
+.location-border-status.is-yes { color:#047857; background:rgba(16,185,129,.12); }
+.location-border-status.is-no { color:#be123c; background:rgba(244,63,94,.11); }
+.location-border-status.is-checking { color:#64748b; background:rgba(100,116,139,.12); }
+.dark .location-border-status.is-yes { color:#6ee7b7; background:rgba(16,185,129,.17); }
+.dark .location-border-status.is-no { color:#fda4af; background:rgba(244,63,94,.16); }
+.dark .location-border-status.is-checking { color:#cbd5e1; background:rgba(148,163,184,.16); }
+
 .hero-verify-overlay { position: fixed; inset: 0; z-index: 9800; display: grid; place-items: center; padding: 22px; background: radial-gradient(ellipse at 50% 30%, rgba(79,70,229,.24), transparent 55%), rgba(8,12,26,.82); backdrop-filter: blur(14px); animation: heroVerifyFade .28s ease-out both; }
 .hero-verify-card { position: relative; isolation: isolate; width: min(100%, 470px); overflow: hidden; padding: 38px 34px 30px; border: 1px solid rgba(255,255,255,.18); border-radius: 28px; color: #f8fafc; text-align: center; background: linear-gradient(150deg, rgba(28,35,68,.98), rgba(11,17,37,.98)); box-shadow: 0 32px 100px rgba(0,0,0,.45), inset 0 1px rgba(255,255,255,.12); animation: heroVerifyRise .4s cubic-bezier(.2,.8,.2,1) both; }
 .hero-verify-glow { position: absolute; z-index: -1; top: -120px; left: 50%; width: 280px; height: 220px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(circle, rgba(52,211,153,.24), transparent 70%); filter: blur(12px); }

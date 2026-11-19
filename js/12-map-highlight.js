@@ -5,7 +5,7 @@ const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 // ===== MAP HIGHLIGHT + PREMIUM EXTRAS =====
 // Curated Natural Earth and historical boundaries are bundled into one local GeoJSON file.
 // No map-boundary data is requested from a CDN while a player is using the site.
-let hlLocations = {}, hlFeatures = {}, hlLoading = null, hlLayers = [], hlTok = 0, hlMissingWarned = false;
+let hlLocations = {}, hlFeatures = {}, hlLoading = null, hlLayers = [], hlTok = 0, hlMissingWarned = false, hlReady = false;
 const hlNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 function hlLoad() {
     if (hlLoading) return hlLoading;
@@ -18,12 +18,20 @@ function hlLoad() {
     }).catch(error => {
         console.warn('Hero boundary bundle could not load. A steward can rebuild it from the Quiz tab.', error);
         hlLocations = {}; hlFeatures = {};
+    }).finally(() => {
+        hlReady = true;
+        document.dispatchEvent(new Event('hero-boundaries-ready'));
     });
     return hlLoading;
 }
 const hlLocationEntry = loc => {
     if (!loc || !loc.id) return null;
     return hlLocations[`${loc.tour || yearMode}:${loc.id}`] || hlLocations[loc.id] || null;
+};
+window.__heroHasBoundary = loc => {
+    if (!hlReady) return null;
+    const entry = hlLocationEntry(loc);
+    return !!entry?.featureIds?.some(id => !!hlFeatures[id]);
 };
 const hlKind = loc => {
     const t = (loc.name + ' ' + (loc.category || '')).toLowerCase();
@@ -54,8 +62,14 @@ function hlShow(loc) {
         if (features.length) {
             const kind = entry.kind === 'historic' ? 'empire' : entry.kind || hlKind(loc);
             const collection = { type: 'FeatureCollection', features };
+            let pane = map.getPane('heroBoundaryHighlight');
+            if (!pane) {
+                pane = map.createPane('heroBoundaryHighlight');
+                pane.style.zIndex = '625';
+                pane.style.pointerEvents = 'none';
+            }
             ['hl-halo', 'hl-glow', 'hl-outline', 'hl hl-' + kind].forEach(className => {
-                const layer = L.geoJSON(collection, { style: () => ({ className }), interactive: false }).addTo(map);
+                const layer = L.geoJSON(collection, { pane: 'heroBoundaryHighlight', style: () => ({ className }), interactive: false }).addTo(map);
                 hlLayers.push(layer);
             });
         } else {
@@ -74,6 +88,7 @@ function hlBind(marker, loc) {
     marker.on('mouseout', () => { if (!marker.isPopupOpen()) hlClear(); });
     marker.on('popupclose', hlClear);
 }
+hlLoad();
 const rowOut = (sel, idx) => new Promise(res => { const r = document.querySelectorAll(sel + ' > div')[idx]; if (!r) return res(); r.classList.add('row-out'); setTimeout(res, 260); });
 
 // quote of the day on the home page
