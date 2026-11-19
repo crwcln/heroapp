@@ -300,7 +300,7 @@ button:not(:disabled):active, a:active, summary:active, [role="button"]:active, 
 @media (prefers-reduced-motion:reduce) { .home-sponsored-link { transition:none; } }
 
 /* Admin-managed home cards */
-.home-custom-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:13px; width:min(100%,920px); margin:18px auto 0; text-align:left; }
+.home-custom-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:13px; width:min(100%,920px); margin:18px auto 16px; text-align:left; }
 .hc-card { --hc-accent:#d3a62b; --hc-wash:rgba(211,166,43,.09); display:flex; min-width:0; align-items:center; gap:14px; padding:15px 17px; border:1px solid color-mix(in srgb,var(--hc-accent) 40%,transparent); border-radius:20px; background:linear-gradient(115deg,var(--hc-wash),rgba(12,17,35,.045) 75%); box-shadow:0 12px 32px rgba(15,23,42,.1); color:inherit; }
 .hc-card[data-tone="indigo"] { --hc-accent:#818cf8; --hc-wash:rgba(99,102,241,.11); }
 .hc-card[data-tone="emerald"] { --hc-accent:#34d399; --hc-wash:rgba(16,185,129,.1); }
@@ -739,4 +739,16 @@ input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus
   .view-section:not(.hidden), .view-section.fade-out { animation:none; }
   *,*::before,*::after { scroll-behavior:auto!important; }
   #home-view .grid > button,.st-chip,button.cm-btn,.daily-challenge-actions button,#leaderboard-list > div,#daily-leaderboard-list > div { transition:none; }
+}
+
+/* Apple-like continuous corners where the browser supports CSS squircles. */
+@supports (corner-shape: squircle) {
+  :where(
+    [class*="rounded-lg"], [class*="rounded-xl"], [class*="rounded-2xl"], [class*="rounded-3xl"],
+    .glass-panel, .daily-challenge-card, .beta-callout, .launch-card, .home-custom-cards > *,
+    .hc-card, .qotd, #ai-shell, #tut, #sherpa-panel, .sc-card, .rv-row, .ann-shortcut,
+    .cs-menu, .cs-opt, .quiz-toolbar, .quiz-hint-button, .cm-btn, .fb-input
+  ) {
+    corner-shape: squircle;
+  }
 }
