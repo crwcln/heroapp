@@ -14,7 +14,7 @@
 //   FIREBASE_PROJECT_ID (optional)         Firebase project id; otherwise derived from service account
 //   GITHUB_TOKEN, GITHUB_REPOSITORY, DEPLOY_BRANCH (optional)   same as /api/deploy; the token needs
 //                                          contents read/write access
-//   DEPLOY_WEBHOOK_URL                    same as /api/deploy; triggers the live rebuild once committed
+//   DEPLOY_WEBHOOK_URL (optional)         triggers the live rebuild once committed
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -42,10 +42,16 @@ async function validToken(token, secret) {
   return safeEqual(sig, await hmacHex(secret, `admin.${exp}`));
 }
 function readPrivateKey(env) {
-  if (env.FIREBASE_PRIVATE_KEY) return env.FIREBASE_PRIVATE_KEY;
-  let key = '';
-  for (let i = 1; i <= 12; i++) { const part = env[`FIREBASE_PRIVATE_KEY_${i}`]; if (!part) break; key += String(part).trim(); }
-  return key;
+  let key = env.FIREBASE_PRIVATE_KEY || '';
+  if (!key) {
+    for (let i = 1; i <= 12; i++) {
+      const part = env[`FIREBASE_PRIVATE_KEY_${i}`];
+      if (!part) break;
+      key += String(part).trim();
+    }
+  }
+  if (!key) return null;
+  return key.replace(/\\n/g, '\n');
 }
 const b64url = (input) => {
   const bytes = typeof input === 'string' ? enc.encode(input) : new Uint8Array(input);
@@ -213,10 +219,7 @@ const fetchJson = async (url) => {
   catch { throw Object.assign(new Error(`Map data file ${url.split('/').pop()} was not valid JSON.`), { code: 'map_data_invalid', detail: url.split('/').pop() }); }
 };
 
-// ---------- matching engine, ported from scripts/build-boundaries.mjs ----------
-// Identical logic to the Node script, with two differences only: stableHash is a plain synchronous
-// string hash instead of node:crypto (this never needs to be cryptographically strong, only stable),
-// and there is no local filesystem -- inputs come from Firestore/GitHub instead of local files.
+// ---------- matching engine ----------
 const NE_ROOT = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/';
 const NE_FILES = { countries: 'ne_50m_admin_0_countries.geojson', provinces: 'ne_50m_admin_1_states_provinces.geojson', lakes: 'ne_50m_lakes.geojson', marine: 'ne_50m_geography_marine_polys.geojson', rivers: 'ne_50m_rivers_lake_centerlines.geojson', regions: 'ne_50m_geography_regions_polys.geojson' };
 const HISTORICAL_INDEX = 'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/index.json';
@@ -384,13 +387,31 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
 }
 
 export async function onRequestPost(context) {
-  const env = context.env;
-  const secret = env.ADMIN_PASSWORD, githubToken = env.GITHUB_TOKEN, repository = env.GITHUB_REPOSITORY || '', branch = env.DEPLOY_BRANCH || 'main', hook = env.DEPLOY_WEBHOOK_URL;
-  const email = env.FIREBASE_CLIENT_EMAIL, pk = readPrivateKey(env);
-  const missing = [!secret && 'ADMIN_PASSWORD', !githubToken && 'GITHUB_TOKEN', !repository && 'GITHUB_REPOSITORY', !hook && 'DEPLOY_WEBHOOK_URL', !email && 'FIREBASE_CLIENT_EMAIL', !pk && 'FIREBASE_PRIVATE_KEY_1..N'].filter(Boolean);
-  if (missing.length) return json({ ok: false, error: 'not_configured', missing }, 500);
+  const env = context.env || {};
+  const secret = env.ADMIN_PASSWORD,
+        githubToken = env.GITHUB_TOKEN,
+        repository = env.GITHUB_REPOSITORY || '',
+        branch = env.DEPLOY_BRANCH || 'main',
+        hook = env.DEPLOY_WEBHOOK_URL;
+
+  const email = env.FIREBASE_CLIENT_EMAIL,
+        pk = readPrivateKey(env);
+
+  // Validate critical keys (DEPLOY_WEBHOOK_URL is non-blocking)
+  const missing = [
+    !secret && 'ADMIN_PASSWORD',
+    !githubToken && 'GITHUB_TOKEN',
+    !repository && 'GITHUB_REPOSITORY',
+    !email && 'FIREBASE_CLIENT_EMAIL',
+    !pk && 'FIREBASE_PRIVATE_KEY_1..N'
+  ].filter(Boolean);
+
+  if (missing.length) {
+    return json({ ok: false, error: 'not_configured', missing }, 500);
+  }
+
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) || !/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/.test(branch)) {
-    return json({ ok: false, error: 'invalid_github_config' }, 500);
+    return json({ ok: false, error: 'invalid_github_config', repository, branch }, 500);
   }
 
   let body;
@@ -409,7 +430,7 @@ export async function onRequestPost(context) {
     if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId || '')) {
       return json({ ok: false, error: 'invalid_firebase_project', detail: 'Could not derive a valid Firebase project id from FIREBASE_CLIENT_EMAIL. Set FIREBASE_PROJECT_ID to the Firebase project id.' }, 500);
     }
-    // Firestore documents.get accepts cloud-platform; IAM still limits the service account's actual permissions.
+
     const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/cloud-platform');
 
     const base = `artifacts/${appId}/public/data`;
@@ -425,10 +446,10 @@ export async function onRequestPost(context) {
         message = `Google says the Firestore API is disabled for project ${projectId}. Enable firestore.googleapis.com for that project.`;
       } else if (error.status === 403 && /scope|insufficient authentication/.test(googleText)) {
         code = 'firestore_scope_denied';
-        message = `Google rejected the OAuth scope while reading ${error.docPath || 'the quiz document'} in project ${projectId}. This source requests Firestore's documented cloud-platform scope. Deploy this version of edge-functions/api/build-boundaries.js to EdgeOne; if this message persists, the deployed function is still using a different scope or older code.`;
+        message = `Google rejected the OAuth scope while reading ${error.docPath || 'the quiz document'} in project ${projectId}.`;
       } else if (error.status === 403) {
         code = 'firestore_permission_denied';
-        message = `Firestore returned PERMISSION_DENIED reading "${error.docPath || 'the quiz document'}" in project "${projectId}" for service account "${email}". Grant Cloud Datastore Viewer (roles/datastore.viewer) to this exact service account on the Google Cloud project that contains the Firestore database. If the role is already granted, check that FIREBASE_PROJECT_ID points to that database's project and allow a few minutes for the IAM change to propagate.`;
+        message = `Firestore returned PERMISSION_DENIED reading "${error.docPath || 'the quiz document'}" in project "${projectId}" for service account "${email}". Grant Cloud Datastore Viewer (roles/datastore.viewer) to this exact service account on the Google Cloud project.`;
       } else if (error.status === 401) {
         code = 'firestore_auth_failed';
         message = `Firestore rejected the Google access token for project ${projectId}. Check the service-account private key and redeploy the EdgeOne function.`;
@@ -442,6 +463,7 @@ export async function onRequestPost(context) {
       if (error.detail) message += ` Google API detail: ${String(error.detail).slice(0, 240)}`;
       throw Object.assign(new Error(message), { code, status: error.status, detail: error.detail });
     });
+
     const locations = [
       ...((Array.isArray(defaultQuiz?.locations) ? defaultQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'default' }))),
       ...((Array.isArray(twoYearQuiz?.locations) ? twoYearQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'twoyear' }))),
@@ -494,12 +516,13 @@ export async function onRequestPost(context) {
       return json({ ok: false, error: 'github_failed', status: error.status || 0, detail: String(error.message || error).slice(0, 220) }, 502);
     }
 
-    let deployResponse;
-    try { deployResponse = await fetch(hook, { method: 'POST' }); }
-    catch (error) {
-      return json({ ok: false, error: 'hook_unreachable', commitCreated: true, commitSha, detail: String(error?.message || error).slice(0, 160) }, 502);
+    if (hook) {
+      try { await fetch(hook, { method: 'POST' }); }
+      catch (error) {
+        // Log webhook error silently so it doesn't fail the build execution if optional
+        console.warn('Deploy webhook trigger failed:', error);
+      }
     }
-    if (!deployResponse.ok) return json({ ok: false, error: 'hook_failed', status: deployResponse.status, commitCreated: true, commitSha }, 502);
 
     return json({ ok: true, commitSha, branch, total: locations.length, matched, direct, unmatched: unmatched.locations });
   } catch (e) {
@@ -508,4 +531,3 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: code, status: e?.status || 0, detail }, 500);
   }
 }
-
