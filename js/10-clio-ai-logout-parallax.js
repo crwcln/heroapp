@@ -27,7 +27,7 @@
                 .replace(/\n/g, '<br>');
             const tags = new Set(['P','BR','B','STRONG','I','EM','U','S','DEL','SPAN','UL','OL','LI','BLOCKQUOTE','CODE','PRE','SMALL','MARK','SUB','SUP','H3','H4']);
             const colors = new Set(['black','white','red','green','blue','orange','purple','teal','gold','gray','grey','navy','crimson','indigo','tomato','salmon','skyblue','lime','coral']);
-            const fonts = new Map([['spectral', 'Spectral, Georgia, serif'], ['georgia', 'Georgia, serif'], ['serif', 'serif'], ['nunito', 'Nunito, sans-serif'], ['fraunces', 'Fraunces, Georgia, serif'], ['jetbrains mono', 'JetBrains Mono, monospace'], ['monospace', 'monospace'], ['sans-serif', 'sans-serif']]);
+            const fonts = new Map([['spectral', 'Spectral, Georgia, serif'], ['georgia', 'Georgia, serif'], ['serif', 'serif'], ['nunito', 'Nunito, sans-serif'], ['eb garamond', 'EB Garamond, Georgia, serif'], ['jetbrains mono', 'JetBrains Mono, monospace'], ['monospace', 'monospace'], ['sans-serif', 'sans-serif']]);
             const safeColor = value => /^#[\da-f]{3,8}$/i.test(value) || /^(?:rgba?|hsla?)\([\d\s.,%/+-]+\)$/i.test(value) || colors.has(value.toLowerCase()) || (typeof CSS !== 'undefined' && CSS.supports('color', value));
             const clean = node => {
                 if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue || '');
