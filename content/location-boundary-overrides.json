@@ -1,4 +1,11 @@
 [
+  {
+    "name": "Mongol Empire",
+    "year": 1279,
+    "aliases": ["Great Khanate", "Chagatai Khanate", "Ilkhanate", "Khanate of the Golden Horde"],
+    "combineMatches": true,
+    "hintRegion": "Across Eurasia"
+  },
   { "name": "Chang'an", "lat": 34.3416, "lng": 108.9398 },
   { "name": "Pataliputra", "lat": 25.5941, "lng": 85.1376 },
   { "name": "Persepolis", "lat": 29.9350, "lng": 52.8910 },

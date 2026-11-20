@@ -85,6 +85,7 @@ const getProperty = (p, keys) => {
 };
 const kindOf = (loc) => {
   const label = `${loc.name || ''} ${loc.category || ''} ${loc.boundaryType || ''}`.toLowerCase();
+  if (normalize(loc.name) === 'united kingdom' && !/historical|historic|ancient|empire/.test(normalize(loc.boundaryType))) return 'land';
   if (hasYear(loc.year) || /empire|kingdom|dynasty|caliphate|sultanate|historical|historic|ancient/.test(label)) return 'historic';
   if (/route|road|trade|silk/.test(label)) return 'route';
   if (/river|stream/.test(label)) return 'river';
@@ -160,7 +161,8 @@ const addFeature = (loc, locKey, row, matchType, kind, year, hintOverride) => {
   }
   const feature = featureRows.get(featureId);
   feature.properties.heroLocationIds = [...new Set([...(feature.properties.heroLocationIds || []), locKey])];
-  locationIndex[locKey] = { featureIds: [featureId], matchType, kind, year: year || null, hintRegion: hintOverride || regionHint(loc, row.feature) || '' };
+  const featureIds = [...new Set([...(locationIndex[locKey]?.featureIds || []), featureId])];
+  locationIndex[locKey] = { featureIds, matchType, kind, year: year || null, hintRegion: hintOverride || regionHint(loc, row.feature) || '' };
 };
 
 for (let locIndex = 0; locIndex < locations.length; locIndex++) {
@@ -182,8 +184,9 @@ for (let locIndex = 0; locIndex < locations.length; locIndex++) {
     const aliases = aliasesFrom(loc, override);
     const matches = rows.filter((row) => aliases.some((alias) => row.names.has(alias) || [...row.names].some((candidate) => simplify(candidate) === simplify(alias))));
     if (matches.length) {
-      const selected = matches.sort((a, b) => Number(contains(b.feature, loc)) - Number(contains(a.feature, loc)))[0];
-      addFeature(loc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion);
+      const sorted = matches.sort((a, b) => Number(contains(b.feature, loc)) - Number(contains(a.feature, loc)));
+      const selectedRows = override?.combineMatches ? sorted : sorted.slice(0, 1);
+      selectedRows.forEach((selected) => addFeature(loc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion));
       if (availableYear !== year) review.push({ id: loc.id || '', name: loc.name, requestedYear: year, selectedYear: availableYear, status: 'historical-year-review' });
     } else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year, status: 'historical-name-not-found' });
     continue;

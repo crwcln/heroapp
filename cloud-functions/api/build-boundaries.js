@@ -264,6 +264,8 @@ const contains = (feature, loc) => {
 const getProperty = (p, keys) => { for (const key of keys) if (typeof p[key] === 'string' && p[key].trim()) return p[key].trim(); return ''; };
 const kindOf = (loc) => {
   const label = `${loc.name || ''} ${loc.category || ''} ${loc.boundaryType || ''}`.toLowerCase();
+  // The modern country name contains "Kingdom"; do not require a historical year for it.
+  if (normalize(loc.name) === 'united kingdom' && !/historical|historic|ancient|empire/.test(normalize(loc.boundaryType))) return 'land';
   // Quiz years can describe when a city or sea appears in a question; they do
   // not by themselves mean the requested outline is a historical empire.
   if (/empire|kingdom|dynasty|caliphate|sultanate|historical|historic|ancient|polity|civilization/.test(label)) return 'historic';
@@ -335,7 +337,8 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
     }
     const feature = featureRows.get(featureId);
     feature.properties.heroLocationIds = [...new Set([...(feature.properties.heroLocationIds || []), locKey])];
-    locationIndex[locKey] = { featureIds: [featureId], matchType, kind, year: year || null, hintRegion: hintOverride || regionHint(loc, row.feature) || '' };
+    const featureIds = [...new Set([...(locationIndex[locKey]?.featureIds || []), featureId])];
+    locationIndex[locKey] = { featureIds, matchType, kind, year: year || null, hintRegion: hintOverride || regionHint(loc, row.feature) || '' };
   };
 
   for (let locIndex = 0; locIndex < locations.length; locIndex++) {
@@ -361,8 +364,9 @@ async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
       const aliases = aliasesFrom(loc, override);
       const matches = rows.filter((row) => aliases.some((alias) => row.names.has(alias) || [...row.names].some((candidate) => simplify(candidate) === simplify(alias))));
       if (matches.length) {
-        const selected = matches.sort((a, b) => Number(contains(b.feature, boundaryLoc)) - Number(contains(a.feature, boundaryLoc)))[0];
-        addFeature(boundaryLoc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion);
+        const sorted = matches.sort((a, b) => Number(contains(b.feature, boundaryLoc)) - Number(contains(a.feature, boundaryLoc)));
+        const selectedRows = override?.combineMatches ? sorted : sorted.slice(0, 1);
+        selectedRows.forEach((selected) => addFeature(boundaryLoc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion));
         if (availableYear !== year) review.push({ id: loc.id || '', name: loc.name, requestedYear: year, selectedYear: availableYear, status: 'historical-year-review' });
       } else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year, status: 'historical-name-not-found' });
       continue;
