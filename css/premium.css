@@ -751,7 +751,7 @@ input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus
 }
 
 /* Keep the complete icon set crisp, quiet, and visually consistent. */
-:where(svg.hero-symbol) {
+:where(svg.lucide) {
   flex: 0 0 auto;
   vertical-align: middle;
   stroke: currentColor;

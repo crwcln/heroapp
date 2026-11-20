@@ -42,10 +42,7 @@ html.dark .daily-challenge-kicker { color: #e3c866; }
 html.dark .st-sec h3 { color: #e3c866; }
 .ld-name, html.dark .ld-name { background: none; color: var(--brand-600); -webkit-text-fill-color: currentColor; animation: none; }
 html.dark .ld-name { color: #e7d59b; }
-svg.hero-symbol { flex: 0 0 auto; vertical-align: middle; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-html body svg.hero-symbol.text-indigo-500, html body svg.hero-symbol.text-indigo-600 { color: var(--brand-500); }
-html.dark body svg.hero-symbol.text-indigo-400, html.dark body svg.hero-symbol.text-indigo-500,
-html.dark body svg.hero-symbol.text-emerald-400, html.dark body svg.hero-symbol.text-emerald-500 { color: #6ee7b7; }
+svg.lucide { flex: 0 0 auto; vertical-align: middle; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 path.hl-land { fill: #34d399; stroke: #10b981; }
 path.hl-continent { fill: #8998b5; stroke: #5e6f91; }
 path.hl-water, path.hl-lake { fill: #72a0be; stroke: #416c91; }
