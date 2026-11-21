@@ -17,8 +17,9 @@ h1, h2, h3, #global-quiz-title, .cm-card h3 { font-family: 'EB Garamond', Georgi
 path.hl { fill-opacity: .38; stroke-width: 2; stroke-linejoin: round; pointer-events: none; animation: hlIn .6s ease-out both, hlBreath 3s ease-in-out .6s infinite; }
 path.hl-halo, path.hl-glow, path.hl-outline { fill: none; pointer-events: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 path.hl-halo { stroke: #020617; stroke-width: 11px; opacity: .92; }
-path.hl-glow { stroke: #5eead4; stroke-width: 7px; opacity: .82; filter: drop-shadow(0 0 7px rgba(45,212,191,.9)); }
+path.hl-glow { stroke: #d4af37; stroke-width: 7px; opacity: .78; filter: drop-shadow(0 0 7px rgba(212,175,55,.72)); }
 path.hl-outline { stroke: #f8fafc; stroke-width: 3.5px; opacity: .95; }
+path.hl-radiate { fill: none; stroke: #d4af37; stroke-width: 2px; opacity: 0; transform-box: fill-box; transform-origin: center; animation: hlRadiate 1.45s cubic-bezier(.12,.62,.32,1) var(--hl-radiate-delay, 0ms) both; }
 path.hl-land { fill: #34d399; stroke: #10b981; } path.hl-continent { fill: #a78bfa; stroke: #7c3aed; } path.hl-water { fill: #38bdf8; stroke: var(--brand-700); }
 path.hl-lake { fill: #38bdf8; stroke: var(--brand-700); }
 path.hl-region { fill: #f59e0b; stroke: #b45309; } path.hl-empire { fill: #a855f7; stroke: #7e22ce; } path.hl-route { fill: #fb923c; stroke: #c2410c; }
@@ -71,7 +72,9 @@ path.hl-pulse { fill-opacity: .25; animation: hlPulse 1.6s ease-out infinite; }
 .daily-score-incomplete { opacity:.5; cursor:not-allowed; }
 @media(max-width:640px) { .daily-challenge-card { align-items:stretch; flex-direction:column; gap:14px; padding:18px; } .daily-challenge-actions { justify-content:flex-start; } .beta-callout { align-items:stretch; flex-direction:column; gap:12px; padding:17px; } .beta-callout button { width:100%; } }
 @keyframes hlIn { from { fill-opacity: 0; stroke-opacity: 0; } to { fill-opacity: .38; stroke-opacity: 1; } } @keyframes hlBreath { 50% { fill-opacity: .2; } }
+@keyframes hlRadiate { 0% { transform: scale(.35); opacity: .82; stroke-width: 2px; } 72% { opacity: .32; } 100% { transform: scale(4.2); opacity: 0; stroke-width: .7px; } }
 @keyframes hlFlow { to { stroke-dashoffset: -22; } } @keyframes hlPulse { from { stroke-width: 2; stroke-opacity: 1; } to { stroke-width: 16; stroke-opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { path.hl-radiate { animation: none; opacity: 0; } path.hl { animation: none; } }
 .row-out { animation: rowOut .26s ease forwards !important; } @keyframes rowOut { to { opacity: 0; transform: translateX(24px) scale(.97); } }
 body.cookie-open #sherpa-fab { display: none; }
 .is-mobile #tut { bottom: auto; top: calc(var(--nav-h) + 10px); padding: 16px; } .is-mobile #cookie-banner { z-index: 9600; }

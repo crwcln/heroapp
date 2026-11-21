@@ -72,6 +72,18 @@ function hlShow(loc) {
                 const layer = L.geoJSON(collection, { pane: 'heroBoundaryHighlight', style: () => ({ className }), interactive: false }).addTo(map);
                 hlLayers.push(layer);
             });
+            // A pair of gold rings expands from the location dot as its boundary appears.
+            // Keep the effect in the same non-interactive pane as the outline.
+            if (Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng))) {
+                [0, 180].forEach(delay => {
+                    const ring = L.circleMarker([Number(loc.lat), Number(loc.lng)], {
+                        pane: 'heroBoundaryHighlight', radius: 9, className: 'hl-radiate',
+                        interactive: false, bubblingMouseEvents: false
+                    }).addTo(map);
+                    ring.getElement()?.style.setProperty('--hl-radiate-delay', `${delay}ms`);
+                    hlLayers.push(ring);
+                });
+            }
         } else {
             // A point halo is not a boundary. Do not show a misleading circle when the curated
             // outline is missing; the location catalog can be exported and rebuilt by a steward.
