@@ -1,19 +1,5 @@
 {
-  "generatedAt": "2026-11-20T21:27:38.084Z",
-  "reviewed": 2,
-  "locations": [
-    {
-      "id": "loc_gusfl68nm",
-      "name": "United Kingdom",
-      "category": "Countries",
-      "status": "missing-historical-year"
-    },
-    {
-      "id": "loc_1fxi80h44",
-      "name": "Mongol Empire",
-      "category": "Empires",
-      "year": 1279,
-      "status": "historical-name-not-found"
-    }
-  ]
+  "generatedAt": "2026-11-21T03:30:26.367Z",
+  "reviewed": 0,
+  "locations": []
 }
