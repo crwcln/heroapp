@@ -123,6 +123,33 @@
         const clRef = () => gs().doc('changelog');
         const clToday = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
         const clSorted = () => [...clEntries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        // Bundled release notes keep the Chronicle useful for a fresh project too. When a
+        // steward has already published the same version, merge in any missing major notes.
+        const clBundledEntries = [
+            { id: 'hero-release-1.4.7.6', version: '1.4.7.6', date: '2026-11-22', notes: 'Added: Animated tour changes with rolling titles and counters\nChanged: Resized the home panel as tours change' },
+            { id: 'hero-release-1.4.7.5', version: '1.4.7.5', date: '2026-11-22', notes: 'Added: A site FAQ and more helpful answers from Clio\nAdded: Skeleton loading for standings and updates\nChanged: Made page changes smoother and quicker\nFixed: Kept the site working when ambient audio cannot start' },
+            { id: 'hero-release-1.4.7.4', version: '1.4.7.4', date: '2026-11-20', notes: 'Changed: Improved historical empire boundary matching\nAdded: Gold ripples when a map border appears' },
+            { id: 'hero-release-1.4.7.3', version: '1.4.7.3', date: '2026-11-20', notes: 'Changed: Replaced custom symbols with clearer Lucide icons' },
+            { id: 'hero-release-1.4.7.0', version: '1.4.7.0', date: '2026-11-19', notes: 'Added: EB Garamond as a historical font choice\nAdded: Editable featured cards on the home page' },
+            { id: 'hero-release-1.4.6.9', version: '1.4.6.9', date: '2026-11-19', notes: 'Added: Daily and per-message limits for Clio\nChanged: Improved theme switching and dropdown accessibility' },
+            { id: 'hero-release-1.4.6.5', version: '1.4.6.5', date: '2026-11-19', notes: 'Added: Border status labels to location lists\nChanged: Improved the AI prompt for map locations' },
+            { id: 'hero-release-1.4.6.4', version: '1.4.6.4', date: '2026-11-19', notes: 'Fixed: Corrected coordinates for historical map locations' },
+            { id: 'hero-release-1.4.6.2', version: '1.4.6.2', date: '2026-11-18', notes: 'Changed: Made boundary build errors easier to understand' },
+            { id: 'hero-release-1.4.6.1', version: '1.4.6.1', date: '2026-11-18', notes: 'Added: A server tool to rebuild and publish map borders' },
+            { id: 'hero-release-1.4.6.0', version: '1.4.6.0', date: '2026-11-18', notes: 'Changed: Improved AI location imports and map styling' }
+        ];
+        const clPublicSorted = () => {
+            const entries = clEntries.map(entry => ({ ...entry }));
+            clBundledEntries.forEach(bundled => {
+                const existing = entries.find(entry => String(entry.version || '') === bundled.version);
+                if (!existing) { entries.push({ ...bundled }); return; }
+                const lines = String(existing.notes || '').split('\n').map(line => line.trim()).filter(Boolean);
+                String(bundled.notes || '').split('\n').map(line => line.trim()).filter(line => line && !lines.includes(line)).forEach(line => lines.push(line));
+                existing.notes = lines.join('\n');
+                if (!existing.date) existing.date = bundled.date;
+            });
+            return entries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        };
         const clFmtDate = (s) => { const d = new Date(s + 'T00:00:00'); return isNaN(d) ? (s || '') : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
         const CL_TAGS = {
             Added: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -136,7 +163,7 @@
             if (!list) return;
             if (!db || !userId) {
                 list.setAttribute('aria-busy', 'false');
-                list.innerHTML = '<p class="text-center text-slate-500 italic py-8">The Chronicle is unavailable while offline.</p>';
+                renderChangelog();
                 return;
             }
             list.setAttribute('aria-busy', 'true');
@@ -148,8 +175,7 @@
                 if (!clDirty) maybeShowChangelogPopup();
             }, err => {
                 list.setAttribute('aria-busy', 'false');
-                if (clEntries.length) renderChangelog();
-                else list.innerHTML = '<p class="text-center text-slate-500 italic py-8">The Chronicle could not load. Check your connection and try again.</p>';
+                renderChangelog();
                 console.error('Changelog listener:', err);
             });
         }
@@ -194,14 +220,15 @@
             const list = document.getElementById('changelog-list');
             list.setAttribute('aria-busy', 'false');
             list.innerHTML = '';
-            if (!clEntries.length) {
+            const entries = clPublicSorted();
+            if (!entries.length) {
                 const p = document.createElement('p');
                 p.className = 'text-center text-slate-500 italic py-8';
                 p.textContent = 'No updates yet.';
                 list.appendChild(p);
                 return;
             }
-            clSorted().forEach(e => list.appendChild(clBuildEntry(e, false)));
+            entries.forEach(e => list.appendChild(clBuildEntry(e, false)));
         }
 
         window.addEventListener('hero-auth-state', event => {
@@ -214,16 +241,16 @@
             const updates = document.getElementById('changelog-list');
             if (updates?.getAttribute('aria-busy') === 'true') {
                 updates.setAttribute('aria-busy', 'false');
-                updates.innerHTML = '<p class="text-center text-slate-500 italic py-8">The Chronicle is unavailable while offline.</p>';
+                renderChangelog();
             }
         });
 
         // Popup: once per new update (clEntries[0] is always the most recently added entry)
         function maybeShowChangelogPopup() {
-            if (clChecked || !clEntries.length) return;
+            const latest = clPublicSorted()[0];
+            if (clChecked || !latest) return;
             if (siteDev && !devUnlocked()) return;
             clChecked = true;
-            const latest = clEntries[0];
             if (localStorage.getItem('mq_lastSeenChangelog') === latest.id) return;
             const body = document.getElementById('changelog-popup-body');
             body.innerHTML = '';
@@ -231,7 +258,8 @@
             document.getElementById('changelog-popup').classList.remove('hidden');
         }
         function closeChangelogPopup(goToPage) {
-            if (clEntries[0]) localStorage.setItem('mq_lastSeenChangelog', clEntries[0].id);
+            const latest = clPublicSorted()[0];
+            if (latest) localStorage.setItem('mq_lastSeenChangelog', latest.id);
             document.getElementById('changelog-popup').classList.add('hidden');
             if (goToPage) switchView('changelog-view');
         }

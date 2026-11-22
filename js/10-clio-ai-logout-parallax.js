@@ -15,7 +15,12 @@
             try { localStorage.setItem(SH_USAGE_KEY, JSON.stringify(usage)); } catch (_) { }
             return { ok: true, remaining: SH_DAILY_MAX - usage.count };
         }
-        const SH_CHIPS = ['Quiz me on African rivers', 'Memory trick for the Balkans', 'Why do straits matter?', 'Explain the Silk Road'];
+        const SH_CHIPS = [
+            { text: 'Quiz me on African rivers', icon: 'waves' },
+            { text: 'Memory trick for the Balkans', icon: 'brain' },
+            { text: 'Why do straits matter?', icon: 'compass' },
+            { text: 'Explain the Silk Road', icon: 'route' }
+        ];
         const shFmt = t => {
             const source = document.createElement('template');
             source.innerHTML = String(t || '')
@@ -51,12 +56,12 @@
             return result.innerHTML;
         };
         function shUI(k, full) {
-            return `<div class="sh-head"><div class="sh-av"><i data-lucide="bot"></i></div><div><h3>Clio</h3><small>Muse of history, guide to the map</small></div><div class="sh-sp"></div>
+            return `<div class="sh-head"><div class="sh-av"><i data-lucide="landmark"></i></div><div class="sh-title"><h3>Clio</h3><small>Your guide to places and the past</small></div><div class="sh-sp"></div>
                 <button class="sh-ib" title="New chat" onclick="shClear()"><i data-lucide="rotate-ccw"></i></button>
                 ${full ? '' : '<button class="sh-ib" title="Open full page" onclick="switchView(\'ai-view\')"><i data-lucide="maximize-2"></i></button><button class="sh-ib" title="Close" onclick="sherpaToggle()"><i data-lucide="x"></i></button>'}</div>
                 <div class="sh-msgs" id="shm-${k}"></div>
                 <div class="sh-preview" id="shprev-${k}" aria-live="polite"></div>
-                <div class="sh-in"><input id="shfile-${k}" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><button class="sh-ib sh-attach" type="button" id="shattach-${k}" aria-label="Attach images to send to Clio's AI" title="Images are sent to Clio's AI provider for analysis"><i data-lucide="paperclip"></i></button><textarea id="shi-${k}" rows="1" maxlength="1000" placeholder="Ask Clio or drop an image..."></textarea><button class="sh-send" id="shs-${k}" aria-label="Send"><i data-lucide="send"></i></button></div>`;
+                <div class="sh-in"><input id="shfile-${k}" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><button class="sh-ib sh-attach" type="button" id="shattach-${k}" aria-label="Attach images to send to Clio's AI" title="Images are sent to Clio's AI provider for analysis"><i data-lucide="paperclip"></i></button><textarea id="shi-${k}" rows="1" maxlength="1000" aria-label="Message Clio" placeholder="Ask about a place, person, or idea…"></textarea><button class="sh-send" id="shs-${k}" aria-label="Send"><i data-lucide="arrow-up"></i></button></div>`;
         }
         ['p', 'v'].forEach(k => {
             document.getElementById(k === 'p' ? 'sherpa-panel' : 'ai-shell').innerHTML = shUI(k, k === 'v');
@@ -80,8 +85,8 @@
             ['p', 'v'].forEach(k => {
                 const box = document.getElementById('shm-' + k); box.innerHTML = '';
                 if (!sh.msgs.length) {
-                    box.innerHTML = `<div class="sh-hero"><div class="sh-av"><i data-lucide="bot"></i></div><h2>Hi, I'm Clio</h2><p>Ask me about places, regions, rivers, empires or trade routes. I'll help you remember them.</p><div class="sh-chips">${SH_CHIPS.map(c => `<button class="sh-chip">${esc(c)}</button>`).join('')}</div></div>`;
-                    box.querySelectorAll('.sh-chip').forEach(b => { b.onclick = () => sherpaSend(b.textContent); });
+                    box.innerHTML = `<div class="sh-hero"><div class="sh-av"><i data-lucide="landmark"></i></div><div class="sh-eyebrow">HISTORY, MADE MEMORABLE</div><h2>Where would you like to begin?</h2><p>Ask Clio about a place, an empire, or the connections that shaped the past.</p><div class="sh-chips">${SH_CHIPS.map(c => `<button class="sh-chip" data-prompt="${esc(c.text)}"><i data-lucide="${c.icon}"></i><span>${esc(c.text)}</span><i class="sh-chip-arrow" data-lucide="arrow-up-right"></i></button>`).join('')}</div></div>`;
+                    box.querySelectorAll('.sh-chip').forEach(b => { b.onclick = () => sherpaSend(b.dataset.prompt); });
                     lucide.createIcons();
                 }
                 sh.msgs.forEach(m => { const d = document.createElement('div'); d.className = 'sh-msg ' + (m.r === 'user' ? 'me' : 'bot') + (m.err ? ' err' : ''); d.innerHTML = shFmt(m.t); (m.images || []).forEach(img => { const el = document.createElement('img'); el.src = img.url; el.alt = 'Image attached to message'; el.className = 'sh-message-image'; d.appendChild(el); }); box.appendChild(d); });

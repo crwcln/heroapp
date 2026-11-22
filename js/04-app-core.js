@@ -476,9 +476,14 @@
             renderUserCustomList();
         });
 
-        function renderUserCustomList() {
-            document.getElementById('user-loc-count').innerText = customLocations.length;
-            document.getElementById('custom-quiz-count').innerText = `${customLocations.length} locations`;
+        function renderUserCustomList(animateCounts = false) {
+            if (animateCounts && window.rollYearNumber) {
+                rollYearNumber(document.getElementById('user-loc-count'), customLocations.length, '', true);
+                rollYearNumber(document.getElementById('custom-quiz-count'), customLocations.length, ' locations', true);
+            } else {
+                document.getElementById('user-loc-count').innerText = customLocations.length;
+                document.getElementById('custom-quiz-count').innerText = `${customLocations.length} locations`;
+            }
             const listEl = document.getElementById('user-custom-list');
             listEl.innerHTML = '';
             customLocations.forEach((loc, idx) => {
