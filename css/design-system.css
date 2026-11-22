@@ -177,3 +177,56 @@ input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { 
   #fx-a { animation:none!important; }
   #home-view .grid > button:hover, #leaderboard-list > div:hover, #daily-leaderboard-list > div:hover { transform:none; }
 }
+
+/* Mobile navigation is a fixed five-slot dock; no horizontal scrolling or clipped tabs. */
+html.is-mobile #mobile-tabbar {
+  left:0; right:auto; bottom:0; width:100%; max-width:100vw; box-sizing:border-box;
+  display:flex; flex-wrap:nowrap; gap:2px; overflow-x:hidden; overflow-y:hidden;
+  padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));
+  background:var(--bg-base); border-top:1px solid rgba(var(--sec-rgb),.34);
+}
+html.is-mobile #mobile-tabbar > button {
+  min-width:0; max-width:none; min-height:56px; flex:1 1 0; box-sizing:border-box;
+  overflow:hidden; padding:5px 2px; gap:3px; white-space:nowrap;
+  color:var(--ink-500); font-size:10px; line-height:1.1;
+}
+html.is-mobile #mobile-tabbar > button svg { width:20px; height:20px; flex:0 0 20px; }
+html.is-mobile #mobile-tabbar > button span {
+  display:block!important; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap;
+  text-overflow:clip; font-size:9px; line-height:1.1; letter-spacing:.01em;
+}
+html.is-mobile #mobile-tabbar > button.active { color:var(--sec); background:rgba(var(--sec-rgb),.12)!important; }
+#mobile-tab-indicator { border-color:rgba(var(--sec-rgb),.3); background:rgba(var(--sec-rgb),.09); }
+html.dark #mobile-tab-indicator { border-color:rgba(var(--sec-rgb),.35); background:rgba(var(--sec-rgb),.12); }
+
+#mobile-more-sheet {
+  position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none;
+  box-sizing:border-box; margin:0; padding:16px; border:0; color:inherit; background:transparent;
+}
+#mobile-more-sheet[open] { display:grid; align-items:end; }
+#mobile-more-sheet::backdrop { background:rgba(5,10,24,.62); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); }
+.mobile-more-card {
+  width:min(100%,460px); max-height:calc(100dvh - 24px); margin:0 auto; overflow-y:auto;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  border:1px solid rgba(var(--sec-rgb),.42); border-radius:24px; color:var(--ink-800);
+  background:var(--field); box-shadow:var(--hero-shadow-popover);
+  animation:mobileMoreArrive .22s cubic-bezier(.2,.8,.2,1) both;
+}
+.mobile-more-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.mobile-more-header h2 { margin:0; color:var(--ink-900,#172033); font:600 25px/1.1 'EB Garamond',Georgia,serif; }
+html.dark .mobile-more-header h2 { color:#f0e5c2; }
+.mobile-more-header p { margin:4px 0 0; color:var(--ink-500); font-size:12px; }
+.mobile-more-close { display:grid; width:42px; height:42px; flex:0 0 42px; place-items:center; border:1px solid var(--line); border-radius:14px; color:var(--ink-500); background:var(--bg-base); }
+.mobile-more-close svg { width:19px; height:19px; }
+.mobile-more-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.mobile-more-list button {
+  display:flex; min-width:0; min-height:48px; align-items:center; gap:9px; padding:9px 10px;
+  border:1px solid var(--line); border-radius:14px; color:var(--ink-800); background:var(--bg-base);
+  text-align:left; font-size:12px; font-weight:650; white-space:nowrap;
+}
+.mobile-more-list button:hover, .mobile-more-list button:focus-visible { border-color:rgba(var(--sec-rgb),.6); background:rgba(var(--sec-rgb),.09); }
+.mobile-more-list button svg { width:18px; height:18px; flex:0 0 18px; color:var(--sec); }
+@keyframes mobileMoreArrive { from { opacity:0; transform:translateY(10px) scale(.99); } to { opacity:1; transform:none; } }
+@supports (corner-shape:squircle) { .mobile-more-card,.mobile-more-close,.mobile-more-list button { corner-shape:squircle; } }
+@media(prefers-reduced-motion:reduce) { .mobile-more-card { animation:none; } }
+@media(max-width:350px) { html.is-mobile #mobile-tabbar > button span { font-size:8px; } .mobile-more-card { padding-left:14px; padding-right:14px; } .mobile-more-list { gap:6px; } .mobile-more-list button { gap:7px; padding:8px; font-size:11px; } }

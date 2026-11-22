@@ -461,10 +461,20 @@ async function resetVisitCounter() {
         }
         // hide the counter over the quiz map
         const _origSwitchView = switchView;
+        const mobileMoreDialog = document.getElementById('mobile-more-sheet');
+        const mobileMoreButton = document.getElementById('mobile-more-button');
+        const mobileMoreViews = new Set([...document.querySelectorAll('#mobile-more-sheet [data-mobile-view]')].map(button => button.dataset.mobileView));
+        function currentMobileViewId() {
+            const routed = document.body.dataset.view;
+            if (routed && document.getElementById(routed)?.classList.contains('view-section')) return routed;
+            return [...document.querySelectorAll('.view-section:not(.hidden):not(.view-transition-out)')].at(-1)?.id || '';
+        }
         function moveMobileTabIndicator(id) {
             const bar = document.getElementById('mobile-tabbar'), indicator = document.getElementById('mobile-tab-indicator');
             if (!bar || !indicator) return;
-            const tab = [...bar.querySelectorAll('button[data-tab]')].find(button => button.dataset.tab === id);
+            const moreTab = bar.querySelector('button[data-tab="mobile-more"]');
+            const tab = [...bar.querySelectorAll('button[data-tab]')].find(button => button.dataset.tab === id)
+                || (id === 'mobile-more' || mobileMoreViews.has(id) ? moreTab : null);
             bar.querySelectorAll('button[data-tab]').forEach(button => button.classList.toggle('active', button === tab));
             if (!tab) { indicator.classList.remove('ready'); return; }
             const br = bar.getBoundingClientRect(), tr = tab.getBoundingClientRect();
@@ -472,9 +482,35 @@ async function resetVisitCounter() {
             indicator.style.transform = `translate3d(${tr.left - br.left + bar.scrollLeft}px,0,0)`;
             indicator.classList.add('ready');
         }
+        window.openMobileMore = function () {
+            if (!mobileMoreDialog) return;
+            if (!mobileMoreDialog.open) mobileMoreDialog.showModal();
+            mobileMoreButton?.setAttribute('aria-expanded', 'true');
+            moveMobileTabIndicator('mobile-more');
+        };
+        window.closeMobileMore = function () {
+            if (mobileMoreDialog?.open) mobileMoreDialog.close();
+            mobileMoreButton?.setAttribute('aria-expanded', 'false');
+        };
+        mobileMoreDialog?.addEventListener('close', () => {
+            mobileMoreButton?.setAttribute('aria-expanded', 'false');
+            const currentId = currentMobileViewId();
+            if (currentId) moveMobileTabIndicator(currentId);
+        });
+        mobileMoreDialog?.addEventListener('click', event => {
+            if (event.target === mobileMoreDialog) window.closeMobileMore();
+        });
+        mobileMoreDialog?.querySelectorAll('[data-mobile-view]').forEach(button => button.addEventListener('click', () => {
+            switchView(button.dataset.mobileView);
+            window.closeMobileMore();
+        }));
+        mobileMoreDialog?.querySelector('[data-mobile-action="open-blank"]')?.addEventListener('click', () => {
+            openInAboutBlank();
+            window.closeMobileMore();
+        });
         window.addEventListener('resize', () => {
-            const current = document.querySelector('.view-section:not(.hidden)');
-            if (current) moveMobileTabIndicator(current.id);
+            const currentId = currentMobileViewId();
+            if (currentId) moveMobileTabIndicator(currentId);
         });
         switchView = function (id) {
             _origSwitchView(id);

@@ -1,0 +1,101 @@
+- generic [active] [ref=f2e1]:
+  - navigation [ref=f2e18]:
+    - img [ref=f2e20] [cursor=pointer]:
+      - generic [ref=f2e22]: H
+    - generic [ref=f2e23]:
+      - button "1 Year" [ref=f2e25] [cursor=pointer]
+      - button "2 Year" [ref=f2e26] [cursor=pointer]
+    - generic [ref=f2e27]:
+      - group [ref=f2e28]:
+        - generic "More navigation" [ref=f2e29] [cursor=pointer]
+      - button "Switch to dark appearance" [ref=f2e34] [cursor=pointer]
+  - generic [ref=f2e234]:
+    - heading "Customs" [level=2] [ref=f2e235]
+    - paragraph [ref=f2e236]: Make Hero yours. Saved on this device when cookies are accepted.
+    - generic [ref=f2e237]:
+      - heading "Colorway" [level=3] [ref=f2e238]
+      - generic [ref=f2e239]:
+        - button "Navy & Gold" [ref=f2e240] [cursor=pointer]
+        - button "Amethyst Dusk" [ref=f2e242] [cursor=pointer]
+        - button "Burnt Amber" [ref=f2e244] [cursor=pointer]
+        - button "Deep Moss" [ref=f2e246] [cursor=pointer]
+        - button "Sunset Coral" [ref=f2e248] [cursor=pointer]
+        - button "Ink & Teal" [ref=f2e250] [cursor=pointer]
+    - generic [ref=f2e252]:
+      - heading "Background" [level=3] [ref=f2e253]
+      - generic [ref=f2e254]:
+        - button "Contours" [ref=f2e255] [cursor=pointer]
+        - button "Aurora" [ref=f2e256] [cursor=pointer]
+        - button "Dot grid" [ref=f2e257] [cursor=pointer]
+        - button "Plain" [ref=f2e258] [cursor=pointer]
+    - generic [ref=f2e259]:
+      - heading "Font" [level=3] [ref=f2e260]
+      - generic [ref=f2e261]:
+        - button "Modern" [ref=f2e262] [cursor=pointer]
+        - button "Book Serif" [ref=f2e263] [cursor=pointer]
+        - button "Mono" [ref=f2e264] [cursor=pointer]
+        - button "Rounded" [ref=f2e265] [cursor=pointer]
+    - generic [ref=f2e266]:
+      - heading "Behavior" [level=3] [ref=f2e267]
+      - generic [ref=f2e268]:
+        - generic [ref=f2e269]:
+          - generic [ref=f2e270]: Animations
+          - generic [ref=f2e271]: Turn off for a calmer, faster interface.
+        - button "Toggle animations" [ref=f2e272] [cursor=pointer]
+    - generic [ref=f2e273]:
+      - heading "Sound & help" [level=3] [ref=f2e274]
+      - generic [ref=f2e275]:
+        - generic [ref=f2e276]:
+          - generic [ref=f2e277]: Ambient space music
+          - generic [ref=f2e278]: Soft generative pads. Starts on your first click.
+        - button "Toggle music" [ref=f2e279] [cursor=pointer]
+      - generic [ref=f2e280]:
+        - generic [ref=f2e281]: Volume
+        - slider [ref=f2e282]: "35"
+      - generic [ref=f2e283]:
+        - generic [ref=f2e284]: Replay the tutorial
+        - button "Replay" [ref=f2e285] [cursor=pointer]
+      - generic [ref=f2e286]:
+        - generic [ref=f2e287]: Replay the intro film
+        - button "Replay" [ref=f2e288] [cursor=pointer]
+    - generic [ref=f2e289]:
+      - heading "Notifications" [level=3] [ref=f2e290]
+      - generic [ref=f2e291]:
+        - generic [ref=f2e292]:
+          - generic [ref=f2e293]: Hero announcements
+          - generic [ref=f2e294]: Get a notification when a new announcement is posted.
+        - button "Enable notifications" [ref=f2e295] [cursor=pointer]
+    - generic [ref=f2e296]:
+      - heading "Tab cloak" [level=3] [ref=f2e297]
+      - generic [ref=f2e298]:
+        - generic [ref=f2e299]:
+          - generic [ref=f2e300]: Cloaked tab title
+          - generic [ref=f2e301]: Used by the "Open Blank" button.
+        - generic [ref=f2e302]:
+          - textbox "Home" [ref=f2e303]
+          - button "Open" [ref=f2e304] [cursor=pointer]
+    - generic [ref=f2e305]:
+      - heading "Site repair" [level=3] [ref=f2e306]
+      - generic [ref=f2e307]:
+        - generic [ref=f2e308]:
+          - generic [ref=f2e309]: Refresh site files
+          - generic [ref=f2e310]: Reload Hero with a fresh page URL and clear saved site caches. Study progress on this browser stays saved.
+        - button "Refresh Hero" [ref=f2e311] [cursor=pointer]
+  - text: + + + + + + + + + + Write your announcement…
+  - generic:
+    - generic: "61"
+    - text: visits
+  - navigation "Main navigation" [ref=f2e99]:
+    - button "Agora" [ref=f2e100] [cursor=pointer]
+    - button "Heroes" [ref=f2e104] [cursor=pointer]
+    - button "Charts" [ref=f2e109] [cursor=pointer]
+    - button "Clio" [ref=f2e114] [cursor=pointer]
+    - button "More" [ref=f2e118] [cursor=pointer]
+  - button "Ask Clio" [ref=f2e129] [cursor=pointer]
+  - status:
+    - generic:
+      - strong: An update is here
+      - generic: This page will refresh in 30 seconds.
+    - generic:
+      - button "Reload now"
+      - button "Not now"
