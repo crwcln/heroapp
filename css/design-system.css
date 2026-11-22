@@ -15,10 +15,12 @@ html.dark {
   border:1px solid var(--line);
   border-radius:var(--hero-radius-surface);
   background:var(--field);
-  box-shadow:var(--hero-shadow-surface);
+  box-shadow:var(--hero-shadow-surface), inset 0 1px 0 rgba(255,255,255,.035);
   -webkit-backdrop-filter:none;
   backdrop-filter:none;
 }
+html.dark .glass-panel { border-color:rgba(var(--sec-rgb),.18); background:var(--field); }
+html:not(.dark) .glass-panel { box-shadow:var(--hero-shadow-surface), inset 0 1px 0 rgba(255,255,255,.72); }
 .glass-panel [class*="bg-white"] { background-color:var(--field); border-color:var(--line); }
 .glass-panel :is(h1,h2,h3) { color:var(--ink-900,#172033); }
 html.dark .glass-panel :is(h1,h2,h3) { color:var(--ink-50,#f4f5f8); }
@@ -31,6 +33,10 @@ html.dark .glass-panel :is(h1,h2,h3) { color:var(--ink-50,#f4f5f8); }
   -webkit-backdrop-filter:none;
   backdrop-filter:none;
 }
+html.dark #top-nav { background:var(--bg-base); border-bottom-color:rgba(var(--sec-rgb),.34); }
+#top-nav h1 { color:var(--ink-900,#172033); letter-spacing:.12em; text-transform:uppercase; }
+html.dark #top-nav h1 { color:#f0e5c2; }
+#top-nav > div:first-child > svg.brand-mark { border-radius:14px; }
 #nav-actions .nav-primary-links :is(button,a) { min-height:42px; border-radius:13px; }
 #nav-actions .nav-primary-links :is(button,a):hover:not(.nav-active) { background:rgba(var(--sec-rgb),.09); }
 #nav-actions .nav-primary-links :is(button,a).nav-active { color:var(--brand-700); background:rgba(var(--sec-rgb),.16); box-shadow:inset 0 0 0 1px rgba(var(--sec-rgb),.35); }
@@ -81,7 +87,14 @@ button.cm-btn:disabled, button[disabled], [role="button"][aria-disabled="true"] 
 }
 #home-view .grid > button { border:1px solid rgba(var(--sec-rgb),.34); }
 #home-view .grid > button:hover { border-color:rgba(var(--sec-rgb),.72); box-shadow:0 14px 32px -24px rgba(var(--brand-rgb),.66); }
+#home-view .grid > button > .absolute.inset-0 { background:none; }
+#home-view .grid > button:first-child > svg { color:var(--brand-300); }
+#home-view .grid > button:nth-child(2) > svg { color:var(--sec); }
+#home-view > .glass-panel { border-color:rgba(var(--sec-rgb),.2); }
+#home-custom-cards > * { border-left:2px solid rgba(var(--sec-rgb),.35); transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+#home-custom-cards > *:hover { transform:translateY(-2px); border-left-color:var(--sec); box-shadow:var(--hero-shadow-popover); }
 .daily-challenge-card { border:1px solid rgba(var(--sec-rgb),.36); border-left:3px solid var(--sec); border-radius:22px; background:var(--field); }
+html.dark .daily-challenge-card { border-color:rgba(var(--sec-rgb),.36); border-left-color:var(--sec); background:var(--field); }
 .daily-challenge-card::after { display:none; }
 .daily-challenge-kicker { color:var(--brand-700); }
 html.dark .daily-challenge-kicker { color:#e9cf72; }
@@ -120,12 +133,18 @@ html.dark #admin-tabs button.on, html.dark .daily-lb-tabs button.on { color:#f1d
 #confirm-modal .cm-icon:not(.danger) { border:1px solid rgba(var(--sec-rgb),.34); border-radius:16px; color:var(--brand-700); background:rgba(var(--sec-rgb),.14); }
 html.dark #confirm-modal .cm-icon:not(.danger) { color:#f1d77a; }
 #cookie-banner { color:var(--ink-800); }
+html.is-mobile #cookie-banner { background:var(--field); border-color:rgba(var(--sec-rgb),.32); }
 html.dark #cookie-banner { color:var(--ink-100,#e3e7ef); }
 .toast { border:1px solid rgba(var(--sec-rgb),.34); border-radius:16px; background:var(--field); color:var(--ink-800); box-shadow:var(--hero-shadow-popover); -webkit-backdrop-filter:none; backdrop-filter:none; }
 html.dark .toast { color:var(--ink-100,#e3e7ef); }
 .quiz-toolbar { border:1px solid rgba(var(--sec-rgb),.42); border-radius:18px; background:var(--field); box-shadow:var(--hero-shadow-popover); -webkit-backdrop-filter:none; backdrop-filter:none; }
 .quiz-hint-button { min-height:38px; border:1px solid rgba(var(--sec-rgb),.4); border-radius:12px; color:var(--brand-700); background:rgba(var(--sec-rgb),.1); }
 html.dark .quiz-hint-button { color:#f1d77a; }
+.quiz-progress span { background:var(--sec); box-shadow:none; }
+.quiz-progress { border:1px solid rgba(var(--sec-rgb),.3); background:rgba(var(--brand-rgb),.2); box-shadow:none; }
+.quiz-toolbar #q-score, .quiz-toolbar #timer-display { color:var(--sec); }
+.rv-row .bar i { background:var(--sec); }
+.ld-ring .prg { stroke:var(--sec); filter:none; }
 
 /* Inputs and popovers align with the rest of the component system. */
 input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { border-radius:var(--hero-radius-control); }
@@ -133,6 +152,10 @@ input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { 
 .fb-drop { border:1px dashed rgba(var(--sec-rgb),.55); border-radius:18px; }
 .fb-drop:hover, .fb-drop.drag { border-color:var(--sec); background:rgba(var(--sec-rgb),.07); }
 .qtip-b { border:1px solid rgba(var(--sec-rgb),.24); border-radius:14px; background:var(--brand-700); box-shadow:var(--hero-shadow-popover); }
+
+/* A nearly imperceptible drift gives the atlas a little life without competing with content. */
+#fx-a { animation:heroAtlasDrift 80s ease-in-out infinite alternate; }
+@keyframes heroAtlasDrift { to { translate:0 -10px; } }
 
 @supports (corner-shape:squircle) {
   :where(.glass-panel,.daily-challenge-card,.beta-callout,.hc-card,.ann-card,.rv-row,.st-card,.st-chip,
@@ -151,5 +174,6 @@ input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { 
 }
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto!important; }
+  #fx-a { animation:none!important; }
   #home-view .grid > button:hover, #leaderboard-list > div:hover, #daily-leaderboard-list > div:hover { transform:none; }
 }
