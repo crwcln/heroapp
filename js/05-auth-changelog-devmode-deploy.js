@@ -132,13 +132,26 @@
         };
 
         function loadChangelog() {
-            if (!db || !userId) return;
+            const list = document.getElementById('changelog-list');
+            if (!list) return;
+            if (!db || !userId) {
+                list.setAttribute('aria-busy', 'false');
+                list.innerHTML = '<p class="text-center text-slate-500 italic py-8">The Chronicle is unavailable while offline.</p>';
+                return;
+            }
+            list.setAttribute('aria-busy', 'true');
+            list.innerHTML = window.heroSkeletonRows ? window.heroSkeletonRows(3) : '<p class="text-center text-slate-500 py-8">Loading updates…</p>';
             clRef().onSnapshot(doc => {
                 if (!clDirty) clEntries = doc.exists ? (doc.data().entries || []) : [];
                 renderChangelog();
                 renderChangelogAdmin();
                 if (!clDirty) maybeShowChangelogPopup();
-            }, err => console.error('Changelog listener:', err));
+            }, err => {
+                list.setAttribute('aria-busy', 'false');
+                if (clEntries.length) renderChangelog();
+                else list.innerHTML = '<p class="text-center text-slate-500 italic py-8">The Chronicle could not load. Check your connection and try again.</p>';
+                console.error('Changelog listener:', err);
+            });
         }
 
         function clNoteLine(t) {
@@ -179,6 +192,7 @@
 
         function renderChangelog() {
             const list = document.getElementById('changelog-list');
+            list.setAttribute('aria-busy', 'false');
             list.innerHTML = '';
             if (!clEntries.length) {
                 const p = document.createElement('p');
@@ -189,6 +203,20 @@
             }
             clSorted().forEach(e => list.appendChild(clBuildEntry(e, false)));
         }
+
+        window.addEventListener('hero-auth-state', event => {
+            if (event.detail?.authorized) return;
+            const standings = document.getElementById('leaderboard-list');
+            if (standings?.getAttribute('aria-busy') === 'true') {
+                standings.setAttribute('aria-busy', 'false');
+                standings.innerHTML = '<p class="text-center text-slate-500 italic py-8">Tour standings are unavailable while offline.</p>';
+            }
+            const updates = document.getElementById('changelog-list');
+            if (updates?.getAttribute('aria-busy') === 'true') {
+                updates.setAttribute('aria-busy', 'false');
+                updates.innerHTML = '<p class="text-center text-slate-500 italic py-8">The Chronicle is unavailable while offline.</p>';
+            }
+        });
 
         // Popup: once per new update (clEntries[0] is always the most recently added entry)
         function maybeShowChangelogPopup() {

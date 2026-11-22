@@ -145,33 +145,60 @@
 
         // ================= AMBIENT MUSIC (generated, no audio files) =================
         if (prefs.music === undefined) { prefs.music = 'on'; prefs.vol = 35; }
-        const mus = { ctx: null, master: null, bus: null, i: 0, timer: null };
+        const mus = { ctx: null, master: null, bus: null, i: 0, timer: null, failed: false };
         let introMusicMuted = !!document.getElementById('intro');
         const CHORDS = [[110, 164.8, 220, 261.6, 329.6], [87.3, 130.8, 174.6, 220, 329.6], [130.8, 196, 246.9, 329.6, 392], [98, 146.8, 196, 246.9, 293.7]];
+        function musicUnavailable(error) {
+            if (mus.failed) return;
+            mus.failed = true;
+            if (mus.timer) clearInterval(mus.timer);
+            mus.timer = null;
+            prefs.music = 'off';
+            const toggle = document.getElementById('sw-music');
+            if (toggle) { toggle.classList.remove('on'); toggle.disabled = true; toggle.title = 'Ambient music is unavailable in this browser session'; toggle.setAttribute('aria-label', 'Ambient music unavailable'); }
+            const volume = document.getElementById('vol'); if (volume) volume.disabled = true;
+            if (mus.ctx) { const ctx = mus.ctx; mus.ctx = null; try { Promise.resolve(ctx.close()).catch(() => {}); } catch (_) {} }
+            console.info('Ambient music is unavailable in this browser session; the site will continue without audio.', error);
+            if (typeof showToast === 'function') showToast('Ambient music could not start on this device. The site will keep working without sound.', 'info');
+        }
         function musicNote(f, t, dur) {
             const o = mus.ctx.createOscillator(), g = mus.ctx.createGain();
             o.type = Math.random() < .3 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = (Math.random() - .5) * 14;
             g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.16, t + dur * .35); g.gain.linearRampToValueAtTime(0, t + dur);
             o.connect(g); g.connect(mus.bus); o.start(t); o.stop(t + dur + .1);
         }
-        function musicChord() { const t = mus.ctx.currentTime; CHORDS[mus.i++ % 4].forEach((f, k) => musicNote(f, t + k * .6, 9)); if (Math.random() < .7) musicNote(CHORDS[mus.i % 4][4] * 2, t + 3 + Math.random() * 3, 5); }
+        function musicChord() {
+            if (!mus.ctx || mus.ctx.state === 'closed') return;
+            try { const t = mus.ctx.currentTime; CHORDS[mus.i++ % 4].forEach((f, k) => musicNote(f, t + k * .6, 9)); if (Math.random() < .7) musicNote(CHORDS[mus.i % 4][4] * 2, t + 3 + Math.random() * 3, 5); }
+            catch (error) { musicUnavailable(error); }
+        }
         function musicSync() {
-            const on = prefs.music !== 'off' && !introMusicMuted, vol = (prefs.vol == null ? 35 : prefs.vol) / 100 * .22;
+            const on = prefs.music !== 'off' && !introMusicMuted && !mus.failed, vol = (prefs.vol == null ? 35 : prefs.vol) / 100 * .22;
             if (on && !mus.ctx && mus.armed) {
-                const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
-                mus.ctx = new C(); mus.master = mus.ctx.createGain(); mus.master.gain.value = 0; mus.master.connect(mus.ctx.destination);
-                const lp = mus.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; mus.bus = lp;
-                const dl = mus.ctx.createDelay(1.5), fb = mus.ctx.createGain(); dl.delayTime.value = .55; fb.gain.value = .5;
-                lp.connect(mus.master); lp.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(mus.master);
-                musicChord(); mus.timer = setInterval(musicChord, 8000);
+                try {
+                    const C = window.AudioContext || window.webkitAudioContext;
+                    if (!C) throw new Error('Web Audio is not supported');
+                    mus.ctx = new C(); mus.master = mus.ctx.createGain(); mus.master.gain.value = 0; mus.master.connect(mus.ctx.destination);
+                    const lp = mus.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; mus.bus = lp;
+                    const dl = mus.ctx.createDelay(1.5), fb = mus.ctx.createGain(); dl.delayTime.value = .55; fb.gain.value = .5;
+                    lp.connect(mus.master); lp.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(mus.master);
+                    musicChord(); if (!mus.failed) mus.timer = setInterval(musicChord, 8000);
+                } catch (error) { musicUnavailable(error); }
             }
-            if (mus.ctx) { mus.ctx.resume(); mus.master.gain.setTargetAtTime(on ? vol : 0, mus.ctx.currentTime, .8); }
-            document.getElementById('sw-music').classList.toggle('on', on); document.getElementById('vol').value = prefs.vol == null ? 35 : prefs.vol; document.getElementById('vol').style.setProperty('--v', (prefs.vol == null ? 35 : prefs.vol) + '%');
+            if (mus.ctx && mus.master) {
+                try {
+                    if (mus.ctx.state !== 'running') Promise.resolve(mus.ctx.resume()).catch(musicUnavailable);
+                    mus.master.gain.setTargetAtTime(on ? vol : 0, mus.ctx.currentTime, .8);
+                } catch (error) { musicUnavailable(error); }
+            }
+            const toggle = document.getElementById('sw-music'), volume = document.getElementById('vol');
+            if (toggle) toggle.classList.toggle('on', on && !mus.failed);
+            if (volume) { volume.value = prefs.vol == null ? 35 : prefs.vol; volume.style.setProperty('--v', (prefs.vol == null ? 35 : prefs.vol) + '%'); }
         }
         const _ap = applyPrefs; applyPrefs = function () { _ap(); musicSync(); }; applyPrefs();
         window.addEventListener('hero-intro-state', e => { introMusicMuted = !!e.detail?.playing; musicSync(); });
         ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (!mus.armed) { mus.armed = true; musicSync(); } }, { once: true }));
-        document.addEventListener('visibilitychange', () => { if (!mus.ctx) return; document.hidden ? mus.ctx.suspend() : (prefs.music !== 'off' && mus.ctx.resume()); });
+        document.addEventListener('visibilitychange', () => { if (!mus.ctx) return; try { Promise.resolve(document.hidden ? mus.ctx.suspend() : (prefs.music !== 'off' && mus.ctx.resume())).catch(musicUnavailable); } catch (error) { musicUnavailable(error); } });
 
         // ================= GUIDED TOUR =================
         // The tour keeps its original topics, but moves through the real views so each feature is

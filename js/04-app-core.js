@@ -279,23 +279,52 @@
             if (fill) fill.style.width = percent + '%';
         }
 
+        let heroViewChangeId = 0;
+        window.heroSkeletonRows = (count = 3) => `<div class="hero-skeleton-stack" role="status" aria-label="Loading content"><span class="hero-skeleton-sr">Loading content</span>${Array.from({ length: Math.max(1, Math.min(6, count)) }, () => '<div class="hero-skeleton-row" aria-hidden="true"><i></i><span><b></b><b></b></span><strong></strong></div>').join('')}</div>`;
         function switchView(viewId) {
-            const views = document.querySelectorAll('.view-section');
+            const target = document.getElementById(viewId);
+            if (!target) return;
+            const views = [...document.querySelectorAll('.view-section')];
             const particles = document.getElementById('particles-bg');
-            if (viewId === 'quiz-view') particles.style.display = 'none'; else particles.style.display = 'block';
+            if (particles) particles.style.display = viewId === 'quiz-view' ? 'none' : 'block';
 
-            views.forEach(el => {
-                if(!el.classList.contains('hidden')) {
-                    el.classList.add('fade-out');
-                    setTimeout(() => { el.classList.add('hidden'); el.classList.remove('fade-out'); }, 200);
-                }
+            // Cancel any previous exit immediately. This keeps rapid navigation from
+            // leaving two visible pages or hiding the page the user just chose.
+            views.filter(el => el.classList.contains('view-transition-out')).forEach(el => {
+                el.classList.add('hidden');
+                el.classList.remove('view-transition-out');
+                el.inert = false;
+                el.removeAttribute('aria-hidden');
             });
-            setTimeout(() => {
-                const target = document.getElementById(viewId);
-                target.classList.remove('hidden', 'fade-out');
-                if (viewId !== 'quiz-view' && timerInterval) clearInterval(timerInterval);
-                if (viewId === 'quiz-view' && map) setTimeout(() => { map.invalidateSize(); }, 100);
-            }, 200);
+            const current = views.find(el => !el.classList.contains('hidden'));
+            const changeId = ++heroViewChangeId;
+            const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+            if (current !== target) {
+                if (current) {
+                    current.inert = true;
+                    current.setAttribute('aria-hidden', 'true');
+                    if (reducedMotion) current.classList.add('hidden');
+                    else current.classList.add('view-transition-out');
+                }
+                target.classList.remove('hidden', 'fade-out', 'view-transition-out');
+                target.inert = false;
+                target.removeAttribute('aria-hidden');
+                if (current && !reducedMotion) setTimeout(() => {
+                    if (changeId !== heroViewChangeId) return;
+                    current.classList.add('hidden');
+                    current.classList.remove('view-transition-out');
+                    current.inert = false;
+                    current.removeAttribute('aria-hidden');
+                }, 240);
+            } else {
+                target.classList.remove('hidden', 'fade-out', 'view-transition-out');
+                target.inert = false;
+                target.removeAttribute('aria-hidden');
+            }
+
+            if (viewId !== 'quiz-view' && timerInterval) clearInterval(timerInterval);
+            if (viewId === 'quiz-view' && map) setTimeout(() => map.invalidateSize(), reducedMotion ? 0 : 260);
         }
 
         // ================= FIREBASE SYNC & MESSAGES =================
@@ -322,15 +351,22 @@
         }
 
         function loadLeaderboard() {
-            if(!db || !userId) return;
+            const list = document.getElementById('leaderboard-list');
+            if (!list) return;
             if (lbUnsub) lbUnsub();
+            if (!db || !userId) {
+                list.setAttribute('aria-busy', 'false');
+                list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Tour standings are unavailable while offline.</p>';
+                return;
+            }
+            list.setAttribute('aria-busy', 'true');
+            list.innerHTML = window.heroSkeletonRows ? window.heroSkeletonRows(4) : '<p class="text-center text-slate-500 py-8">Loading standings…</p>';
             lbUnsub = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(QUIZZES[yearMode].lb)
             .onSnapshot(snapshot => {
                 let data = [];
                 snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
                 data.sort((a, b) => b.score - a.score || a.time - b.time);
-                
-                const list = document.getElementById('leaderboard-list');
+                list.setAttribute('aria-busy', 'false');
                 list.innerHTML = '';
                 
                 if (data.length === 0) return list.innerHTML = '<p class="text-center text-slate-500 italic py-8">No scores yet. Be the first!</p>';
@@ -343,6 +379,10 @@
                     item.querySelector('.leaderboard-player-name').textContent = 'Guest';
                     list.appendChild(item);
                 });
+            }, error => {
+                list.setAttribute('aria-busy', 'false');
+                list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Tour standings could not load. Check your connection and try again.</p>';
+                console.error('Tour leaderboard could not load:', error);
             });
         }
 

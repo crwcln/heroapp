@@ -83,10 +83,12 @@
         const date = document.getElementById('daily-leaderboard-date');
         const list = document.getElementById('daily-leaderboard-list');
         date.textContent = `Shared challenge - ${day} UTC`;
-        list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Loading today’s standings…</p>';
-        if (!db || !userId) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Guest standings are unavailable while offline.</p>'; return; }
+        list.setAttribute('aria-busy', 'true');
+        list.innerHTML = window.heroSkeletonRows ? window.heroSkeletonRows(4) : '<p class="text-center text-slate-500 italic py-8">Loading today’s standings…</p>';
+        if (!db || !userId) { list.setAttribute('aria-busy', 'false'); list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Guest standings are unavailable while offline.</p>'; return; }
         dailyCollection().doc(day).collection('guestScores').get().then((snapshot) => {
             const rows = snapshot.docs.map((doc) => doc.data()).sort((a, b) => Number(b.score) - Number(a.score) || Number(a.time) - Number(b.time));
+            list.setAttribute('aria-busy', 'false');
             list.innerHTML = '';
             if (!rows.length) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">No scores yet. Be the first Hero today!</p>'; return; }
             rows.slice(0, 50).forEach((row, index) => {
@@ -101,6 +103,7 @@
                 right.append(score, time); item.append(left, right); list.appendChild(item);
             });
         }).catch((error) => {
+            list.setAttribute('aria-busy', 'false');
             list.innerHTML = '<p class="text-center text-rose-500 py-8">Daily standings are unavailable right now.</p>';
             console.error('Daily leaderboard failed:', error);
         });

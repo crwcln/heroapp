@@ -14,6 +14,17 @@ h1, h2, h3, #global-quiz-title, .cm-card h3 { font-family: 'EB Garamond', Georgi
 .qtip { position: relative; display: inline-flex; cursor: help; outline: none; } .qtip svg { width: 16px; height: 16px; }
 .qtip-b { position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%) translateY(-4px); width: 250px; padding: 12px 14px; border-radius: 12px; background: rgba(16,15,13,.96); color: #f5efe4; font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; }
 .qtip:hover .qtip-b, .qtip:focus .qtip-b { opacity: 1; transform: translateX(-50%); }
+.hero-faq { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
+.hero-faq > h3 { display:flex; align-items:center; gap:9px; margin:0 0 12px; color:var(--brand-700); font-family:'EB Garamond',Georgia,serif; font-size:24px; }
+.dark .hero-faq > h3 { color:var(--brand-300); }
+.hero-faq > h3 svg { width:19px; height:19px; color:var(--sec); }
+.hero-faq details { border-bottom:1px solid var(--line); }
+.hero-faq summary { position:relative; padding:13px 30px 13px 2px; color:#1e3a6e; font-family:'DM Sans',system-ui,sans-serif; font-size:13px; font-weight:700; cursor:pointer; list-style:none; }
+.dark .hero-faq summary { color:#e8eaf0; }
+.hero-faq summary::-webkit-details-marker { display:none; }
+.hero-faq summary::after { content:'+'; position:absolute; right:5px; top:50%; color:#c9a227; font-size:19px; line-height:1; transform:translateY(-50%); }
+.hero-faq details[open] summary::after { content:'−'; }
+.hero-faq details p { padding:0 24px 14px 2px; color:var(--ink-500); font-size:13px; line-height:1.65; }
 path.hl { fill-opacity: .38; stroke-width: 2; stroke-linejoin: round; pointer-events: none; animation: hlIn .6s ease-out both, hlBreath 3s ease-in-out .6s infinite; }
 path.hl-halo, path.hl-glow, path.hl-outline { fill: none; pointer-events: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 path.hl-halo { stroke: #020617; stroke-width: 11px; opacity: .92; }
@@ -688,10 +699,23 @@ button.cm-btn:hover:not(:disabled), .daily-challenge-actions button:hover:not(:d
 /* 9–10: Navigation states and view transitions. */
 .nav-primary-links a, .nav-primary-links button { transition:color .18s,background .18s,transform .18s; }
 .nav-primary-links a:hover, .nav-primary-links button:hover { transform:translateY(-1px); }
-.view-section:not(.hidden) { animation:heroViewEnter .28s cubic-bezier(.2,.8,.2,1) both; }
+.view-section:not(.hidden):not(.view-transition-out) { animation:heroViewEnter .34s cubic-bezier(.2,.8,.2,1) both; }
+.view-section.view-transition-out { position:fixed; z-index:25; inset:var(--nav-h) 0 0; width:100%; height:auto; pointer-events:none; overflow-y:auto; will-change:opacity,transform; animation:heroViewLeave .22s cubic-bezier(.4,0,.8,.2) both; }
 .view-section.fade-out { animation:heroViewLeave .18s ease both; }
-@keyframes heroViewEnter { from { opacity:0; transform:translateY(8px) scale(.995); } to { opacity:1; transform:translateY(0) scale(1); } }
-@keyframes heroViewLeave { to { opacity:0; transform:translateY(-4px) scale(.998); } }
+@keyframes heroViewEnter { from { opacity:0; transform:translateY(12px) scale(.992); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes heroViewLeave { to { opacity:0; transform:translateY(-7px) scale(.995); } }
+
+/* Quiet skeletons reserve the space of remote lists while Firestore responds. */
+.hero-skeleton-stack { display:grid; gap:10px; width:100%; }
+.hero-skeleton-row { min-height:68px; display:flex; align-items:center; gap:13px; padding:13px 16px; border:1px solid var(--line); border-radius:16px; background:var(--field); }
+.hero-skeleton-row > i, .hero-skeleton-row > span > b, .hero-skeleton-row > strong { display:block; background:rgba(var(--brand-rgb),.12); animation:heroSkeletonPulse 1.25s ease-in-out infinite alternate; }
+.hero-skeleton-row > i { width:27px; height:27px; flex:0 0 27px; border-radius:50%; }
+.hero-skeleton-row > span { display:grid; flex:1; gap:8px; }
+.hero-skeleton-row > span > b { height:9px; max-width:210px; border-radius:99px; }
+.hero-skeleton-row > span > b:last-child { width:55%; max-width:120px; animation-delay:.12s; }
+.hero-skeleton-row > strong { width:74px; height:11px; flex:0 0 74px; border-radius:99px; background:rgba(var(--sec-rgb),.2); animation-delay:.2s; }
+.hero-skeleton-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+@keyframes heroSkeletonPulse { to { opacity:.42; } }
 
 /* 11–12: Quiz metrics and progress track. */
 .quiz-toolbar { z-index:500; border:1px solid rgba(var(--brand-rgb),.2); border-bottom:2px solid var(--brand-500); box-shadow:0 12px 30px rgba(0,0,0,.2); backdrop-filter:blur(14px); }
@@ -736,7 +760,8 @@ input:not([type=checkbox]):not([type=radio]):focus, textarea:focus, select:focus
   #ai-shell .sh-msg { max-width:94%; }
 }
 @media(prefers-reduced-motion:reduce) {
-  .view-section:not(.hidden), .view-section.fade-out { animation:none; }
+  .view-section:not(.hidden), .view-section.fade-out, .view-section.view-transition-out { animation:none; }
+  .hero-skeleton-row > i, .hero-skeleton-row > span > b, .hero-skeleton-row > strong { animation:none; }
   *,*::before,*::after { scroll-behavior:auto!important; }
   #home-view .grid > button,.st-chip,button.cm-btn,.daily-challenge-actions button,#leaderboard-list > div,#daily-leaderboard-list > div { transition:none; }
 }
