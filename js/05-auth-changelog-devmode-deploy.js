@@ -616,12 +616,12 @@ async function resetVisitCounter() {
         async function rebuildBordersNow() {
             if (rebuildBordersBusy) return;
             if (!adminToken) { setRebuildBordersStatus('Steward session is missing or expired. Sign in again.', 'error'); return; }
-            if (!(await customConfirm({ title: 'Rebuild map borders?', message: 'The server will read your live 1 Year and 2 Year locations, match them to map data, commit the result, and ask EdgeOne to deploy. This can take a little while.', confirmText: 'Rebuild now' }))) return;
+            if (!(await customConfirm({ title: 'Rebuild map borders?', message: 'The server will read your live 1 Year, 2 Year, and Fallback locations, match them to map data, commit the result, and ask EdgeOne to deploy. This can take a little while.', confirmText: 'Rebuild now' }))) return;
             rebuildBordersBusy = true;
             const btn = document.getElementById('rebuild-borders-btn'), label = document.getElementById('rebuild-borders-label');
             if (btn) btn.disabled = true;
             if (label) label.textContent = 'Rebuilding…';
-            setRebuildBordersStatus('Fetching map data and matching your live locations. The server will commit and trigger a deployment when it finishes.', 'info');
+            setRebuildBordersStatus('Fetching map data and matching your 1 Year, 2 Year, and Fallback locations. The server will commit and trigger a deployment when it finishes.', 'info');
             try {
                 const r = await fetch('/api/build-boundaries', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -646,7 +646,7 @@ async function resetVisitCounter() {
                     }
                     const msg = {
                         not_configured: `Missing EdgeOne environment variable${d.missing?.length === 1 ? '' : 's'}: ${(d.missing || []).join(', ')}.`,
-                        no_locations: d.detail || 'Both shared quiz lists are empty or missing. Check the saved locations in the Quiz tab.',
+                        no_locations: d.detail || 'The shared tours and fallback list are empty or missing. Check the Quiz and Fallback tabs.',
                         missing_app_id: 'Could not determine this site’s id.',
                         invalid_boundary_overrides: d.detail || 'The boundary overrides file is not a valid list.',
                         invalid_manual_boundary_path: d.detail || 'A manual boundary must be inside content/manual/.',

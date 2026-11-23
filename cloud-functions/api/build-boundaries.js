@@ -457,9 +457,10 @@ export async function onRequestPost(context) {
 
     stage = 'reading quiz locations from Firestore';
     const base = `artifacts/${appId}/public/data`;
-    const [defaultQuiz, twoYearQuiz] = await Promise.all([
+    const [defaultQuiz, twoYearQuiz, fallbackQuiz] = await Promise.all([
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/defaultQuiz`),
       firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/twoYearQuiz`),
+      firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/fallbackQuiz`),
     ]).catch((error) => {
       if (error?.code !== 'firestore_read_failed') throw error;
       const googleText = `${error.googleStatus} ${error.googleReason} ${error.detail}`.toLowerCase();
@@ -490,6 +491,7 @@ export async function onRequestPost(context) {
     const locations = [
       ...((Array.isArray(defaultQuiz?.locations) ? defaultQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'default' }))),
       ...((Array.isArray(twoYearQuiz?.locations) ? twoYearQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'twoyear' }))),
+      ...((Array.isArray(fallbackQuiz?.locations) ? fallbackQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'fallback' }))),
     ];
     if (!locations.length) {
       const quizStatus = (doc, path) => doc
@@ -497,7 +499,7 @@ export async function onRequestPost(context) {
         : `${path} was not found.`;
       return json({
         ok: false, error: 'no_locations',
-        detail: `No quiz locations were read. 1 Year: ${quizStatus(defaultQuiz, `${base}/globalSettings/defaultQuiz`)} 2 Year: ${quizStatus(twoYearQuiz, `${base}/globalSettings/twoYearQuiz`)}`,
+        detail: `No quiz locations were read. 1 Year: ${quizStatus(defaultQuiz, `${base}/globalSettings/defaultQuiz`)} 2 Year: ${quizStatus(twoYearQuiz, `${base}/globalSettings/twoYearQuiz`)} Fallback: ${quizStatus(fallbackQuiz, `${base}/globalSettings/fallbackQuiz`)}`,
       }, 400);
     }
 

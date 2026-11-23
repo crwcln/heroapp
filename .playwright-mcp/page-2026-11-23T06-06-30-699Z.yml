@@ -1,0 +1,20 @@
+- main [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - generic [ref=f1e5]: H
+      - generic [ref=f1e6]: Hero
+    - generic [ref=f1e7]: Map practice · a lighter version while the main site is being worked on
+  - generic [ref=f1e8]:
+    - generic [ref=f1e9]:
+      - paragraph [ref=f1e10]: Map practice
+      - heading "Loading locations…" [level=1] [ref=f1e11]
+      - paragraph [ref=f1e12]: Opening the atlas.
+    - generic [ref=f1e14]:
+      - generic [ref=f1e15]: Found
+      - text: 0 / 0
+  - region "Interactive location map" [ref=f1e16]:
+    - generic: Tap a dot to find the place · hover to preview its border
+  - generic [ref=f1e18]:
+    - generic [ref=f1e19]: Locations and borders from Hero.
+    - link "Back to the main site" [ref=f1e20] [cursor=pointer]:
+      - /url: /

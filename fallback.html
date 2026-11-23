@@ -1,63 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1428"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='2' y='2' width='44' height='44' rx='12' fill='%230b1428' stroke='%23d8b84f'/%3E%3Ctext x='24' y='32' text-anchor='middle' font-family='Georgia,serif' font-size='28' fill='%23d8b84f'%3EH%3C/text%3E%3C/svg%3E"><title>Hero · Field Notes</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1428"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='2' y='2' width='44' height='44' rx='12' fill='%230b1428' stroke='%23d8b84f'/%3E%3Ctext x='24' y='32' text-anchor='middle' font-family='Georgia,serif' font-size='28' fill='%23d8b84f'%3EH%3C/text%3E%3C/svg%3E">
+  <title>Hero · Map practice</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <style>
-    :root{color-scheme:dark;--navy:#0b1428;--panel:#111f38;--line:#263650;--gold:#d8b84f;--paper:#f1ead8;--muted:#a7b1c2;--blue:#203e70}
-    *{box-sizing:border-box}body{min-height:100vh;margin:0;padding:24px;display:grid;place-items:center;color:var(--paper);background:radial-gradient(ellipse at 50% 0%,#1a2c4a 0,transparent 52%),var(--navy);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-    main{width:min(100%,650px);padding:clamp(22px,5vw,42px);border:1px solid rgba(216,184,79,.32);border-radius:28px;background:rgba(17,31,56,.96);box-shadow:0 28px 90px #0008;animation:arrive .4s ease both}
-    .brand{display:flex;align-items:center;gap:10px;color:var(--gold);font:700 13px Georgia,serif;letter-spacing:.16em;text-transform:uppercase}.brand-mark{display:grid;width:34px;height:34px;place-items:center;border:1px solid #d8b84f88;border-radius:11px;font-size:21px}
-    .eyebrow{margin:28px 0 4px;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:.19em;text-transform:uppercase}h1{margin:0;font:600 clamp(34px,7vw,52px)/1.04 Georgia,serif;letter-spacing:-.03em}.intro{max-width:48ch;margin:12px 0 25px;color:var(--muted)}
-    .quiz{padding:20px;border:1px solid var(--line);border-radius:20px;background:#0c172b}.quiz-meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12px;font-weight:700}.meter{height:3px;margin:12px 0 21px;overflow:hidden;border-radius:9px;background:#293850}.meter i{display:block;width:0;height:100%;background:var(--gold);transition:width .3s ease}
-    h2{margin:0 0 6px;font:600 clamp(23px,5vw,30px)/1.16 Georgia,serif}.hint{margin:0 0 17px;color:var(--muted);font-size:13px}
-    .choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.choices button,.action{min-height:48px;padding:10px 13px;border:1px solid #34445e;border-radius:13px;color:var(--paper);background:#14233d;text-align:left;font:600 14px system-ui,sans-serif;cursor:pointer;transition:transform .17s ease,border-color .17s ease,background .17s ease,color .17s ease}.choices button:hover,.choices button:focus-visible{transform:translateY(-1px);border-color:var(--gold);background:#1b2e4a}.choices button:focus-visible,.action:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}.choices button[disabled]{cursor:default}.choices button.correct{border-color:#84b99a;background:#193528;color:#d9f0df}.choices button.wrong{border-color:#bc786b;background:#382421;color:#f3d7cf}
-    .feedback{min-height:25px;margin:12px 0 0;color:var(--muted);font-size:13px}.feedback.good{color:#b6dbbe}.feedback.bad{color:#edc0b3}.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}.action{padding-inline:18px;background:var(--blue);border-color:#d8b84f66;text-align:center}.action:hover{border-color:var(--gold);background:#2a4a7d}.text-link{color:var(--muted);font-size:12px;text-decoration-color:#d8b84f88;text-underline-offset:3px}.text-link:hover{color:var(--gold)}
-    .foot{margin:17px 0 0;color:#8290a4;font-size:11px;text-align:center}.result{display:none;padding:18px 0;text-align:center}.result.show{display:block}.result-score{margin:12px 0;color:var(--gold);font:600 56px/1 Georgia,serif}.result p{color:var(--muted)}
-    @keyframes arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media(max-width:480px){body{padding:12px}main{border-radius:22px}.quiz{padding:15px}.choices{grid-template-columns:1fr}.actions{align-items:stretch;flex-direction:column}.text-link{text-align:center}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+    :root{color-scheme:dark;--navy:#0b1428;--panel:#111f38;--line:#293a55;--gold:#d8b84f;--paper:#f1ead8;--muted:#a8b3c5;--blue:#203e70}
+    *{box-sizing:border-box}html,body{width:100%;min-height:100%;margin:0}body{min-height:100vh;padding:18px;color:var(--paper);background:var(--navy);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    .app{width:min(1200px,100%);min-height:calc(100vh - 36px);margin:auto;display:grid;grid-template-rows:auto auto minmax(360px,1fr) auto;gap:12px}
+    header,.prompt,.map-wrap,footer{border:1px solid var(--line);border-radius:18px;background:var(--panel)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px}
+    .brand{display:flex;align-items:center;gap:10px;font:700 18px Georgia,serif;letter-spacing:.04em}.mark{display:grid;width:34px;height:34px;place-items:center;border:1px solid #d8b84f88;border-radius:11px;color:var(--gold);font-size:21px}
+    .header-note{color:var(--muted);font-size:12px}
+    .prompt{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px}
+    .prompt-copy{min-width:0}.kicker{margin:0 0 3px;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+    h1{margin:0;font:600 clamp(20px,4vw,27px)/1.15 Georgia,serif}.status{min-height:22px;margin:4px 0 0;color:var(--muted);font-size:12px}
+    .stats{display:flex;align-items:center;gap:10px;flex-shrink:0}.stat{min-width:76px;text-align:right}.stat small{display:block;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.stat b{font:700 20px/1.15 Georgia,serif;color:var(--gold);font-variant-numeric:tabular-nums}
+    .map-wrap{position:relative;min-height:360px;overflow:hidden}.map{position:absolute;inset:0;background:#15243b}
+    .map-help{position:absolute;z-index:500;left:12px;bottom:12px;padding:7px 10px;border:1px solid #d8b84f55;border-radius:10px;color:var(--paper);background:#0b1428e8;font-size:11px;pointer-events:none}
+    footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;color:var(--muted);font-size:11px}
+    button{min-height:42px;padding:8px 14px;border:1px solid #d8b84f88;border-radius:12px;color:var(--paper);background:var(--blue);font:700 13px system-ui,sans-serif;cursor:pointer;transition:background .16s,border-color .16s}button:hover:not(:disabled){border-color:var(--gold);background:#2b4a7a}button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}button:disabled{opacity:.55;cursor:default}
+    .marker{width:14px;height:14px;border:2px solid #f1ead8;border-radius:50%;background:#314d78;box-shadow:0 1px 6px #000a;transition:transform .15s,background .15s,border-color .15s}.leaflet-marker-icon:hover .marker{transform:scale(1.2);border-color:var(--gold);background:var(--gold)}.marker.solved{border-color:#fff1bb;background:var(--gold);box-shadow:0 0 0 4px #d8b84f35,0 1px 6px #000a}
+    .leaflet-container{font:inherit}.leaflet-control-attribution{font-size:9px!important}.leaflet-control-zoom a{color:#24344d!important}.leaflet-popup-content-wrapper,.leaflet-popup-tip{color:var(--paper);background:#111f38}.leaflet-popup-content{font-weight:650}
+    .error{padding:18px;color:#f2c4b6;text-align:center}
+    @media(max-width:640px){body{padding:8px}.app{min-height:calc(100dvh - 16px);grid-template-rows:auto auto minmax(380px,1fr) auto;gap:8px}header,.prompt,.map-wrap,footer{border-radius:14px}.header-note{display:none}.prompt{align-items:flex-start;padding:12px}.stats{gap:6px}.stat{min-width:56px}.stat b{font-size:17px}.map-help{left:8px;bottom:8px;font-size:10px}footer{padding:8px 10px;font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
-  <main>
-    <div class="brand"><span class="brand-mark">H</span><span>Hero · Field Notes</span></div>
-    <p class="eyebrow">A small atlas while we work</p><h1>Keep your bearings.</h1>
-    <p class="intro">The main site is being worked on, but you can still take a quick geography round here. No account needed; your score stays on this page.</p>
-    <section class="quiz" aria-label="Geography practice">
-      <div id="quiz-content">
-        <div class="quiz-meta"><span id="progress">Place 1 of 10</span><span id="score">0 correct</span></div><div class="meter" aria-hidden="true"><i id="meter-fill"></i></div>
-        <h2 id="question">Loading the atlas…</h2><p class="hint">Choose the country or region where this place belongs.</p>
-        <div class="choices" id="choices"></div><p id="feedback" class="feedback" role="status" aria-live="polite"></p>
-        <div class="actions"><button class="action" id="next" type="button" hidden>Next place</button><a class="text-link" href="/">Back to the main site</a></div>
-      </div>
-      <div id="result" class="result" aria-live="polite"><p class="eyebrow">Round complete</p><h2>Your field notes are in.</h2><div class="result-score" id="final-score">0 / 10</div><p id="result-note"></p><button class="action" id="restart" type="button">Take another round</button></div>
-    </section>
-    <p class="foot">Temporary practice round · Scores are not saved to the Hall of Heroes.</p>
+  <main class="app">
+    <header><div class="brand"><span class="mark">H</span><span>Hero</span></div><span class="header-note">Map practice · a lighter version while the main site is being worked on</span></header>
+    <section class="prompt" aria-live="polite"><div class="prompt-copy"><p class="kicker" id="round-label">Map practice</p><h1 id="question">Loading locations…</h1><p id="status" class="status">Opening the atlas.</p></div><div class="stats"><div class="stat"><small>Found</small><b id="found">0 / 0</b></div><button id="next" type="button" hidden>Next place</button></div></section>
+    <section class="map-wrap" aria-label="Interactive location map"><div id="map" class="map"></div><div class="map-help">Tap a dot to find the place · hover to preview its border</div></section>
+    <footer><span id="source-note">Locations and borders from Hero.</span><a href="/" style="color:inherit;text-decoration-color:#d8b84f88;text-underline-offset:3px">Back to the main site</a></footer>
   </main>
-  <script>
-    (()=>{
-      const pool=[
-        {place:'Athens',answer:'Greece',choices:['Greece','Italy','Turkey','Egypt']},
-        {place:'The Nile',answer:'Egypt',choices:['Egypt','India','Brazil','Spain']},
-        {place:'Machu Picchu',answer:'Peru',choices:['Peru','Mexico','Chile','Bolivia']},
-        {place:'The Colosseum',answer:'Italy',choices:['Italy','Greece','France','Tunisia']},
-        {place:'The Great Wall',answer:'China',choices:['China','Japan','Mongolia','South Korea']},
-        {place:'The Sahara',answer:'Africa',choices:['Africa','Asia','Australia','South America']},
-        {place:'Angkor Wat',answer:'Cambodia',choices:['Cambodia','Thailand','Vietnam','Laos']},
-        {place:'The Acropolis',answer:'Greece',choices:['Greece','Turkey','Cyprus','Albania']},
-        {place:'Petra',answer:'Jordan',choices:['Jordan','Lebanon','Egypt','Iraq']},
-        {place:'The Taj Mahal',answer:'India',choices:['India','Pakistan','Nepal','Bangladesh']},
-        {place:'The Alhambra',answer:'Spain',choices:['Spain','Portugal','Morocco','France']},
-        {place:'The Pyramids of Giza',answer:'Egypt',choices:['Egypt','Sudan','Libya','Algeria']},
-        {place:'The Amazon River',answer:'South America',choices:['South America','Africa','Asia','North America']},
-        {place:'The Forbidden City',answer:'China',choices:['China','Japan','Vietnam','Mongolia']},
-        {place:'The Parthenon',answer:'Greece',choices:['Greece','Italy','Turkey','Malta']}
-      ];
-      const $=id=>document.getElementById(id);let round=[],index=0,correct=0,locked=false;
-      function start(){round=[...pool].sort(()=>Math.random()-.5).slice(0,10);index=0;correct=0;locked=false;$('quiz-content').hidden=false;$('result').classList.remove('show');render()}
-      function render(){locked=false;const q=round[index];$('progress').textContent='Place '+(index+1)+' of '+round.length;$('score').textContent=correct+' correct';$('question').textContent=q.place;$('meter-fill').style.width=(index/round.length*100)+'%';$('feedback').textContent='';$('feedback').className='feedback';$('next').hidden=true;$('next').textContent=index===round.length-1?'See my result':'Next place';const choices=[...q.choices].sort(()=>Math.random()-.5);$('choices').innerHTML='';choices.forEach(answer=>{const b=document.createElement('button');b.type='button';b.textContent=answer;b.addEventListener('click',()=>choose(b,answer,q));$('choices').append(b)})}
-      function choose(button,answer,q){if(locked)return;locked=true;const ok=answer===q.answer;if(ok)correct++;document.querySelectorAll('#choices button').forEach(b=>{b.disabled=true;if(b.textContent===q.answer)b.classList.add('correct')});if(!ok)button.classList.add('wrong');$('score').textContent=correct+' correct';$('feedback').textContent=ok?'Well found.':'Not quite — '+q.place+' is in '+q.answer+'.';$('feedback').className='feedback '+(ok?'good':'bad');$('meter-fill').style.width=((index+1)/round.length*100)+'%';$('next').hidden=false}
-      $('next').addEventListener('click',()=>{if(index<round.length-1){index++;render()}else{$('quiz-content').hidden=true;$('result').classList.add('show');$('final-score').textContent=correct+' / '+round.length;$('result-note').textContent=correct>=8?'An excellent tour. The atlas will be ready for you soon.':correct>=5?'A good journey. There is always another route to learn.':'Every journey starts somewhere. Take another round when you are ready.'}});$('restart').addEventListener('click',start);start();
-    })();
-  </script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+  <script src="js/02-firebase-config.js?v=bbbd2562149e86ed"></script>
+  <script src="js/00-site-config.js?v=2bddae86bc0551c3"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="js/hero-fallback.js?v=5de9336cfcdef8fb"></script>
 </body>
 </html>

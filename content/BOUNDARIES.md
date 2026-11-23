@@ -4,7 +4,7 @@ Hero loads map outlines from `content/location-boundaries.geojson`; visitors' br
 
 ## Server button (works on a Chromebook)
 
-After the one-time setup below, a steward can open the Quiz tab and click **Rebuild borders now**. The Node.js Cloud Function reads both live tours from Firestore, matches locations against map data, commits the boundary bundle and review list to GitHub in one commit, then asks EdgeOne to deploy. A summary appears in the panel with matches and locations that need a year or a closer look.
+After the one-time setup below, a steward can open the Quiz tab and click **Rebuild borders now**. The Node.js Cloud Function reads the live 1 Year, 2 Year, and saved Fallback locations from Firestore, matches locations against map data, commits the boundary bundle and review list to GitHub in one commit, then asks EdgeOne to deploy. A summary appears in the panel with matches and locations that need a year or a closer look.
 
 The server builder uses Natural Earth v5.1.2 at 1:50m scale for countries, states/provinces, lakes, marine areas, rivers, and geographic regions. Natural Earth is public domain. Historical polygons come from `aourednik/historical-basemaps`; the nearest available year is selected for each historical location's `year`, and non-exact years are flagged. Historical outlines are a work in progress and should be reviewed.
 
