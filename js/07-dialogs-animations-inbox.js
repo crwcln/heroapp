@@ -71,14 +71,21 @@
             if (String(c).startsWith('auth/')) return `Firebase rejected the token (${c}). The service account must belong to project ${window.__heroFirebaseProjectId || (auth && auth.app && auth.app.options.projectId) || 'the configured Firebase project'}; regenerate its key and update the FIREBASE_* env vars.`;
             return `Secure sign-in failed (${c}). Open /api/firebase-token in a browser to check your setup.`;
         }
-        let adminLockTimer = null;
+        let adminLockTimer = null, adminSignInPromise = null, adminRepairAttemptedFor = '';
         function onAdminUnlocked() {
             clearTimeout(adminLockTimer);
+            adminRepairAttemptedFor = '';
             const exp = Number(String(adminToken).split('.')[0]);
             if (exp) adminLockTimer = setTimeout(() => lockAdmin('Admin session expired. Please log in again.'), Math.max(0, exp - Date.now()));
             adminSecureSignIn();
         }
         async function adminSecureSignIn() {
+            if (!adminToken) return;
+            if (adminSignInPromise) return adminSignInPromise;
+            adminSignInPromise = performAdminSecureSignIn();
+            try { await adminSignInPromise; } finally { adminSignInPromise = null; }
+        }
+        async function performAdminSecureSignIn() {
             try {
                 if (!window.__heroFirebaseAppReady || !auth || !auth.app) {
                     const err = new Error('Firebase web app is unavailable'); err.code = 'firebase_app_unavailable'; throw err;
@@ -102,11 +109,15 @@
         // this tab's still-valid admin session.
         let adminRepairInFlight = false;
         window.addEventListener('hero-auth-state', async e => {
-            if (!adminToken || !e.detail || !e.detail.user || adminRepairInFlight) return;
+            if (!adminToken || !e.detail || !e.detail.user || e.detail.isAdmin || adminRepairInFlight) return;
+            const user = e.detail.user;
+            const marker = user.uid + ':' + ((user.metadata && user.metadata.lastSignInTime) || '');
+            if (marker === adminRepairAttemptedFor) return;
+            adminRepairInFlight = true;
+            adminRepairAttemptedFor = marker;
             try {
-                const token = await e.detail.user.getIdTokenResult();
+                const token = await user.getIdTokenResult();
                 if (token.claims.admin === true) return;
-                adminRepairInFlight = true;
                 await adminSecureSignIn();
             } catch (err) {
                 console.warn('Could not restore this tab’s admin session:', err);
@@ -115,7 +126,10 @@
         async function lockAdmin(msg) {
             const wasAdmin = !!adminToken;
             adminToken = null;
+            adminRepairAttemptedFor = '';
+            window.__HERO_SESSION__ = null;
             sessionStorage.removeItem('mq_server_session');
+            sessionStorage.removeItem('mq_adminUnlocking');
             clearTimeout(adminLockTimer);
             stopInbox(); stopAnalyticsAdmin();
             const panel = document.getElementById('admin-panel'), lock = document.getElementById('admin-lock');

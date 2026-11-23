@@ -31,6 +31,17 @@
             if (err === 'too_many_attempts') return 'Too many attempts. Wait a moment before trying again.';
             return `${target === 'admin' ? 'Steward sign-in' : 'Early access check'} failed (${err || 'unknown error'}). Check the EdgeOne deployment.`;
         };
+        async function confirmServerSession(target) {
+            try {
+                const response = await fetch('/api/session', { cache: 'no-store', credentials: 'same-origin' });
+                if (!response.ok) return false;
+                const data = await response.json().catch(() => ({}));
+                return !!data[target];
+            } catch (error) {
+                console.warn('Could not confirm the server session:', error);
+                return false;
+            }
+        }
         async function checkPassword(target, password) {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 15000);
@@ -96,7 +107,11 @@
             launchBusy = false; button.disabled = false; button.textContent = 'Enter early';
             if (ok === true) {
                 sessionStorage.setItem('mq_devUnlocked', '1');
-                if (window.__HERO_SESSION__) { location.reload(); return; }
+                if (window.__HERO_SESSION__) {
+                    if (await confirmServerSession('dev')) { location.reload(); return; }
+                    message.textContent = 'Early access was accepted, but the server did not keep the session. Check that this site uses HTTPS and cookies are allowed, then try again.';
+                    return;
+                }
                 openLaunchGate();
                 return;
             }

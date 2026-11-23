@@ -1,0 +1,14 @@
+{
+  "name": "unslop",
+  "version": "2.1.2",
+  "description": "Seven-pillar UI/UX design craft audits, studio archetypes, and exact transformation blueprints.",
+  "author": {
+    "name": "VibeFoundry"
+  },
+  "homepage": "https://github.com/avivgerz-hue/unslop#readme",
+  "repository": "https://github.com/avivgerz-hue/unslop",
+  "license": "MIT",
+  "skills": [
+    "./.claude/skills/unslop"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "context_servers": {
+    "unslop": {
+      "command": {
+        "path": "npx",
+        "args": [
+          "-y",
+          "unslop-mcp",
+          "--mcp"
+        ]
+      }
+    }
+  }
+}

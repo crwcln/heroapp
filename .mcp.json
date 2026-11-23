@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "unslop": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "unslop-mcp",
+        "--mcp"
+      ]
+    }
+  }
+}

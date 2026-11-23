@@ -146,6 +146,7 @@
                     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 4000));
                     isAdmin = (await Promise.race([claimsPromise, timeout])).claims.admin === true;
                 } catch (e) { console.warn('Could not read steward claims (continuing without admin claim):', e); }
+                if (!isAdmin && user.uid === 'admin' && (adminToken || (window.__HERO_SESSION__ && window.__HERO_SESSION__.adminToken))) isAdmin = true;
                 // Students use an invisible Firebase guest session. Only the steward
                 // custom token can be non-anonymous; no student username or profile is needed.
                 allowed = isAdmin || user.isAnonymous;
@@ -528,10 +529,24 @@
             try {
                 const ok = await checkPassword('admin', val);
                 if (ok === true) {
-                    unlocked = true;
                     adminToken = lastAuthToken;
                     input.value = '';
-                    if (window.__HERO_SESSION__) { setTimeout(() => location.reload(), 650); return; }
+                    if (!adminToken) { showToast('The login server did not return a steward session token. Check /api/auth and try again.', 'error'); return; }
+                    if (window.__HERO_SESSION__) {
+                        const confirmed = await confirmServerSession('admin');
+                        const panel = document.getElementById('admin-panel');
+                        if (confirmed) {
+                            unlocked = true;
+                            showToast('Steward session confirmed. Restoring your workspace…', 'success');
+                            setTimeout(() => location.reload(), 400);
+                            return;
+                        }
+                        if (!panel || !panel.children.length) {
+                            showToast('The password was accepted, but the server did not keep the steward session. Check that this site uses HTTPS and cookies are allowed, then try again.', 'error');
+                            return;
+                        }
+                    }
+                    unlocked = true;
                     setTimeout(() => { if (overlay) overlay.hide(); }, 500);
                     onAdminUnlocked();
                     const lock = document.getElementById('admin-lock'), panel = document.getElementById('admin-panel');

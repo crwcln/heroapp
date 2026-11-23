@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "unslop": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "unslop-mcp",
+        "--mcp"
+      ]
+    }
+  }
+}
