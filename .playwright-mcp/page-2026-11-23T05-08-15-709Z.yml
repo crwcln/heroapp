@@ -1,0 +1,24 @@
+- region "Hero is almost here." [ref=f2e2]:
+  - main [ref=f2e3]:
+    - generic [aria-hidden] [ref=f2e4]: H
+    - paragraph [ref=f2e5]: A new chapter begins
+    - heading "Hero is almost here." [level=1] [ref=f2e6]
+    - paragraph [ref=f2e7]: The atlas opens soon. Until then, the stars are keeping your place.
+    - generic "Countdown to launch" [ref=f2e8]:
+      - generic [ref=f2e9]:
+        - generic [ref=f2e10]: "06"
+        - generic [ref=f2e11]: Days
+      - generic [ref=f2e12]:
+        - generic [ref=f2e13]: "20"
+        - generic [ref=f2e14]: Hours
+      - generic [ref=f2e15]:
+        - generic [ref=f2e16]: "21"
+        - generic [ref=f2e17]: Minutes
+      - generic [ref=f2e18]:
+        - generic [ref=f2e19]: "44"
+        - generic [ref=f2e20]: Seconds
+    - paragraph [ref=f2e21]: October 21 · 7:00 PM EDT (UTC−4)
+    - generic [ref=f2e22]:
+      - textbox "Early access password" [ref=f2e23]
+      - button "Enter early" [ref=f2e24] [cursor=pointer]
+    - status [ref=f2e25]
