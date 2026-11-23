@@ -3,6 +3,10 @@
 /node_modules/
 content/location-catalog.json
 
+# Generated review/debug artifacts
+/UNSLOP-REPORT.md
+/.playwright-mcp/
+
 # Local secrets and environment overrides (keep .env.example files trackable)
 .env
 .env.*
