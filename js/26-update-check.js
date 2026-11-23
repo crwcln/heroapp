@@ -3,9 +3,7 @@
     const notice = document.getElementById('update-notice');
     if (!buildId || !notice) return;
 
-    const reloadDelay = 30000;
     let updateFound = false;
-    let reloadTimer;
     let checking = false;
 
     function reloadPage() {
@@ -16,17 +14,17 @@
         if (updateFound) return;
         updateFound = true;
         notice.classList.add('show');
-        reloadTimer = setTimeout(reloadPage, reloadDelay);
     }
 
     notice.querySelector('[data-update-reload]')?.addEventListener('click', reloadPage);
     notice.querySelector('[data-update-later]')?.addEventListener('click', () => {
-        clearTimeout(reloadTimer);
         notice.classList.remove('show');
     });
 
     async function checkForUpdate() {
         if (updateFound || checking || document.visibilityState === 'hidden') return;
+        const session = window.__HERO_SESSION__;
+        if ((session && session.adminToken) || sessionStorage.getItem('mq_adminUnlocking') === '1') return;
         checking = true;
 
         try {

@@ -442,7 +442,6 @@
                 sessionStorage.setItem('mq_devUnlocked', '1');
                 devUnlockedState = true;
                 input.value = '';
-                if (window.__HERO_SESSION__) { location.reload(); return; }
                 applyDevScreen();
             } else if (ok === false) { showToast('Incorrect password.', 'error'); badInput(input); }
             else showToast(authFailMsg('dev'), 'error');

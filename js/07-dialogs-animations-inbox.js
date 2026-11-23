@@ -72,15 +72,19 @@
             return `Secure sign-in failed (${c}). Open /api/firebase-token in a browser to check your setup.`;
         }
         let adminLockTimer = null, adminSignInPromise = null, adminRepairAttemptedFor = '';
+        let adminLocalSignInAt = 0, adminRepairAttempts = 0;
         function onAdminUnlocked() {
             clearTimeout(adminLockTimer);
             adminRepairAttemptedFor = '';
+            adminRepairAttempts = 0;
+            adminLocalSignInAt = Date.now();
             const exp = Number(String(adminToken).split('.')[0]);
             if (exp) adminLockTimer = setTimeout(() => lockAdmin('Admin session expired. Please log in again.'), Math.max(0, exp - Date.now()));
             adminSecureSignIn();
         }
         async function adminSecureSignIn() {
             if (!adminToken) return;
+            adminLocalSignInAt = Date.now();
             if (adminSignInPromise) return adminSignInPromise;
             adminSignInPromise = performAdminSecureSignIn();
             try { await adminSignInPromise; } finally { adminSignInPromise = null; }
@@ -110,10 +114,12 @@
         let adminRepairInFlight = false;
         window.addEventListener('hero-auth-state', async e => {
             if (!adminToken || !e.detail || !e.detail.user || e.detail.isAdmin || adminRepairInFlight) return;
+            if (Date.now() - adminLocalSignInAt < 5000 || adminRepairAttempts >= 1) return;
             const user = e.detail.user;
             const marker = user.uid + ':' + ((user.metadata && user.metadata.lastSignInTime) || '');
             if (marker === adminRepairAttemptedFor) return;
             adminRepairInFlight = true;
+            adminRepairAttempts += 1;
             adminRepairAttemptedFor = marker;
             try {
                 const token = await user.getIdTokenResult();
@@ -127,6 +133,8 @@
             const wasAdmin = !!adminToken;
             adminToken = null;
             adminRepairAttemptedFor = '';
+            adminRepairAttempts = 0;
+            adminLocalSignInAt = 0;
             window.__HERO_SESSION__ = null;
             sessionStorage.removeItem('mq_server_session');
             sessionStorage.removeItem('mq_adminUnlocking');
