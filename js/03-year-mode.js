@@ -95,11 +95,12 @@
             rollYearNumber(document.getElementById('global-quiz-count'), s.locs.length, ' locations', animate);
             const homePanel = document.querySelector('#home-view > .glass-panel');
             if (homePanel) homePanel.dataset.yearMode = yearMode;
-            document.getElementById('admin-quiz-title').value = s.title;
-            document.getElementById('admin-global-msg').value = s.msg;
+            const adminTitle = document.getElementById('admin-quiz-title'), adminMsg = document.getElementById('admin-global-msg'), setupTitle = document.getElementById('admin-setup-title');
+            if (adminTitle) adminTitle.value = s.title;
+            if (adminMsg) adminMsg.value = s.msg;
             animateYearLabel(document.getElementById('start-quiz-label'), q.startLabel, animate);
             animateYearLabel(document.getElementById('lb-rank-label'), q.rankLabel, animate);
-            document.getElementById('admin-setup-title').innerText = q.setupTitle;
+            if (setupTitle) setupTitle.innerText = q.setupTitle;
 
             renderAdminList();
             window.dispatchEvent(new CustomEvent('hero-location-data-ready', { detail: { yearMode, count: s.locs.length } }));

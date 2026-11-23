@@ -296,10 +296,17 @@
         // ================= ADMIN LOG OUT =================
         (function () {
             const save = document.getElementById('save-global-btn'), wrap = document.createElement('div');
+            if (!save) return;
             wrap.className = 'flex gap-2 items-center flex-wrap'; save.replaceWith(wrap);
             const out = document.createElement('button');
             out.className = 'cm-btn ghost flex items-center gap-2'; out.innerHTML = '<i data-lucide="log-out" class="w-4 h-4"></i> Log out';
-            out.onclick = async () => { sessionStorage.removeItem('mq_devUnlocked'); await lockAdmin('Logged out.'); applyDevScreen(); };
+            out.onclick = async () => {
+                sessionStorage.removeItem('mq_devUnlocked');
+                devUnlockedState = false;
+                await lockAdmin('Logged out.');
+                fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'dev' }) }).catch(() => {});
+                applyDevScreen();
+            };
             wrap.append(out, save); lucide.createIcons();
         })();
 

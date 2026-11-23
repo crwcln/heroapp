@@ -142,10 +142,12 @@ function banDeviceManual() {
 }
 // admin card, created here so index.html stays clean; lives on the "Site" tab
 (function () {
+    const panel = document.getElementById('admin-panel');
+    if (!panel || !document.getElementById('admin-tabs')) return;
     const card = document.createElement('div'); card.dataset.atab = 'site';
     card.className = 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mt-6';
             card.innerHTML = '<div class="p-5 border-b border-slate-200 dark:border-slate-700"><h3 class="font-bold text-slate-900 dark:text-white">Bans & suspensions</h3><p class="text-xs text-slate-500 font-medium mt-1">Ban a browser ID. Temporary suspensions end automatically. Your browser ID: <span class="font-mono" id="my-device"></span></p><div class="ban-admin-form"><input id="ban-id-input" class="fb-input" placeholder="Browser ID"><select id="ban-duration" class="fb-input" aria-label="Suspension duration"><option value="10m">10 minutes</option><option value="1h">1 hour</option><option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option><option value="permanent" selected>Permanent ban</option></select><input id="ban-reason-input" class="fb-input" maxlength="240" placeholder="Reason (optional)"><button class="cm-btn go" onclick="banDeviceManual()">Apply</button></div><p class="text-xs text-slate-500 mt-2">Reason is optional. Missing reasons appear as “none given” here and rotate through lighthearted messages on the timeout screen.</p></div><div id="ban-list" class="ban-admin-list"></div>';
-    document.getElementById('admin-panel').appendChild(card); document.getElementById('my-device').textContent = deviceId(); renderBans();
+    panel.appendChild(card); const deviceLabel = document.getElementById('my-device'); if (deviceLabel) deviceLabel.textContent = deviceId(); renderBans();
     if (window.csWireSelect) csWireSelect(document.getElementById('ban-duration'));
     setAdminTab(sessionStorage.getItem('mq_atab') || 'quiz');
 })();

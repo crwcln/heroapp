@@ -11,7 +11,9 @@ function bulkWire(listId, getArr, setArr, saveFn) {
             <button type="button" class="cm-btn ghost bulk-delete-selected">Delete selected</button>
             <button type="button" class="cm-btn ghost bulk-delete-all">Delete all</button>
         </div>`;
-    const list = document.getElementById(listId); list.parentElement.insertBefore(bar, list);
+    const list = document.getElementById(listId);
+    if (!list || !list.parentElement) return () => {};
+    list.parentElement.insertBefore(bar, list);
     const [selAllBtn, clearBtn, delSelBtn, delAllBtn] = bar.querySelector('.bulk-select-actions').children;
     function refresh() {
         const rows = [...list.children];

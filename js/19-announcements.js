@@ -80,7 +80,7 @@ function editAnnouncement(id) {
     tags.value = (announcement.tags || []).join(', ');
     setAnnouncementEditMode(id);
     const preview = document.getElementById('ann-preview-wrap'); if (preview) preview.classList.add('hidden');
-    document.getElementById('admin-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const adminPanel = document.getElementById('admin-panel'); if (adminPanel) adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     editor.focus();
 }
 function cancelAnnouncementEdit() {

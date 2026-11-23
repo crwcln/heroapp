@@ -1,31 +1,15 @@
 // edge-functions/api/auth.js  ->  POST /api/auth
 // Env vars (EdgeOne Pages project settings): ADMIN_PASSWORD, DEV_ACCESS (or legacy DEV_PASSWORD)
 
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
+import { json, safeEqual, issueToken, setCookie } from '../lib/tokens.js';
 
-const enc = new TextEncoder();
-
-// Constant-time comparison (hash first so lengths always match)
-async function safeEqual(a, b) {
-  const [ha, hb] = await Promise.all([
-    crypto.subtle.digest('SHA-256', enc.encode(a)),
-    crypto.subtle.digest('SHA-256', enc.encode(b)),
-  ]);
-  const x = new Uint8Array(ha), y = new Uint8Array(hb);
-  let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
-  return diff === 0;
-}
-
-async function hmacHex(secret, msg) {
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
-  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+// Best-effort backoff per client/target. Edge isolates are short-lived, so this
+// complements (rather than replaces) EdgeOne WAF rate limiting.
+const FAILURES = new Map();
+const clientKey = (context, target) => {
+  const ip = context.clientIp || context.request.headers.get('cf-connecting-ip') || context.request.headers.get('x-forwarded-for') || 'unknown';
+  return `${ip}:${target}`;
+};
 
 export async function onRequestPost(context) {
   let body;
@@ -36,6 +20,11 @@ export async function onRequestPost(context) {
   }
 
   const { target, password } = body || {};
+  const key = clientKey(context, target);
+  const failure = FAILURES.get(key);
+  if (failure && failure.until > Date.now()) {
+    return json({ ok: false, error: 'too_many_attempts' }, 429, { 'Retry-After': String(Math.ceil((failure.until - Date.now()) / 1000)) });
+  }
   if (typeof password !== 'string' || password.length > 200) {
     return json({ ok: false, error: 'bad_request' }, 400);
   }
@@ -53,16 +42,22 @@ export async function onRequestPost(context) {
   }
 
   if (await safeEqual(password, expected)) {
+    FAILURES.delete(key);
+    const token = await issueToken(expected, target);
+    const cookieName = target === 'admin' ? 'hero_admin' : 'hero_dev';
+    const headers = { 'Set-Cookie': setCookie(cookieName, token) };
     const res = { ok: true };
     if (target === 'admin') {
       // Short-lived signed token so other admin-only endpoints (e.g. /api/deploy) don't need the password again.
-      const exp = Date.now() + 30 * 60 * 1000;
-      res.token = `${exp}.${await hmacHex(expected, `admin.${exp}`)}`;
+      res.token = token;
     }
-    return json(res);
+    return json(res, 200, headers);
   }
 
-  // Slow down brute-force attempts
-  await new Promise((r) => setTimeout(r, 500));
+  // Exponential backoff after repeated failures.
+  const count = Math.min((failure && failure.count || 0) + 1, 6);
+  const delay = Math.min(10000, 500 * (2 ** (count - 1)));
+  FAILURES.set(key, { count, until: Date.now() + delay });
+  await new Promise((resolve) => setTimeout(resolve, delay));
   return json({ ok: false }, 401);
 }

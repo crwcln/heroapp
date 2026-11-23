@@ -45,8 +45,9 @@
         const ATABS = [['quiz', 'Quiz', 'map-pin'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['global', 'Global', 'megaphone'], ['site', 'Site', 'sliders-horizontal']];
         function initAdminTabs() {
             const panel = document.getElementById('admin-panel');
+            if (!panel || !panel.querySelector('#save-global-btn')) return;
             Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site', 'visit-admin-count': 'site' })
-                .forEach(([id, t]) => { document.getElementById(id).closest('[class*="rounded-2xl"]').dataset.atab = t; });
+                .forEach(([id, t]) => { const el = document.getElementById(id); const box = el && el.closest('[class*="rounded-2xl"]'); if (box) box.dataset.atab = t; });
             const an = document.createElement('div');
             an.dataset.atab = 'analytics'; an.className = 'an-dashboard bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';
             an.innerHTML = `<header class="an-hero"><div><span class="an-eyebrow">STEWARD VIEW</span><h3>Analytics</h3><p>Understand visits, quiz activity, and who is exploring Hero right now.</p></div><div class="an-live-badge"><i class="an-dot"></i> Live overview</div></header>
@@ -72,6 +73,7 @@
         }
         function setAdminTab(t) {
             const panel = document.getElementById('admin-panel');
+            if (!panel || !document.getElementById('admin-tabs')) return;
             panel.dataset.active = t; sessionStorage.setItem('mq_atab', t);
             document.querySelectorAll('#admin-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
             panel.querySelectorAll('[data-atab]').forEach(c => c.classList.toggle('atab-off', c.dataset.atab !== t));
@@ -118,6 +120,7 @@
         };
         function stopAnalyticsAdmin() { anUnsubs.forEach(u => u()); anUnsubs = []; clearInterval(anTimer); anPresence = []; anDays = []; }
         const anLabel = k => ({ ios:'iOS', osx:'macOS', mac:'macOS', chromeos:'Chrome OS', twoyear:'2 Year', default:'1 Year' }[k] || String(k).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+        const anNum = value => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
         const anBars = entries => {
             const rows = entries.filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0);
             const max = Math.max(1, ...rows.map(([, value]) => Number(value)));
@@ -139,11 +142,11 @@
             const rangeStart = new Date(); rangeStart.setUTCDate(rangeStart.getUTCDate() - (anRange - 1));
             const rangeStartKey = rangeStart.toISOString().slice(0, 10);
             const period = anDays.filter(d => d.day >= rangeStartKey);
-            const tot = (key, source = period) => source.reduce((a, d) => a + (d[key] || 0), 0);
+            const tot = (key, source = period) => source.reduce((a, d) => a + anNum(d[key]), 0);
             const started = tot('started'), done = tot('completed'), quit = tot('quit'), completion = started ? Math.round(done / started * 100) : 0;
             const kpi = (label, val, note, liveDot = false) => `<div class="an-kpi"><small>${liveDot ? '<i class="an-dot"></i>' : ''}${label}</small><strong>${val}</strong><span>${note}</span></div>`;
             document.getElementById('an-kpis').innerHTML = kpi('Live now', live.length, 'Active in the last 75 seconds', true)
-                + kpi('Sessions today', (today.sessions || 0).toLocaleString(), 'Since midnight UTC')
+                + kpi('Sessions today', anNum(today.sessions).toLocaleString(), 'Since midnight UTC')
                 + kpi(`Sessions · ${anRange} days`, tot('sessions').toLocaleString(), `${period.length} days with recorded data`)
                 + kpi('Quiz completion', `${completion}%`, `${done.toLocaleString()} finished of ${started.toLocaleString()} started`);
             const chartDays = Array.from({ length: anRange }, (_, i) => {
@@ -152,9 +155,9 @@
                 return anDays.find(item => item.day === day) || { day, sessions: 0 };
             });
             document.querySelectorAll('.an-range button').forEach(button => button.classList.toggle('on', Number(button.dataset.days) === anRange));
-            const max = Math.max(1, ...chartDays.map(d => d.sessions || 0)), w = 48, chartH = 118;
+            const max = Math.max(1, ...chartDays.map(d => anNum(d.sessions))), w = 48, chartH = 118;
             document.getElementById('an-chart-caption').textContent = `Daily sessions · ${chartDays[0].day} to ${chartDays[chartDays.length - 1].day} (UTC)`;
-            document.getElementById('an-chart').innerHTML = `<svg class="an-chart-svg" viewBox="0 0 ${chartDays.length * w} ${chartH}" role="img" aria-label="Sessions per day over the last ${anRange} days" preserveAspectRatio="none"><defs><linearGradient id="anGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand-500)"/><stop offset="1" stop-color="var(--sec)" stop-opacity=".55"/></linearGradient></defs>${[0.25, 0.5, 0.75].map(y => `<line class="an-chart-gridline" x1="0" x2="${chartDays.length * w}" y1="${y * 82}" y2="${y * 82}"/>`).join('')}${chartDays.map((d, i) => { const h = Math.round((d.sessions || 0) / max * 66); const x = i * w + 8; return `<rect x="${x}" y="${82 - h}" width="${w - 16}" height="${h}" rx="6"><title>${esc(d.day)}: ${(d.sessions || 0).toLocaleString()} sessions</title></rect><text x="${i * w + w / 2}" y="106" text-anchor="middle">${esc(d.day.slice(5))}</text>`; }).join('')}</svg>`;
+            document.getElementById('an-chart').innerHTML = `<svg class="an-chart-svg" viewBox="0 0 ${chartDays.length * w} ${chartH}" role="img" aria-label="Sessions per day over the last ${anRange} days" preserveAspectRatio="none"><defs><linearGradient id="anGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand-500)"/><stop offset="1" stop-color="var(--sec)" stop-opacity=".55"/></linearGradient></defs>${[0.25, 0.5, 0.75].map(y => `<line class="an-chart-gridline" x1="0" x2="${chartDays.length * w}" y1="${y * 82}" y2="${y * 82}"/>`).join('')}${chartDays.map((d, i) => { const sessions = anNum(d.sessions); const h = Math.round(sessions / max * 66); const x = i * w + 8; return `<rect x="${x}" y="${82 - h}" width="${w - 16}" height="${h}" rx="6"><title>${esc(d.day)}: ${sessions.toLocaleString()} sessions</title></rect><text x="${i * w + w / 2}" y="106" text-anchor="middle">${esc(d.day.slice(5))}</text>`; }).join('')}</svg>`;
             document.getElementById('an-split').innerHTML = [['Devices', anSum('d_', period)], ['Operating systems', anSum('o_', period)], ['Browsers', anSum('b_', period)], ['Tour mode', anSum('m_', period)]].map(([t, e]) => `<section class="an-box"><h4>${t}<small>Last ${anRange} days</small></h4>${anBars(e)}</section>`).join('');
             const maxQuiz = Math.max(started, done, quit, 1);
             document.getElementById('an-funnel').innerHTML = `<h4>Quiz activity<small>Last ${anRange} days</small></h4><p class="an-funnel-note">See how sessions turn into completed journeys.</p><div class="an-funnel-row"><span>Started</span><div><i style="--bar-width:${Math.max(2, Math.round(started / maxQuiz * 100))}%"></i></div><b>${started.toLocaleString()}</b></div><div class="an-funnel-row"><span>Completed</span><div><i style="--bar-width:${Math.max(done ? 2 : 0, Math.round(done / maxQuiz * 100))}%"></i></div><b>${done.toLocaleString()}</b></div><div class="an-funnel-row"><span>Left early</span><div><i class="is-quiet" style="--bar-width:${Math.max(quit ? 2 : 0, Math.round(quit / maxQuiz * 100))}%"></i></div><b>${quit.toLocaleString()}</b></div><div class="an-funnel-foot">Completion rate <strong>${completion}%</strong></div>`;

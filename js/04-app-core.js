@@ -198,13 +198,20 @@
                                 await auth.signOut().catch(error => console.error('Could not clear an old student session:', error));
                                 return;
                             }
+                            if (!user.isAnonymous && !adminToken && !(window.__HERO_SESSION__ && window.__HERO_SESSION__.adminToken)) {
+                                // A previous build could persist the admin Firebase session past the
+                                // password lock. Without a server-validated token it must not survive.
+                                await auth.signOut().catch(() => {});
+                                return;
+                            }
                             await applyFirebaseUser(user);
                         });
                     };
-                    // Keep members signed in across browser restarts; fall back only if local persistence is unavailable.
-                    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(beginAuth).catch(error => {
-                        console.warn('Persistent sign-in unavailable; using this-tab persistence:', error);
-                        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(beginAuth).catch(beginAuth);
+                    // Session-only persistence keeps the privileged Firebase identity from
+                    // outliving the server-validated password token after the tab is closed.
+                    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(beginAuth).catch(error => {
+                        console.warn('Session persistence unavailable; continuing without persistence:', error);
+                        beginAuth();
                     });
                 } catch (e) {
                     console.error("Firebase init failed:", e);
@@ -518,10 +525,12 @@
             try {
                 const ok = await checkPassword('admin', val);
                 if (ok === true) {
-                    adminToken = lastAuthToken; onAdminUnlocked();
+                    adminToken = lastAuthToken;
+                    input.value = '';
+                    if (window.__HERO_SESSION__) { location.reload(); return; }
+                    onAdminUnlocked();
                     document.getElementById('admin-lock').classList.add('hidden');
                     document.getElementById('admin-panel').classList.remove('hidden');
-                    input.value = '';
                 } else if (ok === false) { showToast("Incorrect password.", "error"); badInput(input); }
                 else showToast(authFailMsg(), "error");
             } finally {
@@ -572,9 +581,11 @@
         }
         window.markLocationsClean = markLocationsClean;
         function renderAdminList() {
-            document.getElementById('admin-loc-count').innerText = globalLocations.length;
+            const count = document.getElementById('admin-loc-count');
+            if (count) count.innerText = globalLocations.length;
             updateUnsavedBadge();
             const listEl = document.getElementById('custom-list');
+            if (!listEl) return;
             listEl.innerHTML = '';
             globalLocations.forEach((loc, idx) => {
                 const item = document.createElement('div');
@@ -601,10 +612,10 @@
 
         function saveGlobalQuiz() {
             if(!db || !userId) return showToast("Cannot deploy offline.", "error");
-            const newTitle = document.getElementById('admin-quiz-title').value.trim() || 'The Grand Tour';
-            const newMessage = document.getElementById('admin-global-msg').value.trim();
-            
-            const btn = document.getElementById('save-global-btn');
+            const titleInput = document.getElementById('admin-quiz-title'), messageInput = document.getElementById('admin-global-msg'), btn = document.getElementById('save-global-btn');
+            if (!titleInput || !messageInput || !btn) return showToast('The steward panel is not available in this session.', 'error');
+            const newTitle = titleInput.value.trim() || 'The Grand Tour';
+            const newMessage = messageInput.value.trim();
             const orig = btn.innerHTML;
             btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> <span>Deploying...</span>`;
             

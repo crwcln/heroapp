@@ -92,8 +92,10 @@
                 window.dispatchEvent(new Event('hero-admin-authenticated'));
             } catch (e) {
                 console.error('Secure sign-in failed:', e);
-                document.getElementById('inbox-sub').innerText = 'Secure sign-in failed';
-                showToast(secureMsg(e), 'error'); document.getElementById('inbox-sub').innerText = 'Secure sign-in failed';
+                const sub = document.getElementById('inbox-sub');
+                if (sub) sub.innerText = 'Secure sign-in failed';
+                showToast(secureMsg(e), 'error');
+                if (sub) sub.innerText = 'Secure sign-in failed';
             }
         }
         // Firebase auth persistence is shared by tabs. If another tab signs out, restore
@@ -115,9 +117,13 @@
             adminToken = null;
             clearTimeout(adminLockTimer);
             stopInbox(); stopAnalyticsAdmin();
-            document.getElementById('admin-panel').classList.add('hidden');
-            document.getElementById('admin-lock').classList.remove('hidden');
-            if (wasAdmin) { try { await auth.signOut(); } catch (e) { /* ignore */ } }
+            const panel = document.getElementById('admin-panel'), lock = document.getElementById('admin-lock');
+            if (panel) panel.classList.add('hidden');
+            if (lock) lock.classList.remove('hidden');
+            if (wasAdmin) {
+                fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'admin' }) }).catch(() => {});
+                try { await auth.signOut(); } catch (e) { /* ignore */ }
+            }
             window.dispatchEvent(new Event('hero-admin-locked'));
             if (msg) showToast(msg, wasAdmin ? 'info' : 'error');
         }
@@ -137,7 +143,8 @@
                 renderInbox();
             }, err => {
                 console.error('Inbox:', err);
-                document.getElementById('inbox-sub').innerText = `Could not load feedback (${err.code || 'error'})`;
+                const subEl = document.getElementById('inbox-sub');
+                if (subEl) subEl.innerText = `Could not load feedback (${err.code || 'error'})`;
             });
         }
         function stopInbox() {
@@ -145,7 +152,8 @@
             inboxExitTimers.forEach(clearTimeout); inboxExitTimers.clear(); inboxNodeById.clear();
             inboxDocs = [];
             renderInbox();
-            document.getElementById('inbox-sub').innerText = 'Waiting for steward access...';
+            const subEl = document.getElementById('inbox-sub');
+            if (subEl) subEl.innerText = 'Waiting for steward access...';
         }
         function timeAgo(d) {
             const s = Math.floor((Date.now() - d.getTime()) / 1000);
@@ -313,3 +321,12 @@
             return actions;
         }
         renderInbox();
+        const restoreAdminSession = () => {
+            if (!adminToken || !heroSession.admin) return;
+            const panel = document.getElementById('admin-panel'), lock = document.getElementById('admin-lock');
+            if (lock) lock.classList.add('hidden');
+            if (panel) panel.classList.remove('hidden');
+            onAdminUnlocked();
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restoreAdminSession, { once: true });
+        else restoreAdminSession();

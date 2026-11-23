@@ -115,11 +115,13 @@ export async function onRequestPost(context) {
   }
 }
 
-// GET /api/firebase-token -> config check you can open in a browser (no secrets are returned)
+// GET /api/firebase-token -> boolean-only config check (no project or key details)
 export function onRequestGet(context) {
   const e = context.env;
-  const chunks = [];
-  for (let i = 1; i <= 12; i++) { const p = e[`FIREBASE_PRIVATE_KEY_${i}`]; if (!p) break; chunks.push(String(p).trim().length); }
-  const keyChars = e.FIREBASE_PRIVATE_KEY ? String(e.FIREBASE_PRIVATE_KEY).length : chunks.reduce((a, b) => a + b, 0);
-  return json({ serviceAccountProject: (String(e.FIREBASE_CLIENT_EMAIL || '').split('@')[1] || '').split('.')[0] || null, ADMIN_PASSWORD: !!e.ADMIN_PASSWORD, FIREBASE_CLIENT_EMAIL: !!e.FIREBASE_CLIENT_EMAIL, keyChunks: chunks.length, keyChars, keyLooksComplete: keyChars >= 1500 });
+  let keyChars = e.FIREBASE_PRIVATE_KEY ? String(e.FIREBASE_PRIVATE_KEY).length : 0;
+  if (!keyChars) {
+    for (let i = 1; i <= 12; i++) { const part = e[`FIREBASE_PRIVATE_KEY_${i}`]; if (!part) break; keyChars += String(part).trim().length; }
+  }
+  const firebaseConfigured = !!e.FIREBASE_CLIENT_EMAIL && keyChars >= 1500;
+  return json({ ok: true, configured: !!(e.ADMIN_PASSWORD && firebaseConfigured), adminPasswordSet: !!e.ADMIN_PASSWORD, firebaseConfigured });
 }

@@ -1,5 +1,7 @@
 // ================= SERVER AUTH =================
-        let adminToken = null, lastAuthToken = null, lastAuthErr = '', lastDevAuthErr = '';
+        const heroSession = window.__HERO_SESSION__ || {};
+        let adminToken = heroSession.adminToken || null, lastAuthToken = adminToken, lastAuthErr = '', lastDevAuthErr = '';
+        let devUnlockedState = !!heroSession.dev;
         window.__heroSendAnnouncementPush = async function (title, body) {
             if (!adminToken) throw new Error('Steward session expired. Sign in again to send this announcement alert.');
             const response = await fetch('/api/push-announcement', {
@@ -26,7 +28,8 @@
             if (err === '404') return 'The /api/auth endpoint is missing from this deployment. Deploy edge-functions/api/auth.js and try again.';
             if (err === 'timeout') return 'The login server did not respond within 15 seconds. Check the site connection and deployment, then try again.';
             if (err === 'network') return 'Could not reach /api/auth. Check the site connection and deployment.';
-            return `Early access check failed (${err || 'unknown error'}). Check the EdgeOne deployment.`;
+            if (err === 'too_many_attempts') return 'Too many attempts. Wait a moment before trying again.';
+            return `${target === 'admin' ? 'Steward sign-in' : 'Early access check'} failed (${err || 'unknown error'}). Check the EdgeOne deployment.`;
         };
         async function checkPassword(target, password) {
             const controller = new AbortController();
@@ -88,6 +91,7 @@
             launchBusy = false; button.disabled = false; button.textContent = 'Enter early';
             if (ok === true) {
                 sessionStorage.setItem('mq_devUnlocked', '1');
+                if (window.__HERO_SESSION__) { location.reload(); return; }
                 openLaunchGate();
                 return;
             }
@@ -265,8 +269,9 @@
         }
 
         function renderChangelogAdmin() {
-            document.getElementById('cl-dirty-note').classList.toggle('hidden', !clDirty);
-            const list = document.getElementById('cl-admin-list');
+            const dirty = document.getElementById('cl-dirty-note'), list = document.getElementById('cl-admin-list');
+            if (!list) return;
+            if (dirty) dirty.classList.toggle('hidden', !clDirty);
             list.innerHTML = '';
             clSorted().forEach(e => {
                 const row = document.createElement('div');
@@ -294,11 +299,13 @@
 
         function clReset() {
             clEditing = null;
-            document.getElementById('cl-version').value = '';
-            document.getElementById('cl-notes').value = '';
-            document.getElementById('cl-date').value = clToday();
-            document.getElementById('cl-save-btn').innerText = 'Add Entry';
-            document.getElementById('cl-cancel-btn').classList.add('hidden');
+            const version = document.getElementById('cl-version'), notes = document.getElementById('cl-notes'), date = document.getElementById('cl-date'), save = document.getElementById('cl-save-btn'), cancel = document.getElementById('cl-cancel-btn');
+            if (!version || !notes || !date || !save || !cancel) return;
+            version.value = '';
+            notes.value = '';
+            date.value = clToday();
+            save.innerText = 'Add Entry';
+            cancel.classList.add('hidden');
         }
 
         function clSaveEntry() {
@@ -365,7 +372,7 @@
         // ================= DEV MODE =================
         let siteDev = false, siteDevMessage = '';
         const DEFAULT_DEV_MESSAGE = 'Sorry for the inconvenience! Hero is currently under construction. Please check back soon.';
-        const devUnlocked = () => sessionStorage.getItem('mq_devUnlocked') === '1';
+        const devUnlocked = () => window.__HERO_SESSION__ ? devUnlockedState : sessionStorage.getItem('mq_devUnlocked') === '1';
         const siteModeRef = () => gs().doc('siteMode');
 
         function loadSiteMode() {
@@ -379,22 +386,31 @@
         }
         function applyDevScreen() {
             const show = siteDev && !devUnlocked();
-            document.getElementById('dev-screen').classList.toggle('hidden', !show);
-            document.getElementById('dev-message').innerText = siteDevMessage || DEFAULT_DEV_MESSAGE;
+            const screen = document.getElementById('dev-screen');
+            if (screen) {
+                screen.classList.toggle('hidden', !show);
+                const message = document.getElementById('dev-message');
+                if (message) message.innerText = siteDevMessage || DEFAULT_DEV_MESSAGE;
+            }
             hideCover();
             renderDevCard();
             if (!show) maybeShowChangelogPopup();
         }
         function renderDevCard() {
+            const locked = document.getElementById('dev-card-locked'), openCard = document.getElementById('dev-card-open');
+            if (!locked || !openCard) return;
             const open = devUnlocked();
-            document.getElementById('dev-card-locked').classList.toggle('hidden', open);
-            document.getElementById('dev-card-open').classList.toggle('hidden', !open);
-            document.getElementById('dev-status').innerText = siteDev
+            locked.classList.toggle('hidden', open);
+            openCard.classList.toggle('hidden', !open);
+            const status = document.getElementById('dev-status');
+            if (status) status.innerText = siteDev
                 ? 'Dev mode is ON. Visitors see the under-construction screen.'
                 : 'Dev mode is OFF. The site is open to everyone.';
             const btn = document.getElementById('dev-toggle-btn');
-            btn.innerText = siteDev ? 'Disable Dev Mode' : 'Enable Dev Mode';
-            btn.className = 'w-full text-white font-bold py-3 rounded-lg transition shadow ' + (siteDev ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700');
+            if (btn) {
+                btn.innerText = siteDev ? 'Disable Dev Mode' : 'Enable Dev Mode';
+                btn.className = 'w-full text-white font-bold py-3 rounded-lg transition shadow ' + (siteDev ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700');
+            }
             const messageInput = document.getElementById('dev-message-input');
             if (messageInput && document.activeElement !== messageInput) messageInput.value = siteDevMessage;
         }
@@ -404,7 +420,9 @@
             const ok = await checkPassword('dev', input.value);
             if (ok === true) {
                 sessionStorage.setItem('mq_devUnlocked', '1');
+                devUnlockedState = true;
                 input.value = '';
+                if (window.__HERO_SESSION__) { location.reload(); return; }
                 applyDevScreen();
             } else if (ok === false) { showToast('Incorrect password.', 'error'); badInput(input); }
             else showToast(authFailMsg('dev'), 'error');
@@ -431,7 +449,6 @@
             if (!db || !userId) return showToast('Cannot change mode offline.', 'error');
             const next = !siteDev;
             if (!(await customConfirm(next ? { title: 'Turn on dev mode?', message: 'All visitors will see the under-construction screen until you turn it off.', confirmText: 'Enable dev mode', danger: true } : { title: 'Turn off dev mode?', message: 'The site will reopen to everyone.', confirmText: 'Disable dev mode' }))) return;
-            if (next) sessionStorage.setItem('mq_devUnlocked', '1');
             siteModeRef().set({ dev: next })
                 .then(() => showToast(next ? 'Dev mode enabled.' : 'Dev mode disabled.', 'success'))
                 .catch(err => { console.error(err); showToast(`Failed to update (${err.code || 'error'}).`, 'error'); });
@@ -538,19 +555,22 @@ async function resetVisitCounter() {
         // ================= REDEPLOY =================
         let deployBusy = false, deployCooldownTimer = null;
         function renderDeployLast() {
+            const el = document.getElementById('deploy-last');
+            if (!el) return;
             const t = Number(localStorage.getItem('mq_lastDeploy'));
-            document.getElementById('deploy-last').innerText = t ? new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
+            el.innerText = t ? new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
         }
         function setDefaultDeployMessage() {
             const input = document.getElementById('deploy-message');
             if (input && !input.value.trim() && typeof SITE !== 'undefined' && SITE.version) input.value = `v${SITE.version}`;
         }
         function setDeployBtn(busy, label) {
-            const btn = document.getElementById('deploy-btn');
+            const btn = document.getElementById('deploy-btn'), spin = document.getElementById('deploy-spin'), icon = document.getElementById('deploy-icon'), text = document.getElementById('deploy-btn-label');
+            if (!btn || !spin || !icon || !text) return;
             btn.disabled = busy;
-            document.getElementById('deploy-spin').classList.toggle('hidden', busy !== 'spin');
-            document.getElementById('deploy-icon').classList.toggle('hidden', busy === 'spin');
-            document.getElementById('deploy-btn-label').innerText = label;
+            spin.classList.toggle('hidden', busy !== 'spin');
+            icon.classList.toggle('hidden', busy === 'spin');
+            text.innerText = label;
         }
         function setDeployStatus(message, error = false) {
             const status = document.getElementById('deploy-status');
