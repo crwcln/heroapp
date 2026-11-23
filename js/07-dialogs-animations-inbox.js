@@ -102,6 +102,8 @@
                 startInbox(); startAnalyticsAdmin();
                 window.dispatchEvent(new Event('hero-admin-authenticated'));
             } catch (e) {
+                adminLocalSignInAt = 0;
+                adminRepairAttempts = 0;
                 console.error('Secure sign-in failed:', e);
                 const sub = document.getElementById('inbox-sub');
                 if (sub) sub.innerText = 'Secure sign-in failed';
@@ -345,7 +347,7 @@
         }
         renderInbox();
         const restoreAdminSession = () => {
-            if (!adminToken || !heroSession.admin) return;
+            if (!adminToken) return;
             const panel = document.getElementById('admin-panel'), lock = document.getElementById('admin-lock');
             if (lock) lock.classList.add('hidden');
             if (panel) panel.classList.remove('hidden');

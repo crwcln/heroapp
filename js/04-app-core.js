@@ -532,21 +532,13 @@
                     adminToken = lastAuthToken;
                     input.value = '';
                     if (!adminToken) { showToast('The login server did not return a steward session token. Check /api/auth and try again.', 'error'); return; }
-                    if (window.__HERO_SESSION__) {
-                        const confirmed = await confirmServerSession('admin');
-                        const panel = document.getElementById('admin-panel');
-                        if (confirmed) {
-                            unlocked = true;
-                            showToast('Steward session confirmed. Restoring your workspace…', 'success');
-                            setTimeout(() => location.reload(), 400);
-                            return;
-                        }
-                        if (!panel || !panel.children.length) {
-                            showToast('The password was accepted, but the server did not keep the steward session. Check that this site uses HTTPS and cookies are allowed, then try again.', 'error');
-                            return;
-                        }
-                    }
                     unlocked = true;
+                    if (window.__HERO_SESSION__) {
+                        if (overlay) overlay.hide();
+                        showToast('Steward session confirmed. Restoring your workspace…', 'success');
+                        setTimeout(() => location.reload(), 400);
+                        return;
+                    }
                     setTimeout(() => { if (overlay) overlay.hide(); }, 500);
                     onAdminUnlocked();
                     const lock = document.getElementById('admin-lock'), panel = document.getElementById('admin-panel');
