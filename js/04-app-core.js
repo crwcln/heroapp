@@ -519,22 +519,29 @@
             const val = input.value;
             if (!val) return showToast("Enter the password.", "error");
             adminChecking = true;
+            const overlay = window.__heroAdminUnlockOverlay;
+            if (overlay) overlay.show(true);
+            let unlocked = false;
             const btn = document.getElementById('admin-enter-btn');
             const origLabel = btn ? btn.textContent : '';
             if (btn) { btn.disabled = true; btn.textContent = 'Checking\u2026'; }
             try {
                 const ok = await checkPassword('admin', val);
                 if (ok === true) {
+                    unlocked = true;
                     adminToken = lastAuthToken;
                     input.value = '';
-                    if (window.__HERO_SESSION__) { location.reload(); return; }
+                    if (window.__HERO_SESSION__) { setTimeout(() => location.reload(), 650); return; }
+                    setTimeout(() => { if (overlay) overlay.hide(); }, 500);
                     onAdminUnlocked();
-                    document.getElementById('admin-lock').classList.add('hidden');
-                    document.getElementById('admin-panel').classList.remove('hidden');
+                    const lock = document.getElementById('admin-lock'), panel = document.getElementById('admin-panel');
+                    if (lock) lock.classList.add('hidden');
+                    if (panel) panel.classList.remove('hidden');
                 } else if (ok === false) { showToast("Incorrect password.", "error"); badInput(input); }
                 else showToast(authFailMsg(), "error");
             } finally {
                 adminChecking = false;
+                if (!unlocked && overlay) overlay.hide();
                 if (btn) { btn.disabled = false; btn.textContent = origLabel; }
             }
         }
