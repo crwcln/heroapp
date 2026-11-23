@@ -56,49 +56,81 @@ function replaceBlock(html, startMarker, endMarker, replacement) {
   return html.slice(0, start) + replacement + html.slice(end + endMarker.length);
 }
 
-function gateHtml(launchAt) {
-  const date = new Date(launchAt).toUTCString();
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hero — Early Access</title>
-<style>
-:root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0e1a;color:#e8ecf7;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:24px}
-.card{width:min(100%,520px);border:1px solid rgba(212,175,55,.35);border-radius:24px;padding:clamp(28px,6vw,52px);background:linear-gradient(160deg,#111a30,#0a0e1a);box-shadow:0 30px 100px rgba(0,0,0,.45);text-align:center}
-h1{margin:0 0 10px;font-size:clamp(34px,7vw,56px);letter-spacing:.02em}.eyebrow{font-size:11px;letter-spacing:.28em;color:#d4af37;font-weight:800;text-transform:uppercase}
-p{color:#aab4cc;line-height:1.6}.clock{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:28px 0}.clock div{border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px 4px}.clock b{display:block;font-size:clamp(22px,6vw,36px);font-variant-numeric:tabular-nums}.clock span{font-size:9px;letter-spacing:.16em;color:#8893ad;text-transform:uppercase}
-form{display:flex;gap:8px;margin-top:22px}input{min-width:0;flex:1;padding:13px 15px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:#080c17;color:inherit;font:inherit}button{padding:0 20px;border:0;border-radius:12px;background:#d4af37;color:#101828;font-weight:800;cursor:pointer}.error{min-height:20px;margin-top:10px;color:#ff8098;font-size:13px;font-weight:600}
-@media(max-width:480px){form{flex-direction:column}button{min-height:46px}}
-</style></head>
-<body><main class="card"><div class="eyebrow">Early Access</div><h1>Hero</h1>
-<p>Hero opens on <strong>${date}</strong>. Enter your early-access password to continue.</p>
-<div class="clock" id="clock"></div>
-<form id="gate"><input id="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Early access password" required><button type="submit">Enter</button></form>
-<div class="error" id="error" role="alert"></div></main>
-<script>
-const deadline=${launchAt};const clock=document.getElementById('clock');
-function tick(){const left=Math.max(0,deadline-Date.now());const s=Math.floor(left/1000);const v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];const names=['Days','Hours','Mins','Secs'];clock.innerHTML=v.map((n,i)=>'<div><b>'+String(n).padStart(2,'0')+'</b><span>'+names[i]+'</span></div>').join('');if(!left)location.reload();}
-tick();setInterval(tick,1000);
-document.getElementById('gate').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');const error=document.getElementById('error');button.disabled=true;error.textContent='';try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:'dev',password:document.getElementById('password').value})});const d=await r.json().catch(()=>({}));if(r.ok&&d.ok){location.reload();return;}error.textContent=r.status===401?'That password did not work. Try again.':'Access check failed. Try again.';}catch(_){error.textContent='Could not reach the access server. Try again.'}finally{button.disabled=false;}});
-</script></body></html>`;
+function gateHtml(fullHtml, launchAt) {
+  const headMatch = fullHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i);
+  const head = (headMatch ? headMatch[1] : '').replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
+  const gateMatch = fullHtml.match(/<!-- HERO_LAUNCH_GATE_START -->([\s\S]*?)<!-- HERO_LAUNCH_GATE_END -->/);
+  const gate = gateMatch ? gateMatch[1] : '';
+  const htmlTag = (fullHtml.match(/<html\b[^>]*>/i) || ['<html lang="en" class="light">'])[0];
+  const lockedTag = /class\s*=\s*"([^"]*)"/i.test(htmlTag)
+    ? htmlTag.replace(/class\s*=\s*"([^"]*)"/i, (_, classes) => `class="${classes} launch-locked"`)
+    : htmlTag.replace(/>$/, ' class="launch-locked">');
+  const script = `<script>
+(function () {
+  var deadline = ${launchAt};
+  var ids = ['launch-days', 'launch-hours', 'launch-minutes', 'launch-seconds'];
+  function tick() {
+    var left = Math.max(0, deadline - Date.now());
+    var s = Math.floor(left / 1000);
+    var values = [Math.floor(s / 86400), Math.floor(s % 86400 / 3600), Math.floor(s % 3600 / 60), s % 60];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (el) el.textContent = String(values[i]).padStart(2, '0');
+    }
+    if (!left) location.reload();
+  }
+  tick();
+  setInterval(tick, 1000);
+  var stars = document.querySelector('.launch-stars');
+  if (stars && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (var i = 0; i < 56; i++) {
+      var star = document.createElement('i');
+      star.className = 'launch-star';
+      star.style.left = (Math.random() * 100) + '%';
+      star.style.top = (Math.random() * 100) + '%';
+      star.style.setProperty('--dx', ((Math.random() - 0.5) * 120) + 'px');
+      star.style.setProperty('--dur', (4 + Math.random() * 5) + 's');
+      star.style.animationDelay = (Math.random() * 6) + 's';
+      stars.appendChild(star);
+    }
+  }
+  window.unlockLaunchGate = async function () {
+    var input = document.getElementById('launch-password');
+    var button = document.getElementById('launch-enter');
+    var message = document.getElementById('launch-error');
+    if (!input || !input.value) return;
+    if (button) button.disabled = true;
+    if (message) message.textContent = '';
+    try {
+      var response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'dev', password: input.value }) });
+      var data = await response.json().catch(function () { return {}; });
+      if (response.ok && data.ok) { location.reload(); return; }
+      if (message) message.textContent = response.status === 401 ? 'That password did not work. Try again.' : 'Access check failed. Try again.';
+    } catch (error) {
+      if (message) message.textContent = 'Could not reach the access server. Try again.';
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
+})();
+</script>`;
+  return `<!DOCTYPE html>\n${lockedTag}<head>${head}</head><body class="text-slate-800 dark:text-slate-200">${gate}${script}</body></html>`;
 }
 
 export async function middleware(context) {
   const { request, next } = context;
   const session = await getSession(request);
   const launchAt = await getLaunchAt(request);
-
-  if (launchAt && Date.now() < launchAt && !session.dev) {
-    return new Response(gateHtml(launchAt), {
-      status: 200,
-      headers: { ...SECURITY_HEADERS, 'Content-Type': 'text/html; charset=utf-8' },
-    });
-  }
-
   const upstream = await next();
   let html = await upstream.text();
-  html = injectSession(html, session);
-  if (!session.admin) {
-    html = replaceBlock(html, '<!-- HERO_ADMIN_PANEL_START -->', '<!-- HERO_ADMIN_PANEL_END -->', '<div id="admin-panel" class="hidden"></div>');
+
+  if (launchAt && Date.now() < launchAt && !session.dev) {
+    html = gateHtml(html, launchAt);
+  } else {
+    html = injectSession(html, session);
+    if (!session.admin) {
+      html = replaceBlock(html, '<!-- HERO_ADMIN_PANEL_START -->', '<!-- HERO_ADMIN_PANEL_END -->', '<div id="admin-panel" class="hidden"></div>');
+    }
   }
 
   const headers = new Headers(upstream.headers);
