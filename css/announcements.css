@@ -1,30 +1,30 @@
-.ann-card { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--field); overflow: hidden; animation: rowIn .4s ease both; }
-.ann-head { padding: 16px 18px 12px; background: linear-gradient(135deg, var(--us-e6c3b379), var(--us-7d5f3c7b)); }
+.ann-card { border: 1px solid var(--line); border-radius: 16px; background: var(--field); overflow: hidden; animation: rowIn .4s ease both; }
+.ann-head { padding: 16px 18px 12px; background: linear-gradient(135deg, rgba(var(--brand-rgb),.1), rgba(var(--sec-rgb),.08)); }
 .ann-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.ann-tag { padding: 2px 9px; border-radius: var(--radius-md); font-size: 10px; font-weight: var(--font-weight-bold); letter-spacing: .04em; text-transform: uppercase; background: var(--us-2235e046); color: var(--brand-600); }
+.ann-tag { padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: rgba(var(--brand-rgb),.16); color: var(--brand-600); }
 html.dark .ann-tag { color: var(--brand-300); }
-.ann-title { font-weight: var(--font-weight-bold); font-size: 16px; } .ann-date { font-size: 11px; font-weight: var(--font-weight-bold); color: var(--ink-500); margin-top: 2px; }
-.ann-body { padding: 14px 18px; font-size: 14px; color: var(--ink-500); font-weight: var(--font-weight-bold); white-space: pre-wrap; }
+.ann-title { font-weight: 800; font-size: 16px; } .ann-date { font-size: 11px; font-weight: 700; color: var(--ink-500); margin-top: 2px; }
+.ann-body { padding: 14px 18px; font-size: 14px; color: var(--ink-500); font-weight: 500; white-space: pre-wrap; }
 .ann-body a, .ann-preview a, #global-msg-text a { color: var(--brand-600); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
-.ann-body img, .ann-preview img, #global-msg-text img { display: block; max-width: 100%; max-height: 420px; height: auto; object-fit: contain; border-radius: var(--radius-md); margin: 10px 0; }
-.ann-editor-wrap { overflow: hidden; border: 1px solid var(--us-e66b9d0a); border-radius: var(--radius-md); background: var(--us-499668ca); }
-html.dark .ann-editor-wrap { border-color: var(--us-58d44d32); background: var(--us-3de0edf4); }
-.ann-toolbar { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px; border-bottom: 1px solid var(--us-e66b9d0a); }
-html.dark .ann-toolbar { border-color: var(--us-58d44d32); }
-.ann-toolbar button { min-height: 34px; min-width: 36px; padding: 5px 9px; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--ink-800); font-size: 13px; font-weight: var(--font-weight-bold); }
-.ann-toolbar button:hover, .ann-toolbar button:focus-visible { border-color: var(--line); background: var(--us-e3d36e79); }
-.ann-toolbar span { width: 1px; margin: 4px; background: var(--us-e66b9d0a); }
+.ann-body img, .ann-preview img, #global-msg-text img { display: block; max-width: 100%; max-height: 420px; height: auto; object-fit: contain; border-radius: 12px; margin: 10px 0; }
+.ann-editor-wrap { overflow: hidden; border: 1px solid #cbd5e1; border-radius: 12px; background: #f8fafc; }
+html.dark .ann-editor-wrap { border-color: #475569; background: #0f172a; }
+.ann-toolbar { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px; border-bottom: 1px solid #cbd5e1; }
+html.dark .ann-toolbar { border-color: #475569; }
+.ann-toolbar button { min-height: 34px; min-width: 36px; padding: 5px 9px; border: 1px solid transparent; border-radius: 7px; color: var(--ink-800); font-size: 13px; font-weight: 700; }
+.ann-toolbar button:hover, .ann-toolbar button:focus-visible { border-color: var(--line); background: rgba(var(--brand-rgb),.12); }
+.ann-toolbar span { width: 1px; margin: 4px; background: #cbd5e1; }
 .ann-editor { min-height: 150px; max-height: 420px; overflow: auto; padding: 12px; outline: none; color: var(--ink-800); font-size: 14px; }
-.ann-editor:empty::before { content: attr(data-placeholder); color: var(--us-f60cdf0a); pointer-events: none; }
-.ann-editor img { max-width: 100%; max-height: 220px; border-radius: var(--radius-md); }
-.ann-preview { min-height: 56px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--field); color: var(--ink-500); overflow-wrap: anywhere; }
+.ann-editor:empty::before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; }
+.ann-editor img { max-width: 100%; max-height: 220px; border-radius: 8px; }
+.ann-preview { min-height: 56px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); color: var(--ink-500); overflow-wrap: anywhere; }
 .ann-body p, .ann-preview p { margin: .35em 0; }
 .ann-body ul, .ann-body ol, .ann-preview ul, .ann-preview ol { margin: .5em 0; padding-left: 1.5em; list-style: revert; }
 .ann-body blockquote, .ann-preview blockquote { margin: .6em 0; padding-left: .8em; border-left: 3px solid var(--brand-500); }
-.an-admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--us-9b7c3d18); font-size: 12px; font-weight: var(--font-weight-bold); }
+.an-admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(98,114,139,.08); font-size: 12px; font-weight: 700; }
 .an-admin-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
-.an-admin-actions button { display: inline-grid; width: 30px; height: 30px; place-items: center; border-radius: var(--radius-md); }
+.an-admin-actions button { display: inline-grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; }
 .an-admin-actions .an-admin-edit { color: var(--brand-600); }
-.an-admin-actions button:hover { background: var(--us-e3d36e79); }
-.an-admin-row button { color: var(--us-5334b0d9); }
-#custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: var(--us-3bf1d582); }
+.an-admin-actions button:hover { background: rgba(var(--brand-rgb),.12); }
+.an-admin-row button { color: #e11d48; }
+#custom-list > div.bulk-on, #user-custom-list > div.bulk-on { outline: 2px solid var(--brand-500); outline-offset: -1px; background: rgba(var(--brand-rgb),.08); }
