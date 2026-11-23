@@ -55,9 +55,25 @@
     .prompt-copy { min-width: 0; }
     .kicker { margin: 0 0 var(--spacing-4); color: var(--sec); font: var(--font-weight-bold) var(--text-xs)/1.4 'DM Sans', var(--font-body); letter-spacing: .18em; text-transform: uppercase; }
     .prompt h1 { margin: 0; font-size: clamp(22px, 4vw, 30px); line-height: 1.15; letter-spacing: var(--tracking-display); }
-    .status { min-height: 20px; margin: var(--spacing-4) 0 0; color: var(--ink-500); font-size: 13px; font-weight: var(--font-weight-regular); }
-    .stats { display: flex; align-items: center; gap: var(--spacing-16); flex-shrink: 0; }
-    .stat { min-width: 84px; text-align: right; }
+    .marker {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      background: #dc2626;
+      box-shadow: 0 1px 6px rgba(0,0,0,.5);
+      transition: transform var(--duration-default) var(--ease-default), background var(--duration-default) var(--ease-default), border-color var(--duration-default) var(--ease-default);
+    }
+    .leaflet-marker-icon:hover .marker {
+      transform: scale(1.2);
+      border-color: #fecaca;
+      background: #b91c1c;
+    }
+    .marker.solved {
+      border-color: var(--correct, var(--sec));
+      background: var(--correct, var(--sec));
+      box-shadow: 0 0 0 4px rgba(var(--correct-rgb, var(--sec-rgb)), .24), 0 1px 6px rgba(0,0,0,.5);
+    }
     .stat small { display: block; color: var(--ink-500); font: var(--font-weight-bold) var(--text-xs)/1.4 'DM Sans', var(--font-body); letter-spacing: .12em; text-transform: uppercase; }
     .stat b { display: block; color: var(--sec); font: var(--font-weight-bold) var(--text-2xl)/1.15 'EB Garamond', Georgia, serif; font-variant-numeric: tabular-nums; }
     .map-wrap { position: relative; min-height: 0; overflow: hidden; }
