@@ -26,17 +26,26 @@
         if (prefs) {
           var saved = JSON.parse(decodeURIComponent(prefs.split('=').slice(1).join('=')));
           if (saved.theme) document.documentElement.dataset.theme = saved.theme;
+          if (saved.theme === 'obsidian') {
+            localStorage.setItem('theme', 'dark');
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else if (saved.theme === 'newsprint') {
+            localStorage.setItem('theme', 'light');
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
           if (saved.font) document.documentElement.dataset.font = saved.font;
         }
       }
     } catch (error) {}
   </script>
   <link rel="stylesheet" href="css/tokens.css?v=78a480d715d5456b">
-  <link rel="stylesheet" href="css/styles.css?v=8fb3664b2b0735c7">
+  <link rel="stylesheet" href="css/styles.css?v=65137c25dfa89082">
   <link rel="stylesheet" href="css/premium.css?v=cb07fb1ff0c14a81">
-  <link rel="stylesheet" href="css/night.css?v=92d9a4f84503f8e9">
+  <link rel="stylesheet" href="css/night.css?v=0b71ed745d15755b">
   <link rel="stylesheet" href="css/tailwind.css?v=e2dae8bd73388a54">
-  <link rel="stylesheet" href="css/design-system.css?v=bfd65d076ee27b95">
+  <link rel="stylesheet" href="css/design-system.css?v=1be1e845715caa00">
   <style>
     :root { color-scheme: light; }
     html.dark { color-scheme: dark; }
@@ -53,14 +62,14 @@
     .stat b { display: block; color: var(--sec); font: var(--font-weight-bold) var(--text-2xl)/1.15 'EB Garamond', Georgia, serif; font-variant-numeric: tabular-nums; }
     .map-wrap { position: relative; min-height: 0; overflow: hidden; }
     .map { position: absolute; inset: 0; }
-    html:not(.dark) .leaflet-container { background: var(--bg-base); }
+    html:not(.dark) .leaflet-container { background: var(--map-water, var(--bg-base)); }
     .map-help { position: absolute; z-index: 500; left: var(--spacing-16); bottom: var(--spacing-16); max-width: calc(100% - var(--spacing-32)); padding: var(--spacing-8) var(--spacing-12); border: 1px solid rgba(var(--sec-rgb), .38); border-radius: var(--radius-lg); color: var(--ink-500); background: var(--field); box-shadow: var(--hero-shadow-popover); font: var(--font-weight-regular) var(--text-xs)/1.4 'DM Sans', var(--font-body); pointer-events: none; }
     .fb-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-12); padding: var(--spacing-8) var(--spacing-16); color: var(--ink-500); font-size: 12px; font-weight: var(--font-weight-regular); }
     .fb-footer a { color: var(--brand-600); text-underline-offset: 3px; }
     html.dark .fb-footer a { color: var(--sec); }
-    .marker { width: 14px; height: 14px; border: 2px solid var(--field); border-radius: 50%; background: var(--brand-600); box-shadow: 0 1px 6px rgba(0,0,0,.5); transition: transform var(--duration-default) var(--ease-default), background var(--duration-default) var(--ease-default), border-color var(--duration-default) var(--ease-default); }
+    .marker { width: 14px; height: 14px; border: 2px solid var(--field); border-radius: 50%; background: var(--wrong, var(--brand-600)); box-shadow: 0 1px 6px rgba(0,0,0,.5); transition: transform var(--duration-default) var(--ease-default), background var(--duration-default) var(--ease-default), border-color var(--duration-default) var(--ease-default); }
     .leaflet-marker-icon:hover .marker { transform: scale(1.2); border-color: var(--sec); background: var(--sec); }
-    .marker.solved { border-color: var(--sec); background: var(--sec); box-shadow: 0 0 0 4px rgba(var(--sec-rgb), .24), 0 1px 6px rgba(0,0,0,.5); }
+    .marker.solved { border-color: var(--correct, var(--sec)); background: var(--correct, var(--sec)); box-shadow: 0 0 0 4px rgba(var(--correct-rgb, var(--sec-rgb)), .24), 0 1px 6px rgba(0,0,0,.5); }
     .leaflet-container { font-family: 'DM Sans', var(--font-body); }
     .leaflet-control-attribution { font-size: 9px !important; }
     .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: inherit; background: var(--field); }

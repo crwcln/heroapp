@@ -4,9 +4,11 @@
         let consent = getCookie('cairn_consent');
         let prefs = { theme: 'cairn', bg: 'contour', font: 'modern', motion: 'on', cloak: '' };
         if (consent === 'all') { try { Object.assign(prefs, JSON.parse(decodeURIComponent(getCookie('cairn_prefs')))); } catch (e) { /* none saved */ } }
+        const THEME_APPEARANCE = { obsidian: true, newsprint: false };
         function applyPrefs() {
             const h = document.documentElement;
             h.dataset.theme = prefs.theme; h.dataset.bg = prefs.bg; h.dataset.font = prefs.font; h.dataset.motion = prefs.motion;
+            if (Object.prototype.hasOwnProperty.call(THEME_APPEARANCE, prefs.theme) && typeof setThemeAppearance === 'function') setThemeAppearance(THEME_APPEARANCE[prefs.theme]);
             window.__cloakTitle = prefs.cloak.trim();
             document.querySelectorAll('[data-theme].st-card, [data-bg], [data-font]').forEach(b => { const k = b.dataset.theme ? 'theme' : b.dataset.bg ? 'bg' : 'font'; b.classList.toggle('on', prefs[k] === (b.dataset.theme || b.dataset.bg || b.dataset.font)); });
             document.getElementById('sw-motion').classList.toggle('on', prefs.motion === 'on');
@@ -31,6 +33,7 @@
             });
         }
         function setPref(k, v) {
+            if (k === 'theme' && Object.prototype.hasOwnProperty.call(THEME_APPEARANCE, v) && typeof setThemeAppearance === 'function') setThemeAppearance(THEME_APPEARANCE[v]);
             prefs[k] = v; applyPrefs();
             if (consent === 'all') setCookie('cairn_prefs', JSON.stringify(prefs));
             if (k !== 'cloak' && k !== 'vol') showToast(k === 'motion' ? (v === 'on' ? 'Animations on' : 'Animations off') : 'So it is written', 'success');

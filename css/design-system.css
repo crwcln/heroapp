@@ -144,6 +144,9 @@ html.dark .quiz-hint-button { color:#f1d77a; }
 .quiz-progress { border:1px solid rgba(var(--sec-rgb),.3); background:rgba(var(--brand-rgb),.2); box-shadow:none; }
 .quiz-toolbar #q-score, .quiz-toolbar #timer-display { color:var(--sec); }
 .rv-row .bar i { background:var(--sec); }
+html[data-theme=obsidian] .rv-row .bar i, html[data-theme=newsprint] .rv-row .bar i { background:var(--missed); }
+html[data-theme=obsidian] .quiz-hint-button, html.dark[data-theme=obsidian] .quiz-hint-button { color:var(--sec); }
+html[data-theme=newsprint] .quiz-hint-button, html.dark[data-theme=newsprint] .quiz-hint-button { color:var(--brand-600); }
 .ld-ring .prg { stroke:var(--sec); filter:none; }
 
 /* Inputs and popovers align with the rest of the component system. */

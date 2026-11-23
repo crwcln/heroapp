@@ -1,6 +1,24 @@
 :root { --i50:242 243 246;--i100:221 225 233;--i200:188 196 212;--i300:142 156 182;--i400:86 107 146;--i500:30 58 110;--i600:26 49 94;--i700:21 41 77;--i800:16 32 60;--i900:12 23 44;--i950:8 14 28;--p50:252 250 243;--p100:249 243 225;--p200:242 231 195;--p300:234 215 155;--p400:223 195 105;--p500:212 175 55;--p600:180 149 47;--p700:148 122 38;--p800:117 96 30;--p900:85 70 22;--p950:53 44 14;--brand-300:#8e9cb6;--brand-500:#1e3a6e;--brand-600:#1a315e;--brand-700:#15294d;--sec:#d4af37;--brand-rgb:30,58,110;--sec-rgb:212,175,55;
   --bg-a: rgba(30,58,110,.16); --bg-b: rgba(212,175,55,.10); --bg-base: #eef2fa; --line: #d8dcec; --field: #ffffff; --ink-500: #5a6480; }
 html.dark { --bg-a: rgba(30,58,110,.3); --bg-b: rgba(212,175,55,.08); --bg-base: #0a0e1a; --line: rgba(212,175,55,.14); --field: rgba(13,19,38,.82); --ink-500: #8793b5; }
+html[data-theme=obsidian], html.dark[data-theme=obsidian] {
+  --brand-300:#f3a3a6; --brand-500:#f06266; --brand-600:#e5484d; --brand-700:#c5363b;
+  --sec:#3b82f6; --brand-rgb:229,72,77; --sec-rgb:59,130,246;
+  --bg-a:rgba(229,72,77,.12); --bg-b:rgba(59,130,246,.10);
+  --bg-base:#0b0d10; --field:#12161c; --line:#232a34; --ink-500:#8a94a2;
+  --text-primary:#f0efea; --map-land:#1b212a; --map-land-stroke:#2e3744; --map-water:#07090c;
+  --correct:#16a34a; --correct-rgb:22,163,74; --wrong:#dc2626; --wrong-rgb:220,38,38;
+  --missed:#f59e0b; --missed-rgb:245,158,11; --marker-correct:var(--correct); --marker-wrong:var(--wrong);
+}
+html[data-theme=newsprint], html.dark[data-theme=newsprint] {
+  --brand-300:#8cb4f8; --brand-500:#3b82f6; --brand-600:#1d4ed8; --brand-700:#1e40af;
+  --sec:#1d4ed8; --brand-rgb:29,78,216; --sec-rgb:29,78,216;
+  --bg-a:rgba(29,78,216,.08); --bg-b:rgba(29,78,216,.05);
+  --bg-base:#f4f4f2; --field:#ffffff; --line:#d4d4d0; --ink-500:#52525b;
+  --text-primary:#111111; --map-land:#e4e4e7; --map-land-stroke:#18181b; --map-water:#f8fafc;
+  --correct:#15803d; --correct-rgb:21,128,61; --wrong:#b91c1c; --wrong-rgb:185,28,28;
+  --missed:#d97706; --missed-rgb:217,119,6; --marker-correct:var(--correct); --marker-wrong:var(--wrong);
+}
 html, body { font-family: 'Spectral', Georgia, serif; font-weight: 400; }
 button, input, select, textarea, [role="button"] { font-family: 'DM Sans', system-ui, sans-serif; }
 h1, h2, h3, #global-quiz-title, .cm-card h3, .an-hero h3, .ld-name, .an-kpi strong, .cv-name { font-family: 'EB Garamond', Georgia, serif; font-weight: 600; letter-spacing: -.02em; }
@@ -8,7 +26,7 @@ h1, h2, h3, #global-quiz-title, .cm-card h3, .an-hero h3, .ld-name, .an-kpi stro
 html:not(.dark) #fx-a { opacity: .22; }
 html.dark .glass-panel { background: rgba(14,20,35,.88); border-color: rgba(212,175,55,.14); }
 html.dark .qtip-b { background: #1b1c3d; }
-.leaflet-container { background: #0a0b1a; }
+.leaflet-container { background: var(--map-water, #0a0b1a); }
 
 /* Editorial polish: keep the navy-and-gold identity, simplify supporting UI. */
 #top-nav > div:first-child > svg { background: var(--brand-600); box-shadow: none; }
@@ -62,3 +80,33 @@ path.hl-river { stroke: #8bb6dd; }
 html.dark .cs-opt { color: #e1e9df; }
 html.dark .cs-opt.on { background: rgba(var(--sec-rgb),.18); color: #f2d981; }
 html.dark .cs-opt.on::after { color: #f2d981; }
+
+html[data-theme=obsidian] body, html.dark[data-theme=obsidian] body,
+html[data-theme=newsprint] body, html.dark[data-theme=newsprint] body { background: var(--bg-base); color: var(--text-primary); }
+html[data-theme=obsidian] body::before, html[data-theme=newsprint] body::before { display: none; }
+html[data-theme=obsidian] .glass-panel, html.dark[data-theme=obsidian] .glass-panel,
+html[data-theme=obsidian] #top-nav, html.dark[data-theme=obsidian] #top-nav,
+html[data-theme=newsprint] .glass-panel, html.dark[data-theme=newsprint] .glass-panel,
+html[data-theme=newsprint] #top-nav, html.dark[data-theme=newsprint] #top-nav {
+  background: var(--field); border-color: var(--line); box-shadow: none;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-theme=obsidian] #nav-actions .nav-primary-links button:hover, html[data-theme=obsidian] #theme-btn:hover,
+html.dark[data-theme=obsidian] #nav-actions .nav-primary-links button:hover, html.dark[data-theme=obsidian] #theme-btn:hover { color: var(--sec) !important; background: rgba(var(--sec-rgb),.12); }
+html[data-theme=newsprint] #nav-actions .nav-primary-links button:hover, html[data-theme=newsprint] #theme-btn:hover { color: var(--brand-600) !important; background: rgba(var(--brand-rgb),.08); }
+html[data-theme=obsidian] #nav-actions .nav-primary-links button.nav-active, html.dark[data-theme=obsidian] #nav-actions .nav-primary-links button.nav-active { color: var(--sec) !important; }
+html[data-theme=newsprint] #nav-actions .nav-primary-links button.nav-active, html.dark[data-theme=newsprint] #nav-actions .nav-primary-links button.nav-active { color: var(--brand-600) !important; }
+html[data-theme=obsidian] .st-sec h3, html.dark[data-theme=obsidian] .st-sec h3 { color: var(--brand-300); }
+html[data-theme=newsprint] .st-sec h3, html.dark[data-theme=newsprint] .st-sec h3 { color: var(--brand-600); }
+html[data-theme=obsidian] .daily-challenge-kicker, html.dark[data-theme=obsidian] .daily-challenge-kicker { color: var(--sec); }
+html[data-theme=newsprint] .daily-challenge-kicker, html.dark[data-theme=newsprint] .daily-challenge-kicker { color: var(--brand-600); }
+html[data-theme=obsidian] .cs-opt.on::after, html.dark[data-theme=obsidian] .cs-opt.on::after { color: var(--sec); }
+html[data-theme=newsprint] .cs-opt.on::after, html.dark[data-theme=newsprint] .cs-opt.on::after { color: var(--brand-600); }
+html[data-theme=obsidian] path.hl-land, html[data-theme=newsprint] path.hl-land,
+html[data-theme=obsidian] path.hl-continent, html[data-theme=newsprint] path.hl-continent { fill: var(--map-land); stroke: var(--map-land-stroke); }
+html[data-theme=obsidian] path.hl-water, html[data-theme=obsidian] path.hl-lake,
+html[data-theme=newsprint] path.hl-water, html[data-theme=newsprint] path.hl-lake { fill: var(--map-water); stroke: var(--map-land-stroke); }
+html[data-theme=obsidian] path.hl-region, html[data-theme=newsprint] path.hl-region { fill: var(--brand-600); stroke: var(--sec); }
+html[data-theme=obsidian] path.hl-empire, html[data-theme=obsidian] path.hl-route,
+html[data-theme=newsprint] path.hl-empire, html[data-theme=newsprint] path.hl-route { fill: var(--sec); stroke: var(--sec); }
+html[data-theme=obsidian] path.hl-river, html[data-theme=newsprint] path.hl-river { stroke: var(--sec); }

@@ -46,20 +46,25 @@
         };
 
         // Theme Toggle
-        function toggleDarkMode() {
+        function applyThemeAppearance(isDark) {
             const html = document.documentElement;
             const moon = document.getElementById('theme-icon-moon');
             const sun = document.getElementById('theme-icon-sun');
+            html.classList.toggle('dark', isDark);
+            html.style.colorScheme = isDark ? 'dark' : 'light';
+            if (moon) moon.classList.toggle('hidden', isDark);
+            if (sun) sun.classList.toggle('hidden', !isDark);
+            document.getElementById('theme-btn')?.setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} appearance`);
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            if (typeof syncFaviconToTheme === 'function') syncFaviconToTheme();
+        }
+        function setThemeAppearance(isDark) { applyThemeAppearance(isDark); }
+        function toggleDarkMode() {
+            const html = document.documentElement;
             const isDark = !html.classList.contains('dark');
             const apply = () => {
                 html.classList.add('theme-switching');
-                html.classList.toggle('dark', isDark);
-                html.style.colorScheme = isDark ? 'dark' : 'light';
-                moon.classList.toggle('hidden', isDark);
-                sun.classList.toggle('hidden', !isDark);
-                document.getElementById('theme-btn')?.setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} appearance`);
-                localStorage.setItem('theme', isDark ? 'dark' : 'light');
-                if (typeof syncFaviconToTheme === 'function') syncFaviconToTheme();
+                applyThemeAppearance(isDark);
             };
             const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
             if (!reduced && document.startViewTransition) {

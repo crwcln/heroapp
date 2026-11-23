@@ -16,12 +16,12 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
         #map-container { height: calc(100vh - 72px); width: 100%; background: #0f172a; z-index: 1; }
         
         /* Custom Markers */
-        .marker-pin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.6); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s; cursor: pointer; }
-        .dark .marker-pin { border-color: #cbd5e1; }
+        .marker-pin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--marker-border, white); box-shadow: 0 4px 10px rgba(0,0,0,0.6); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s; cursor: pointer; }
+        .dark .marker-pin { border-color: var(--marker-border-dark, #cbd5e1); }
         .marker-pin:hover { transform: scale(1.4); z-index: 1000; }
-        .marker-pin.unsolved { background-color: #ef4444; }
-        .marker-pin.solved { background-color: #10b981; border-color: #ecfdf5; transform: scale(1.1); pointer-events: none; }
-        .dark .marker-pin.solved { border-color: #022c22; }
+        .marker-pin.unsolved { background-color: var(--wrong, #ef4444); }
+        .marker-pin.solved { background-color: var(--correct, #10b981); border-color: var(--marker-solved-border, #ecfdf5); transform: scale(1.1); pointer-events: none; }
+        .dark .marker-pin.solved { border-color: var(--marker-solved-border-dark, #022c22); }
 
         /* Premium Popup Styling */
         .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25); padding: 0; border: 1px solid rgba(255,255,255,0.4); backdrop-filter: blur(12px); }
@@ -178,8 +178,11 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
         .hover\:bg-indigo-700:hover { background-image: linear-gradient(135deg, var(--brand-700), var(--brand-600)); }
         button.bg-indigo-600, button.bg-rose-600, button.bg-emerald-600 { box-shadow: 0 8px 20px -8px rgba(8,16,30,.45); }
 
-        .marker-pin.unsolved { background: linear-gradient(135deg, #fb7185, #e11d48); box-shadow: 0 0 0 5px rgba(244,63,94,.22), 0 6px 14px rgba(0,0,0,.45); }
-        .marker-pin.solved { background: linear-gradient(135deg, #34d399, #059669); box-shadow: 0 0 0 5px rgba(16,185,129,.22), 0 6px 14px rgba(0,0,0,.4); }
+        .marker-pin.unsolved { background: var(--marker-wrong, linear-gradient(135deg, #fb7185, #e11d48)); box-shadow: 0 0 0 5px rgba(var(--wrong-rgb, 244,63,94),.22), 0 6px 14px rgba(0,0,0,.45); }
+        .marker-pin.solved { background: var(--marker-correct, linear-gradient(135deg, #34d399, #059669)); box-shadow: 0 0 0 5px rgba(var(--correct-rgb, 16,185,129),.22), 0 6px 14px rgba(0,0,0,.4); }
+        html[data-theme=obsidian] .leaflet-popup-content .text-emerald-600, html[data-theme=newsprint] .leaflet-popup-content .text-emerald-600 { color: var(--correct); }
+        html[data-theme=obsidian] .leaflet-popup-content .text-rose-700, html[data-theme=newsprint] .leaflet-popup-content .text-rose-700 { color: var(--wrong); }
+        html[data-theme=obsidian] .leaflet-popup-content .bg-rose-100, html[data-theme=newsprint] .leaflet-popup-content .bg-rose-100 { background: rgba(var(--wrong-rgb),.16); }
         .leaflet-popup-content-wrapper { border-radius: 16px; background: rgba(255,255,255,.97); box-shadow: 0 24px 48px -12px rgba(8,16,30,.4); }
         .leaflet-popup-tip { background: rgba(255,255,255,.97); }
         .combo-item:hover, .combo-item.active { background: rgba(var(--brand-rgb),.10); color: var(--brand-700); }
