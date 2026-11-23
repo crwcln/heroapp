@@ -4,7 +4,7 @@
         let consent = getCookie('cairn_consent');
         let prefs = { theme: 'cairn', bg: 'contour', font: 'modern', motion: 'on', cloak: '' };
         if (consent === 'all') { try { Object.assign(prefs, JSON.parse(decodeURIComponent(getCookie('cairn_prefs')))); } catch (e) { /* none saved */ } }
-        const THEME_APPEARANCE = { obsidian: true, newsprint: false };
+        const THEME_APPEARANCE = { ledger: true, folio: false };
         function applyPrefs() {
             const h = document.documentElement;
             h.dataset.theme = prefs.theme; h.dataset.bg = prefs.bg; h.dataset.font = prefs.font; h.dataset.motion = prefs.motion;

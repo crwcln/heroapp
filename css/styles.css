@@ -180,9 +180,9 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
 
         .marker-pin.unsolved { background: var(--marker-wrong, linear-gradient(135deg, #fb7185, #e11d48)); box-shadow: 0 0 0 5px rgba(var(--wrong-rgb, 244,63,94),.22), 0 6px 14px rgba(0,0,0,.45); }
         .marker-pin.solved { background: var(--marker-correct, linear-gradient(135deg, #34d399, #059669)); box-shadow: 0 0 0 5px rgba(var(--correct-rgb, 16,185,129),.22), 0 6px 14px rgba(0,0,0,.4); }
-        html[data-theme=obsidian] .leaflet-popup-content .text-emerald-600, html[data-theme=newsprint] .leaflet-popup-content .text-emerald-600 { color: var(--correct); }
-        html[data-theme=obsidian] .leaflet-popup-content .text-rose-700, html[data-theme=newsprint] .leaflet-popup-content .text-rose-700 { color: var(--wrong); }
-        html[data-theme=obsidian] .leaflet-popup-content .bg-rose-100, html[data-theme=newsprint] .leaflet-popup-content .bg-rose-100 { background: rgba(var(--wrong-rgb),.16); }
+        html[data-theme=ledger] .leaflet-popup-content .text-emerald-600, html[data-theme=folio] .leaflet-popup-content .text-emerald-600 { color: var(--correct); }
+        html[data-theme=ledger] .leaflet-popup-content .text-rose-700, html[data-theme=folio] .leaflet-popup-content .text-rose-700 { color: var(--wrong); }
+        html[data-theme=ledger] .leaflet-popup-content .bg-rose-100, html[data-theme=folio] .leaflet-popup-content .bg-rose-100 { background: rgba(var(--wrong-rgb),.16); }
         .leaflet-popup-content-wrapper { border-radius: 16px; background: rgba(255,255,255,.97); box-shadow: 0 24px 48px -12px rgba(8,16,30,.4); }
         .leaflet-popup-tip { background: rgba(255,255,255,.97); }
         .combo-item:hover, .combo-item.active { background: rgba(var(--brand-rgb),.10); color: var(--brand-700); }
