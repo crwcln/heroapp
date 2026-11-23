@@ -302,6 +302,7 @@
             out.className = 'cm-btn ghost flex items-center gap-2'; out.innerHTML = '<i data-lucide="log-out" class="w-4 h-4"></i> Log out';
             out.onclick = async () => {
                 sessionStorage.removeItem('mq_devUnlocked');
+                sessionStorage.removeItem('mq_server_session');
                 devUnlockedState = false;
                 await lockAdmin('Logged out.');
                 fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'dev' }) }).catch(() => {});

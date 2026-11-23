@@ -115,6 +115,7 @@
         async function lockAdmin(msg) {
             const wasAdmin = !!adminToken;
             adminToken = null;
+            sessionStorage.removeItem('mq_server_session');
             clearTimeout(adminLockTimer);
             stopInbox(); stopAnalyticsAdmin();
             const panel = document.getElementById('admin-panel'), lock = document.getElementById('admin-lock');

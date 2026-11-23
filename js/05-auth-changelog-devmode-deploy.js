@@ -46,6 +46,11 @@
                 const d = await r.json();
                 if (target === 'admin') { lastAuthToken = d.token || null; lastAuthErr = ''; }
                 else lastDevAuthErr = '';
+                if (d.ok === true && !window.__HERO_SESSION__ && location.protocol !== 'file:' && !/^(localhost|127\.0\.0\.1|::1)$/i.test(location.hostname)) {
+                    const restoredSession = { admin: target === 'admin', dev: true, adminToken: target === 'admin' ? lastAuthToken : null };
+                    window.__HERO_SESSION__ = restoredSession;
+                    sessionStorage.setItem('mq_server_session', JSON.stringify(restoredSession));
+                }
                 return d.ok === true;
             } catch (err) {
                 const reason = err.name === 'AbortError' ? 'timeout' : 'network';

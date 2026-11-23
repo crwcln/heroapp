@@ -131,6 +131,9 @@ export async function middleware(context) {
     if (!session.admin) {
       html = replaceBlock(html, '<!-- HERO_ADMIN_PANEL_START -->', '<!-- HERO_ADMIN_PANEL_END -->', '<div id="admin-panel" class="hidden"></div>');
     }
+    if (!session.dev) {
+      html = replaceBlock(html, '<!-- HERO_DEV_SCREEN_START -->', '<!-- HERO_DEV_SCREEN_END -->', '<div id="dev-screen" class="hidden"></div>');
+    }
   }
 
   const headers = new Headers(upstream.headers);
