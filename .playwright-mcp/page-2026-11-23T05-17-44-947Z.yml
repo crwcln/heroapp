@@ -1,0 +1,23 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]: H
+    - generic [ref=e5]: Hero · Field Notes
+  - paragraph [ref=e6]: A small atlas while we work
+  - heading "Keep your bearings." [level=1] [ref=e7]
+  - paragraph [ref=e8]: The main site is being worked on, but you can still take a quick geography round here. No account needed; your score stays on this page.
+  - region "Geography practice" [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Place 1 of 10
+        - generic [ref=e13]: 0 correct
+      - heading "The Forbidden City" [level=2] [ref=e15]
+      - paragraph [ref=e16]: Choose the country or region where this place belongs.
+      - generic [ref=e17]:
+        - button "Mongolia" [ref=e18] [cursor=pointer]
+        - button "Vietnam" [ref=e19] [cursor=pointer]
+        - button "China" [ref=e20] [cursor=pointer]
+        - button "Japan" [ref=e21] [cursor=pointer]
+      - status [ref=e22]
+      - link "Back to the main site" [ref=e24] [cursor=pointer]:
+        - /url: /
+  - paragraph [ref=e25]: Temporary practice round · Scores are not saved to the Hall of Heroes.

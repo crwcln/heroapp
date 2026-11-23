@@ -131,9 +131,9 @@ export async function middleware(context) {
     if (!session.admin) {
       html = replaceBlock(html, '<!-- HERO_ADMIN_PANEL_START -->', '<!-- HERO_ADMIN_PANEL_END -->', '<div id="admin-panel" class="hidden"></div>');
     }
-    if (!session.dev) {
-      html = replaceBlock(html, '<!-- HERO_DEV_SCREEN_START -->', '<!-- HERO_DEV_SCREEN_END -->', '<div id="dev-screen" class="hidden"></div>');
-    }
+    // Keep the public construction shell available: Dev Mode is a site-wide
+    // Firestore setting, so the browser needs this screen when non-stewards visit.
+    // Its password is checked by /api/auth; no privileged state is stored here.
   }
 
   const headers = new Headers(upstream.headers);

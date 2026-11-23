@@ -178,6 +178,42 @@ input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { 
   #home-view .grid > button:hover, #leaderboard-list > div:hover, #daily-leaderboard-list > div:hover { transform:none; }
 }
 
+/* Icons begin quiet and pick up the site's gold accent only on the control in use. */
+:is(button,a,[role="button"]) svg {
+  color:var(--ink-500);
+  transition:color .18s ease,transform .18s ease;
+}
+:is(button,a,[role="button"]):hover:not(:disabled) svg,
+:is(button,a,[role="button"]):focus-visible svg { color:var(--sec); }
+:is(button,a,[role="button"]):hover:not(:disabled) svg { transform:translateY(-1px); }
+:is(button,a,[role="button"]):is(.active,.nav-active,[aria-current="page"]) svg { color:var(--sec); }
+.dev-fallback-link {
+  display:flex; align-items:center; gap:12px; margin:24px 0 0; padding:14px 15px;
+  border:1px solid rgba(var(--sec-rgb),.4); border-radius:16px; color:var(--ink-800);
+  background:rgba(var(--sec-rgb),.08); text-align:left; text-decoration:none;
+  transition:transform .2s ease,border-color .2s ease,background-color .2s ease,box-shadow .2s ease;
+}
+.dev-fallback-link:hover { transform:translateY(-2px); border-color:var(--sec); background:rgba(var(--sec-rgb),.14); box-shadow:var(--hero-shadow-popover); }
+.dev-fallback-link > svg:first-child { width:21px; height:21px; flex:0 0 21px; color:var(--sec); }
+.dev-fallback-link > svg:last-child { width:16px; height:16px; margin-left:auto; }
+.dev-fallback-link span { display:grid; gap:2px; }
+.dev-fallback-link strong { font-size:13px; }
+.dev-fallback-link small { color:var(--ink-500); font-size:11px; }
+html.dark .dev-fallback-link { color:var(--ink-100,#e3e7ef); }
+
+/* Clearer editorial levels and a gentle arrival cue when moving between sections. */
+.view-section:not(.hidden) { animation:heroViewArrive .28s cubic-bezier(.2,.8,.2,1) both; }
+#global-quiz-title { letter-spacing:-.035em; line-height:1.02; }
+#home-view .glass-panel { border-top:2px solid rgba(var(--sec-rgb),.62); }
+#home-view .glass-panel > p { max-width:42rem; }
+#home-view .grid > button { transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,background-color .2s ease; }
+#home-view .grid > button:hover { transform:translateY(-3px); }
+@keyframes heroViewArrive { from { opacity:.65; transform:translateY(7px); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce) {
+  .view-section:not(.hidden) { animation:none; }
+  :is(button,a,[role="button"]):hover:not(:disabled) svg { transform:none; }
+}
+
 /* Mobile navigation is a fixed five-slot dock; no horizontal scrolling or clipped tabs. */
 html.is-mobile #mobile-tabbar {
   left:0; right:auto; bottom:0; width:100%; max-width:100vw; box-sizing:border-box;
