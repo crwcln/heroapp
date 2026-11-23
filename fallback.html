@@ -31,40 +31,46 @@
       }
     } catch (error) {}
   </script>
+  <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/styles.css?v=ba51d735fb422ba2">
   <link rel="stylesheet" href="css/premium.css?v=cb07fb1ff0c14a81">
   <link rel="stylesheet" href="css/night.css?v=efb831fc3e4d6741">
   <link rel="stylesheet" href="css/tailwind.css?v=e2dae8bd73388a54">
   <link rel="stylesheet" href="css/design-system.css?v=db202659ae825d61">
   <style>
+    :root { color-scheme: light; }
+    html.dark { color-scheme: dark; }
     html, body { width: 100%; height: 100%; }
-    .app { position: relative; z-index: 10; width: min(1200px, 100%); height: calc(100dvh - var(--nav-h)); min-height: 420px; margin: 0 auto; padding: 16px 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; }
-    .prompt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; }
+    .app { position: relative; z-index: 10; width: min(var(--content-max), 100%); max-width: var(--content-max); height: calc(100dvh - var(--nav-h)); min-height: 420px; margin-inline: auto; padding: var(--spacing-16) var(--spacing-24); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--spacing-12); }
+    .prompt { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-16); padding: var(--spacing-16) var(--spacing-20); }
     .prompt-copy { min-width: 0; }
-    .kicker { margin: 0 0 4px; color: var(--sec); font: 800 10px/1.4 'DM Sans', system-ui, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
-    .prompt h1 { margin: 0; font-size: clamp(22px, 4vw, 30px); line-height: 1.15; }
-    .status { min-height: 20px; margin: 4px 0 0; color: var(--ink-500); font-size: 13px; font-weight: 500; }
-    .stats { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+    .kicker { margin: 0 0 var(--spacing-4); color: var(--sec); font: var(--font-weight-bold) var(--text-xs)/1.4 'DM Sans', var(--font-body); letter-spacing: .18em; text-transform: uppercase; }
+    .prompt h1 { margin: 0; font-size: clamp(22px, 4vw, 30px); line-height: 1.15; letter-spacing: var(--tracking-display); }
+    .status { min-height: 20px; margin: var(--spacing-4) 0 0; color: var(--ink-500); font-size: 13px; font-weight: var(--font-weight-regular); }
+    .stats { display: flex; align-items: center; gap: var(--spacing-16); flex-shrink: 0; }
     .stat { min-width: 84px; text-align: right; }
-    .stat small { display: block; color: var(--ink-500); font: 800 10px/1.4 'DM Sans', system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
-    .stat b { display: block; color: var(--sec); font: 600 24px/1.15 'EB Garamond', Georgia, serif; font-variant-numeric: tabular-nums; }
+    .stat small { display: block; color: var(--ink-500); font: var(--font-weight-bold) var(--text-xs)/1.4 'DM Sans', var(--font-body); letter-spacing: .12em; text-transform: uppercase; }
+    .stat b { display: block; color: var(--sec); font: var(--font-weight-bold) var(--text-2xl)/1.15 'EB Garamond', Georgia, serif; font-variant-numeric: tabular-nums; }
     .map-wrap { position: relative; min-height: 0; overflow: hidden; }
     .map { position: absolute; inset: 0; }
-    html:not(.dark) .leaflet-container { background: #e8eef5; }
-    .map-help { position: absolute; z-index: 500; left: 16px; bottom: 16px; max-width: calc(100% - 32px); padding: 8px 12px; border: 1px solid rgba(var(--sec-rgb), .38); border-radius: 12px; color: var(--ink-500); background: var(--field); box-shadow: var(--hero-shadow-popover); font: 600 11px/1.4 'DM Sans', system-ui, sans-serif; pointer-events: none; }
-    .fb-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; color: var(--ink-500); font-size: 12px; font-weight: 500; }
+    html:not(.dark) .leaflet-container { background: var(--bg-base); }
+    .map-help { position: absolute; z-index: 500; left: var(--spacing-16); bottom: var(--spacing-16); max-width: calc(100% - var(--spacing-32)); padding: var(--spacing-8) var(--spacing-12); border: 1px solid rgba(var(--sec-rgb), .38); border-radius: var(--radius-lg); color: var(--ink-500); background: var(--field); box-shadow: var(--hero-shadow-popover); font: var(--font-weight-regular) var(--text-xs)/1.4 'DM Sans', var(--font-body); pointer-events: none; }
+    .fb-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-12); padding: var(--spacing-8) var(--spacing-16); color: var(--ink-500); font-size: 12px; font-weight: var(--font-weight-regular); }
     .fb-footer a { color: var(--brand-600); text-underline-offset: 3px; }
     html.dark .fb-footer a { color: var(--sec); }
-    .marker { width: 14px; height: 14px; border: 2px solid var(--field); border-radius: 50%; background: var(--brand-600); box-shadow: 0 1px 6px rgba(0,0,0,.5); transition: transform .16s, background .16s, border-color .16s; }
+    .marker { width: 14px; height: 14px; border: 2px solid var(--field); border-radius: 50%; background: var(--brand-600); box-shadow: 0 1px 6px rgba(0,0,0,.5); transition: transform var(--duration-default) var(--ease-default), background var(--duration-default) var(--ease-default), border-color var(--duration-default) var(--ease-default); }
     .leaflet-marker-icon:hover .marker { transform: scale(1.2); border-color: var(--sec); background: var(--sec); }
-    .marker.solved { border-color: #f3e3ac; background: var(--sec); box-shadow: 0 0 0 4px rgba(var(--sec-rgb), .24), 0 1px 6px rgba(0,0,0,.5); }
-    .leaflet-container { font-family: 'DM Sans', system-ui, sans-serif; }
+    .marker.solved { border-color: var(--sec); background: var(--sec); box-shadow: 0 0 0 4px rgba(var(--sec-rgb), .24), 0 1px 6px rgba(0,0,0,.5); }
+    .leaflet-container { font-family: 'DM Sans', var(--font-body); }
     .leaflet-control-attribution { font-size: 9px !important; }
     .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: inherit; background: var(--field); }
-    .leaflet-popup-content { font-weight: 700; }
-    .error { padding: 18px; color: var(--danger, #e11d48); text-align: center; }
+    .leaflet-popup-content { font-weight: var(--font-weight-bold); }
+    .error { padding: var(--spacing-16); color: var(--danger, #e11d48); text-align: center; }
+    :where(a, button):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+    :where(a, button):active { transform: translateY(1px); }
+    :where(a, button):disabled, :where(a, button)[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
     @media (max-width: 640px) {
-      .app { height: calc(100dvh - var(--nav-h)); min-height: 380px; padding: 8px 0; gap: 8px; }
+      .app { height: calc(100dvh - var(--nav-h)); min-height: 380px; padding: var(--spacing-8) var(--spacing-12); gap: var(--spacing-8); }
       #top-nav { padding-left: 12px; padding-right: 12px; }
       .prompt { align-items: flex-start; padding: 12px 14px; }
       .stats { gap: 8px; }
@@ -73,28 +79,28 @@
       .map-help { left: 8px; bottom: 8px; font-size: 10px; }
       .fb-footer { padding: 8px 10px; font-size: 10px; }
     }
-    @media (prefers-reduced-motion: reduce) { .marker { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .marker { transition: none; } :where(a, button):active { transform: none; } }
   </style>
 </head>
 <body class="text-slate-800 dark:text-slate-200">
   <nav id="top-nav" class="text-slate-800 dark:text-white px-6 flex justify-between items-center z-20 relative shrink-0">
     <div class="flex items-center gap-3">
       <svg viewBox="0 0 64 64" class="brand-mark"><rect class="badge" x="4" y="4" width="56" height="56" rx="14"/><text class="glyph" x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="EB Garamond,Georgia,serif" font-weight="700" font-size="30">H</text></svg>
-      <h1 class="text-xl font-extrabold uppercase" style="letter-spacing:.22em;padding-left:.22em">Hero</h1>
+      <h1 class="text-xl font-semibold tracking-[.18em]" style="text-transform:uppercase;letter-spacing:.18em;padding-left:.18em">Hero</h1>
     </div>
     <div class="flex items-center gap-2 sm:gap-4">
-      <span class="hidden sm:inline text-xs font-semibold text-slate-500 dark:text-slate-400">Map practice</span>
-      <a href="/" class="cm-btn ghost no-underline">Back to Hero</a>
-      <button id="fallback-theme-btn" type="button" onclick="toggleFallbackTheme()" aria-label="Switch to dark appearance" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
+      <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">Map practice</span>
+      <a href="/" class="cm-btn ghost no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50">Back to Hero</a>
+      <button id="fallback-theme-btn" type="button" onclick="toggleFallbackTheme()" aria-label="Switch to dark appearance" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50">
         <i data-lucide="moon" id="fallback-icon-moon" class="w-5 h-5 hidden"></i>
         <i data-lucide="sun" id="fallback-icon-sun" class="w-5 h-5 hidden"></i>
       </button>
     </div>
   </nav>
-  <main class="app">
-    <section class="prompt glass-panel" aria-live="polite"><div class="prompt-copy"><p class="kicker" id="round-label">Map practice</p><h1 id="question">Loading locations…</h1><p id="status" class="status">Opening the atlas.</p></div><div class="stats"><div class="stat"><small>Found</small><b id="found">0 / 0</b></div><button id="next" type="button" class="cm-btn go" hidden>Next place</button></div></section>
+  <main class="app container mx-auto max-w-[var(--content-max)]">
+    <section class="prompt glass-panel" aria-live="polite"><div class="prompt-copy"><p class="kicker" id="round-label">Map practice</p><h1 id="question">Loading locations…</h1><p id="status" class="status">Opening the atlas.</p></div><div class="stats"><div class="stat"><small>Found</small><b id="found">0 / 0</b></div><button id="next" type="button" class="cm-btn go focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50" hidden>Next place</button></div></section>
     <section class="map-wrap glass-panel" aria-label="Interactive location map"><div id="map" class="map"></div><div class="map-help">Tap a dot to find the place · hover to preview its border</div></section>
-    <footer class="fb-footer glass-panel"><span id="source-note">Locations and borders from Hero.</span><a href="/">Back to the main site</a></footer>
+    <footer class="fb-footer glass-panel"><span id="source-note">Locations and borders from Hero.</span><a href="/" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50">Back to the main site</a></footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://unpkg.com/lucide@0.468.0"></script>
