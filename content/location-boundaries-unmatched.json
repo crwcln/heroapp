@@ -1,12 +1,31 @@
 {
-  "generatedAt": "2026-11-24T16:13:22.960Z",
-  "reviewed": 1,
+  "generatedAt": "2026-11-24T16:17:53.703Z",
+  "reviewed": 4,
   "locations": [
     {
       "id": "loc_1795536741131",
       "name": "Dynasty",
       "category": "Custom",
       "status": "missing-historical-year"
+    },
+    {
+      "id": "loc_b1v75ix4y",
+      "name": "Song Dynasty",
+      "requestedYear": 1080,
+      "selectedYear": 1100,
+      "status": "historical-year-review"
+    },
+    {
+      "id": "loc_j3cvxavb3",
+      "name": "Huai River",
+      "category": "Rivers",
+      "status": "not-matched"
+    },
+    {
+      "id": "loc_lc0jig8jd",
+      "name": "Dongting Lake",
+      "category": "Lakes",
+      "status": "not-matched"
     }
   ]
 }
