@@ -1,5 +1,12 @@
 {
-  "generatedAt": "2026-11-21T03:30:26.367Z",
-  "reviewed": 0,
-  "locations": []
+  "generatedAt": "2026-11-24T16:13:22.960Z",
+  "reviewed": 1,
+  "locations": [
+    {
+      "id": "loc_1795536741131",
+      "name": "Dynasty",
+      "category": "Custom",
+      "status": "missing-historical-year"
+    }
+  ]
 }
