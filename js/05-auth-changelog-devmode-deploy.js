@@ -182,6 +182,75 @@
             Removed: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
         };
 
+        function clJsonDate(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return clToday();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+            const parsed = new Date(raw);
+            if (isNaN(parsed)) return clToday();
+            return new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        }
+
+        function clJsonNotes(value) {
+            const source = Array.isArray(value) ? value : String(value || '').split(/\r?\n/);
+            return source.map(note => {
+                if (typeof note === 'string') return note.trim();
+                if (!note || typeof note !== 'object') return '';
+                const text = String(note.text ?? note.note ?? note.message ?? '').trim();
+                const type = String(note.type ?? note.kind ?? '').trim();
+                if (!text) return '';
+                if (type && !/^(Added|Changed|Fixed|Removed):/i.test(text)) return `${type}: ${text}`;
+                return text;
+            }).filter(Boolean);
+        }
+
+        function clEntryToJson(entry) {
+            return {
+                version: String(entry.version || '').trim() || 'Update',
+                date: clJsonDate(entry.date),
+                notes: clJsonNotes(entry.notes)
+            };
+        }
+
+        function clNormalizeJsonEntry(raw, index) {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`Entry ${index + 1} is not an object.`);
+            const notes = clJsonNotes(raw.notes ?? raw.changes ?? raw.lines);
+            if (!notes.length) throw new Error(`Entry ${index + 1} needs at least one note.`);
+            const id = String(raw.id || '').trim() || `cl_${Date.now()}_${index}`;
+            return { id, ...clEntryToJson({ ...raw, notes }), notes: notes.join('\n') };
+        }
+
+        function clParseJsonEntries(text) {
+            let data;
+            try { data = JSON.parse(text); } catch (error) { throw new Error('Invalid JSON. Check commas, quotes, and brackets.'); }
+            const rawEntries = Array.isArray(data) ? data : (data && typeof data === 'object' && Array.isArray(data.entries) ? data.entries : [data]);
+            if (!rawEntries.length) throw new Error('No changelog entries found in that JSON.');
+            return rawEntries.map(clNormalizeJsonEntry);
+        }
+
+        function clEntrySignature(entry) {
+            return `${entry.version || ''}|${entry.date || ''}|${entry.notes || ''}`;
+        }
+
+        function clCopyText(text, success, fallbackSuccess) {
+            try {
+                navigator.clipboard.writeText(text).then(() => showToast(success, 'success'))
+                    .catch(() => { clLegacyCopy(text); showToast(fallbackSuccess, 'success'); });
+            } catch (error) { clLegacyCopy(text); showToast(fallbackSuccess, 'success'); }
+        }
+
+        function clLegacyCopy(text) {
+            const input = document.createElement('textarea');
+            input.value = text;
+            input.setAttribute('readonly', '');
+            input.style.position = 'fixed';
+            input.style.opacity = '0';
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            input.remove();
+        }
+
         function loadChangelog() {
             const list = document.getElementById('changelog-list');
             if (!list) return;
@@ -344,6 +413,50 @@
             renderChangelogAdmin();
             renderChangelog();
             showToast('Entry staged. Click Publish Changelog to go live.', 'info');
+        }
+
+        function clImportJson() {
+            const box = document.getElementById('cl-json');
+            const text = box && box.value.trim();
+            if (!text) return showToast('Paste changelog JSON first.', 'error');
+            let entries;
+            try { entries = clParseJsonEntries(text); }
+            catch (error) { return showToast(error.message || 'That JSON could not be imported.', 'error'); }
+            const known = new Set(clEntries.map(clEntrySignature));
+            const fresh = [];
+            entries.forEach(entry => {
+                const signature = clEntrySignature(entry);
+                if (known.has(signature)) return;
+                known.add(signature);
+                fresh.push(entry);
+            });
+            if (!fresh.length) return showToast('Those entries are already in the changelog.', 'info');
+            clEntries = [...fresh, ...clEntries];
+            clDirty = true;
+            if (box) box.value = '';
+            clReset();
+            renderChangelogAdmin();
+            renderChangelog();
+            showToast(`Imported ${fresh.length} changelog ${fresh.length === 1 ? 'entry' : 'entries'}. Click Publish Changelog to go live.`, 'success');
+        }
+
+        function clCopyJson() {
+            const box = document.getElementById('cl-json');
+            const text = box && box.value.trim();
+            let payload;
+            if (text) {
+                try {
+                    const entries = clParseJsonEntries(text);
+                    payload = entries.length === 1 ? clEntryToJson(entries[0]) : { entries: entries.map(clEntryToJson) };
+                } catch (error) { return showToast(error.message || 'That JSON could not be copied.', 'error'); }
+            } else {
+                const version = document.getElementById('cl-version').value.trim();
+                const date = document.getElementById('cl-date').value.trim();
+                const notes = clJsonNotes(document.getElementById('cl-notes').value);
+                if (!version && !notes.length) return showToast('Add an entry or paste JSON first.', 'error');
+                payload = clEntryToJson({ version, date, notes });
+            }
+            clCopyText(JSON.stringify(payload, null, 2), 'Changelog JSON copied!', 'Changelog JSON copied! (Fallback)');
         }
 
         function clEdit(id) {
