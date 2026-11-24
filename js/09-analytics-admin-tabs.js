@@ -46,7 +46,7 @@
         function initAdminTabs() {
             const panel = document.getElementById('admin-panel');
             if (!panel || !panel.querySelector('#save-global-btn')) return;
-            Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'deploy-btn': 'site', 'visit-admin-count': 'site' })
+            Object.entries({ 'admin-quiz-title': 'quiz', 'place-name-input': 'quiz', 'json-import-admin': 'quiz', 'custom-list': 'quiz', 'ai-prompt-text': 'quiz', 'cl-version': 'changelog', 'inbox-list': 'feedback', 'dev-card-locked': 'site', 'disable-card-locked': 'site', 'launch-card-locked': 'site', 'deploy-btn': 'site', 'visit-admin-count': 'site' })
                 .forEach(([id, t]) => { const el = document.getElementById(id); const box = el && el.closest('[class*="rounded-2xl"]'); if (box) box.dataset.atab = t; });
             const an = document.createElement('div');
             an.dataset.atab = 'analytics'; an.className = 'an-dashboard bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4';

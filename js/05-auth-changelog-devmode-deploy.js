@@ -71,7 +71,7 @@
         }
 
         // ================= PUBLIC LAUNCH GATE =================
-        const launchDeadline = Date.parse(SITE.launchAt);
+        const launchDeadline = window.__HERO_LAUNCH_AT__ != null ? Number(window.__HERO_LAUNCH_AT__) : Date.parse(SITE.launchAt);
         let launchClock = null, launchBusy = false;
         function openLaunchGate() {
             const gate = document.getElementById('launch-gate');
@@ -391,7 +391,8 @@
 
         // ================= DEV MODE =================
         let siteDev = false, siteDevMessage = '';
-        let siteDisable = { enabled: false, message: '', start: '', end: '', repeat: 'once', days: [] };
+        let siteLaunch = { at: '', label: '' };
+        let siteDisable = { enabled: false, message: '', start: '', end: '', repeat: 'once', days: [], timeOnly: false };
         const DEFAULT_DEV_MESSAGE = 'Sorry for the inconvenience! Hero is currently under construction. Please check back soon.';
         const DEFAULT_DISABLE_MESSAGE = 'Hero is taking a short break for scheduled maintenance. Please check back soon.';
         const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -404,6 +405,10 @@
                 const settings = doc.exists ? doc.data() : {};
                 siteDev = settings.dev === true;
                 siteDevMessage = typeof settings.devMessage === 'string' ? settings.devMessage.slice(0, 280) : '';
+                siteLaunch = {
+                    at: typeof settings.launchAt === 'string' ? settings.launchAt : '',
+                    label: typeof settings.launchLabel === 'string' ? settings.launchLabel.slice(0, 120) : ''
+                };
                 const disable = settings.disable && typeof settings.disable === 'object' ? settings.disable : {};
                 siteDisable = {
                     enabled: disable.enabled === true,
@@ -411,7 +416,8 @@
                     start: typeof disable.start === 'string' ? disable.start : '',
                     end: typeof disable.end === 'string' ? disable.end : '',
                     repeat: ['once', 'daily', 'weekly'].includes(disable.repeat) ? disable.repeat : 'once',
-                    days: Array.isArray(disable.days) ? disable.days.map(Number).filter(day => day >= 0 && day <= 6) : []
+                    days: Array.isArray(disable.days) ? disable.days.map(Number).filter(day => day >= 0 && day <= 6) : [],
+                    timeOnly: disable.timeOnly === true
                 };
                 applyDevScreen();
             }, err => { console.error('Site mode listener:', err); hideCover(); });
@@ -426,6 +432,7 @@
             }
             hideCover();
             renderDevCard();
+            renderLaunchCard();
             applyDisableScreen();
             renderDisableCard();
             if (!show && !disableActive()) maybeShowChangelogPopup();
@@ -447,6 +454,51 @@
             }
             const messageInput = document.getElementById('dev-message-input');
             if (messageInput && document.activeElement !== messageInput) messageInput.value = siteDevMessage;
+        }
+        function effectiveLaunchAt() {
+            const value = siteLaunch.at !== '' ? Date.parse(siteLaunch.at) : Date.parse(SITE.launchAt);
+            return Number.isNaN(value) ? Date.parse(SITE.launchAt) : value;
+        }
+        function renderLaunchCard() {
+            const locked = document.getElementById('launch-card-locked'), open = document.getElementById('launch-card-open');
+            if (!locked || !open) return;
+            const unlocked = devUnlocked();
+            locked.classList.toggle('hidden', unlocked);
+            open.classList.toggle('hidden', !unlocked);
+            const status = document.getElementById('launch-status');
+            if (status) {
+                const date = new Date(effectiveLaunchAt());
+                const when = Number.isNaN(date.getTime()) ? 'not set' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+                status.innerText = (siteLaunch.at ? 'Saved launch time: ' : 'Configured launch time: ') + when + '. Changes reach visitors within about 30 seconds.';
+            }
+            const at = document.getElementById('launch-at-input');
+            if (at && document.activeElement !== at) at.value = toLocalInput(siteLaunch.at || SITE.launchAt);
+            const label = document.getElementById('launch-label-input');
+            if (label && document.activeElement !== label) label.value = siteLaunch.label;
+        }
+        async function writeLaunchTime(at, label, successMessage) {
+            try {
+                await siteModeRef().set({ launchAt: at, launchLabel: label }, { merge: true });
+                showToast(successMessage, 'success');
+            } catch (err) {
+                console.error('Launch timer save failed:', err);
+                showToast(`Could not save launch timer (${err.code || 'error'}).`, 'error');
+            }
+        }
+        async function saveLaunchTime() {
+            if (!db || !userId) return showToast('Cannot update the launch timer offline.', 'error');
+            if (!devUnlocked()) return showToast('Unlock Dev Mode before changing the launch timer.', 'error');
+            const value = document.getElementById('launch-at-input')?.value || '';
+            const date = new Date(value);
+            if (!value || Number.isNaN(date.getTime())) return showToast('Choose a valid launch date and time.', 'error');
+            const label = (document.getElementById('launch-label-input')?.value || '').trim().slice(0, 120);
+            await writeLaunchTime(date.toISOString(), label, 'Launch timer saved.');
+        }
+        async function launchNow() {
+            if (!db || !userId) return showToast('Cannot update the launch timer offline.', 'error');
+            if (!devUnlocked()) return showToast('Unlock Dev Mode before changing the launch timer.', 'error');
+            if (!(await customConfirm({ title: 'Open the site now?', message: 'The launch gate will unlock for visitors within about 30 seconds.', confirmText: 'Open now', danger: true }))) return;
+            await writeLaunchTime(new Date(Date.now() - 60000).toISOString(), 'Hero is live.', 'Site opened.');
         }
         async function devLogin(inputId) {
             const input = document.getElementById(inputId);
@@ -499,6 +551,20 @@
             const pad = number => String(number).padStart(2, '0');
             return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
         }
+        function toTimeInput(value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            const pad = number => String(number).padStart(2, '0');
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+        function withTimeAnchor(value) {
+            if (!/^\d{2}:\d{2}$/.test(value || '')) return '';
+            const date = siteDisable.start ? new Date(siteDisable.start) : new Date();
+            const base = Number.isNaN(date.getTime()) ? new Date() : date;
+            const pad = number => String(number).padStart(2, '0');
+            return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${value}`;
+        }
         function formatDisableSchedule() {
             if (!disableScheduleValid(siteDisable)) return 'No downtime window is saved yet.';
             const start = new Date(siteDisable.start), end = new Date(siteDisable.end);
@@ -535,35 +601,55 @@
                 btn.innerText = siteDisable.enabled ? 'Disable scheduled downtime' : 'Enable scheduled downtime';
                 btn.className = 'w-full text-white font-bold py-3 rounded-lg transition shadow ' + (siteDisable.enabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700');
             }
+            const timeOnlyBox = document.getElementById('disable-time-only');
+            if (timeOnlyBox && document.activeElement !== timeOnlyBox) timeOnlyBox.checked = siteDisable.timeOnly;
+            const timeOnly = !!(timeOnlyBox && timeOnlyBox.checked);
+            const desiredType = timeOnly ? 'time' : 'datetime-local';
+            const syncInput = (input, stored) => {
+                if (!input) return;
+                if (input.type !== desiredType) {
+                    const previous = input.value;
+                    input.type = desiredType;
+                    input.value = timeOnly ? (toTimeInput(previous || stored) || toTimeInput(stored)) : (withTimeAnchor(previous) || toLocalInput(stored));
+                }
+                if (document.activeElement === input) return;
+                const nextValue = timeOnly ? toTimeInput(stored) : toLocalInput(stored);
+                if (nextValue) input.value = nextValue;
+            };
+            syncInput(document.getElementById('disable-start'), siteDisable.start);
+            syncInput(document.getElementById('disable-end'), siteDisable.end);
             const daysWrap = document.getElementById('disable-days-wrap');
-            if (daysWrap) daysWrap.classList.toggle('hidden', siteDisable.repeat !== 'weekly');
+            if (daysWrap) daysWrap.classList.toggle('hidden', timeOnly || siteDisable.repeat !== 'weekly');
             const repeat = document.getElementById('disable-repeat');
-            if (repeat && document.activeElement !== repeat) repeat.value = siteDisable.repeat;
+            if (repeat) {
+                repeat.disabled = timeOnly;
+                if (document.activeElement !== repeat) repeat.value = timeOnly ? 'daily' : siteDisable.repeat;
+            }
             const message = document.getElementById('disable-message-input');
             if (message && document.activeElement !== message) message.value = siteDisable.message;
-            const start = document.getElementById('disable-start');
-            if (start && document.activeElement !== start) start.value = toLocalInput(siteDisable.start);
-            const end = document.getElementById('disable-end');
-            if (end && document.activeElement !== end) end.value = toLocalInput(siteDisable.end);
             document.querySelectorAll('input[name="disable-day"]').forEach(input => { input.checked = siteDisable.days.includes(Number(input.value)); });
         }
         async function saveDisableSchedule() {
             if (!db || !userId) return showToast('Cannot update the downtime schedule offline.', 'error');
             if (!devUnlocked()) return showToast('Unlock Dev Mode before changing this schedule.', 'error');
-            const repeat = document.getElementById('disable-repeat')?.value || 'once';
+            const timeOnly = document.getElementById('disable-time-only')?.checked === true;
+            const repeat = timeOnly ? 'daily' : (document.getElementById('disable-repeat')?.value || 'once');
             const start = document.getElementById('disable-start')?.value || '';
             const end = document.getElementById('disable-end')?.value || '';
-            const days = [...document.querySelectorAll('input[name="disable-day"]:checked')].map(input => Number(input.value)).sort((a, b) => a - b);
-            if (!start || !end || Number.isNaN(new Date(start).getTime()) || Number.isNaN(new Date(end).getTime())) {
+            const days = timeOnly ? [] : [...document.querySelectorAll('input[name="disable-day"]:checked')].map(input => Number(input.value)).sort((a, b) => a - b);
+            const startDate = new Date(timeOnly ? withTimeAnchor(start) : start);
+            const endDate = new Date(timeOnly ? withTimeAnchor(end) : end);
+            if (!start || !end || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
                 return showToast('Choose a valid start and end time.', 'error');
             }
             const next = {
                 ...siteDisable,
                 message: (document.getElementById('disable-message-input')?.value || '').trim().slice(0, 280),
-                start: new Date(start).toISOString(),
-                end: new Date(end).toISOString(),
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
                 repeat,
-                days
+                days,
+                timeOnly
             };
             if (!disableScheduleValid(next)) return showToast('Choose a valid window and at least one weekday for weekly downtime.', 'error');
             try {

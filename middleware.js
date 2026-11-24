@@ -9,19 +9,41 @@ const SECURITY_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
-let launchAtCache;
+let launchCache;
 
-async function getLaunchAt(request) {
-  if (launchAtCache !== undefined) return launchAtCache;
+async function getStaticLaunchAt(request) {
   try {
     const response = await fetch(new URL('/js/00-site-config.js', request.url), { cache: 'no-store' });
     const source = await response.text();
     const match = source.match(/launchAt\s*:\s*['"]([^'"]+)['"]/);
-    launchAtCache = match ? Date.parse(match[1]) : 0;
+    const parsed = match ? Date.parse(match[1]) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
   } catch {
-    launchAtCache = 0;
+    return 0;
   }
-  return launchAtCache;
+}
+
+async function getLaunchConfig(request) {
+  if (launchCache && Date.now() < launchCache.until) return launchCache.value;
+  const fallbackAt = await getStaticLaunchAt(request);
+  let value = { at: fallbackAt, label: '' };
+  try {
+    const response = await fetch(new URL('/api/launch-time', request.url), { cache: 'no-store' });
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.ok) {
+        const parsed = data.launchAt === null || data.launchAt === undefined
+          ? NaN
+          : (data.launchAt === '' ? 0 : Date.parse(data.launchAt));
+        value = {
+          at: Number.isFinite(parsed) ? parsed : fallbackAt,
+          label: typeof data.launchLabel === 'string' ? data.launchLabel.slice(0, 120) : '',
+        };
+      }
+    }
+  } catch {}
+  launchCache = { until: Date.now() + 30000, value };
+  return value;
 }
 
 async function getSession(request) {
@@ -37,14 +59,15 @@ async function getSession(request) {
   }
 }
 
-function injectSession(html, session) {
+function injectSession(html, session, launch) {
   const data = JSON.stringify({
     admin: !!session.admin,
     dev: !!session.dev,
     adminToken: session.adminToken || null,
   }).replace(/</g, '\\u003c');
-  const tag = `<script>window.__HERO_SESSION__=${data};</script>`;
-  return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${tag}</head>`) : `${tag}${html}`;
+  const label = JSON.stringify(launch.label || '').replace(/</g, '\\u003c');
+  const tag = `<script>window.__HERO_SESSION__=${data};window.__HERO_LAUNCH_AT__=${launch.at};window.__HERO_LAUNCH_LABEL__=${label};</script>`;
+  return /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, (head) => `${head}${tag}`) : `${tag}${html}`;
 }
 
 function replaceBlock(html, startMarker, endMarker, replacement) {
@@ -56,11 +79,15 @@ function replaceBlock(html, startMarker, endMarker, replacement) {
   return html.slice(0, start) + replacement + html.slice(end + endMarker.length);
 }
 
-function gateHtml(fullHtml, launchAt) {
+function gateHtml(fullHtml, launchAt, launchLabel) {
   const headMatch = fullHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i);
   const head = (headMatch ? headMatch[1] : '').replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
   const gateMatch = fullHtml.match(/<!-- HERO_LAUNCH_GATE_START -->([\s\S]*?)<!-- HERO_LAUNCH_GATE_END -->/);
-  const gate = gateMatch ? gateMatch[1] : '';
+  let gate = gateMatch ? gateMatch[1] : '';
+  if (launchLabel) {
+    const escaped = String(launchLabel).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    gate = gate.replace(/<p class="launch-date">[\s\S]*?<\/p>/, `<p class="launch-date">${escaped}</p>`);
+  }
   const htmlTag = (fullHtml.match(/<html\b[^>]*>/i) || ['<html lang="en" class="light">'])[0];
   const lockedTag = /class\s*=\s*"([^"]*)"/i.test(htmlTag)
     ? htmlTag.replace(/class\s*=\s*"([^"]*)"/i, (_, classes) => `class="${classes} launch-locked"`)
@@ -120,14 +147,14 @@ function gateHtml(fullHtml, launchAt) {
 export async function middleware(context) {
   const { request, next } = context;
   const session = await getSession(request);
-  const launchAt = await getLaunchAt(request);
+  const launch = await getLaunchConfig(request);
   const upstream = await next();
   let html = await upstream.text();
 
-  if (launchAt && Date.now() < launchAt && !session.dev) {
-    html = gateHtml(html, launchAt);
+  if (launch.at && Date.now() < launch.at && !session.dev) {
+    html = gateHtml(html, launch.at, launch.label);
   } else {
-    html = injectSession(html, session);
+    html = injectSession(html, session, launch);
     if (!session.admin) {
       html = replaceBlock(html, '<!-- HERO_ADMIN_PANEL_START -->', '<!-- HERO_ADMIN_PANEL_END -->', '<div id="admin-panel" class="hidden"></div>');
     }
