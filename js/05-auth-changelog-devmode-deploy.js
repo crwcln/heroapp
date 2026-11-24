@@ -781,6 +781,13 @@ async function resetVisitCounter() {
             document.querySelectorAll('#nav-actions button[onclick^="switchView"]').forEach(b => b.classList.toggle('nav-active', b.getAttribute('onclick').includes("'" + id + "'")));
             moveMobileTabIndicator(id);
         };
+        moveMobileTabIndicator(currentMobileViewId());
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => moveMobileTabIndicator(currentMobileViewId()));
+        if ('ResizeObserver' in window && bar) {
+            const tabResizeObserver = new ResizeObserver(() => moveMobileTabIndicator(currentMobileViewId()));
+            tabResizeObserver.observe(bar);
+            bar.querySelectorAll('button[data-tab]').forEach(button => tabResizeObserver.observe(button));
+        }
 
         // ================= BOOT COVER =================
         function hideCover(force = false) {

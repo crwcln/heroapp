@@ -352,6 +352,12 @@
             if (lock) lock.classList.add('hidden');
             if (panel) panel.classList.remove('hidden');
             onAdminUnlocked();
+            let returnToAdmin = false;
+            try { returnToAdmin = sessionStorage.getItem('mq_returnToAdmin') === '1'; sessionStorage.removeItem('mq_returnToAdmin'); } catch (_) {}
+            if (returnToAdmin) {
+                if (typeof switchView === 'function') switchView('editor-view');
+                if (typeof setAdminTab === 'function') setAdminTab(sessionStorage.getItem('mq_atab') || 'quiz');
+            }
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restoreAdminSession, { once: true });
         else restoreAdminSession();

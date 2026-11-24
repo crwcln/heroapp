@@ -540,6 +540,7 @@
                     unlocked = true;
                     if (window.__HERO_SESSION__) {
                         if (overlay) overlay.hide();
+                        try { sessionStorage.setItem('mq_returnToAdmin', '1'); } catch (_) {}
                         showToast('Steward session confirmed. Restoring your workspace…', 'success');
                         setTimeout(() => location.reload(), 400);
                         return;
