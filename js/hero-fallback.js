@@ -5,14 +5,20 @@
     const node = $('status'); node.textContent = message; node.style.color = error ? '#f2c4b6' : '';
   };
   const appId = window.__app_id || 'hero-2026';
-  let map, boundaryIndex = {}, boundaryFeatures = {}, locations = [], order = [], current = 0, found = 0, hoverLayers = [], solvedLayers = [], solvedIds = new Set();
+  let map, tileLayer = null, mapStyleIndex = 0, markerIcons = null, boundaryIndex = {}, boundaryFeatures = {}, locations = [], order = [], current = 0, found = 0, hoverLayers = [], solvedLayers = [], solvedIds = new Set();
   const markers = new Map();
   const readDoc = name => firebase.firestore().collection('artifacts').doc(appId).collection('public').doc('data').collection('globalSettings').doc(name).get();
   function startMap() {
-    map = L.map('map', { worldCopyJump: true, minZoom: 2, maxZoom: 12, zoomControl: true }).setView([23, 5], 2.3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
-    map.createPane('heroFallbackBorders').style.zIndex = '620';
+    map = HeroMap.createMap('map');
+    tileLayer = HeroMap.addTileLayer(map, 0);
+    HeroMap.boundaryPane(map, 'heroFallbackBorders', 620);
   }
+  window.toggleFallbackMapStyle = () => {
+    if (!map) return;
+    const next = HeroMap.cycleTileLayer(map, tileLayer, mapStyleIndex);
+    tileLayer = next.layer;
+    mapStyleIndex = next.index;
+  };
   function locEntry(loc) {
     return boundaryIndex['fallback:' + loc.id] || boundaryIndex['default:' + loc.id] || boundaryIndex[loc.id] || null;
   }
@@ -25,13 +31,13 @@
     const features = (entry?.featureIds || []).map(id => boundaryFeatures[id]).filter(Boolean);
     if (!features.length) return false;
     if (!persistent) clearPreview();
-    const layer = L.geoJSON({ type: 'FeatureCollection', features }, {
-      pane: 'heroFallbackBorders',
-      interactive: false,
-      style: { color: '#e2bf4d', weight: 2.4, opacity: .95, fillColor: '#d8b84f', fillOpacity: .2, lineCap: 'round', lineJoin: 'round' }
-    }).addTo(map);
-    if (persistent) { solvedIds.add(String(loc.id)); solvedLayers.push(layer); }
-    else hoverLayers.push(layer);
+    const kind = entry?.kind === 'historic' ? 'empire' : (entry?.kind || HeroMap.kind(loc));
+    const layers = [
+      ...HeroMap.boundaryLayers(map, features, 'heroFallbackBorders', kind),
+      ...HeroMap.ringLayers(map, loc, 'heroFallbackBorders')
+    ];
+    if (persistent) { solvedIds.add(String(loc.id)); solvedLayers.push(...layers); }
+    else hoverLayers.push(...layers);
     return true;
   }
   function paintProgress() {
@@ -52,15 +58,15 @@
     const target = order[current];
     $('question').textContent = 'Find ' + target.name;
     $('next').hidden = true;
-    say('Tap its dot on the map. Hover over a dot to preview its border.');
+    say('Tap its pin on the map. Hover over a pin to preview its border.');
     paintProgress();
   }
   function buildMarkers() {
+    markerIcons = HeroMap.markerIcons();
+    const icons = markerIcons;
     locations.forEach(loc => {
       const marker = L.marker([Number(loc.lat), Number(loc.lng)], {
-        icon: L.divIcon({ className: '', html: '<span class="marker"></span>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-        title: loc.name,
-        keyboard: true,
+        icon: icons.unsolved,
         riseOnHover: true
       }).addTo(map);
       markers.set(String(loc.id), marker);
@@ -73,8 +79,7 @@
           say('That is ' + loc.name + '. Keep looking for ' + target.name + '.');
           return;
         }
-        const element = marker.getElement()?.querySelector('.marker');
-        if (element) element.classList.add('solved');
+        marker.setIcon(icons.solved);
         const hasBorder = showBoundary(loc, true);
         found++; paintProgress();
         if (current === order.length - 1) {
@@ -95,12 +100,12 @@
     clearPreview();
     order = [...locations].sort(() => Math.random() - .5);
     current = 0; found = 0; solvedIds = new Set();
-    markers.forEach(marker => marker.getElement()?.querySelector('.marker')?.classList.remove('solved'));
+    if (markerIcons) markers.forEach(marker => marker.setIcon(markerIcons.unsolved));
     $('next').hidden = true;
     $('next').onclick = nextPlace;
     paintProgress();
     $('question').textContent = order.length ? 'Find ' + order[0].name : 'No locations are set up yet.';
-    say(order.length ? 'Tap its dot on the map. Hover over a dot to preview its border.' : 'A steward can add locations in Admin → Fallback.');
+    say(order.length ? 'Tap its pin on the map. Hover over a pin to preview its border.' : 'A steward can add locations in Admin → Fallback.');
     $('round-label').textContent = order.length ? 'Place 1 of ' + order.length : 'Map practice';
   }
   async function loadData() {

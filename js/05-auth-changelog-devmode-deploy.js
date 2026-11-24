@@ -391,7 +391,10 @@
 
         // ================= DEV MODE =================
         let siteDev = false, siteDevMessage = '';
+        let siteDisable = { enabled: false, message: '', start: '', end: '', repeat: 'once', days: [] };
         const DEFAULT_DEV_MESSAGE = 'Sorry for the inconvenience! Hero is currently under construction. Please check back soon.';
+        const DEFAULT_DISABLE_MESSAGE = 'Hero is taking a short break for scheduled maintenance. Please check back soon.';
+        const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const devUnlocked = () => window.__HERO_SESSION__ ? devUnlockedState : sessionStorage.getItem('mq_devUnlocked') === '1';
         const siteModeRef = () => gs().doc('siteMode');
 
@@ -401,6 +404,15 @@
                 const settings = doc.exists ? doc.data() : {};
                 siteDev = settings.dev === true;
                 siteDevMessage = typeof settings.devMessage === 'string' ? settings.devMessage.slice(0, 280) : '';
+                const disable = settings.disable && typeof settings.disable === 'object' ? settings.disable : {};
+                siteDisable = {
+                    enabled: disable.enabled === true,
+                    message: typeof disable.message === 'string' ? disable.message.slice(0, 280) : '',
+                    start: typeof disable.start === 'string' ? disable.start : '',
+                    end: typeof disable.end === 'string' ? disable.end : '',
+                    repeat: ['once', 'daily', 'weekly'].includes(disable.repeat) ? disable.repeat : 'once',
+                    days: Array.isArray(disable.days) ? disable.days.map(Number).filter(day => day >= 0 && day <= 6) : []
+                };
                 applyDevScreen();
             }, err => { console.error('Site mode listener:', err); hideCover(); });
         }
@@ -414,7 +426,9 @@
             }
             hideCover();
             renderDevCard();
-            if (!show) maybeShowChangelogPopup();
+            applyDisableScreen();
+            renderDisableCard();
+            if (!show && !disableActive()) maybeShowChangelogPopup();
         }
         function renderDevCard() {
             const locked = document.getElementById('dev-card-locked'), openCard = document.getElementById('dev-card-open');
@@ -448,6 +462,130 @@
         }
         const unlockDevScreen = () => devLogin('dev-password');
         const unlockDevCard = () => devLogin('dev-card-password');
+        const unlockDevFromDisable = () => devLogin('disable-password');
+
+        function disableScheduleValid(cfg) {
+            if (!cfg.start || !cfg.end) return false;
+            const start = new Date(cfg.start), end = new Date(cfg.end);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+            if (cfg.repeat === 'once') return end > start;
+            const startMinutes = start.getHours() * 60 + start.getMinutes();
+            const endMinutes = end.getHours() * 60 + end.getMinutes();
+            if (startMinutes === endMinutes) return false;
+            return cfg.repeat !== 'weekly' || (Array.isArray(cfg.days) && cfg.days.length > 0);
+        }
+        function disableActive(now = new Date()) {
+            if (!siteDisable.enabled || !disableScheduleValid(siteDisable)) return false;
+            const start = new Date(siteDisable.start), end = new Date(siteDisable.end);
+            if (siteDisable.repeat === 'once') return now >= start && now <= end;
+            const startMinutes = start.getHours() * 60 + start.getMinutes();
+            const endMinutes = end.getHours() * 60 + end.getMinutes();
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            if (startMinutes < endMinutes) {
+                const inWindow = nowMinutes >= startMinutes && nowMinutes < endMinutes;
+                return siteDisable.repeat === 'daily' ? inWindow : inWindow && siteDisable.days.includes(now.getDay());
+            }
+            const overnight = nowMinutes >= startMinutes || nowMinutes < endMinutes;
+            if (siteDisable.repeat === 'daily') return overnight;
+            const nowDay = now.getDay();
+            return siteDisable.days.some(day =>
+                (nowDay === day && nowMinutes >= startMinutes) ||
+                (nowDay === (day + 1) % 7 && nowMinutes < endMinutes));
+        }
+        function toLocalInput(value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            const pad = number => String(number).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+        function formatDisableSchedule() {
+            if (!disableScheduleValid(siteDisable)) return 'No downtime window is saved yet.';
+            const start = new Date(siteDisable.start), end = new Date(siteDisable.end);
+            const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+            if (siteDisable.repeat === 'once') {
+                const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+                return `${dateFormat.format(start)} – ${dateFormat.format(end)}`;
+            }
+            const when = siteDisable.repeat === 'daily' ? 'Every day' : 'Every ' + [...siteDisable.days].sort((a, b) => a - b).map(day => DAY_LABELS[day]).join(', ');
+            return `${when}, ${timeFormat.format(start)} – ${timeFormat.format(end)}`;
+        }
+        function applyDisableScreen() {
+            const screen = document.getElementById('disable-screen');
+            if (!screen) return;
+            const show = disableActive() && !devUnlocked();
+            screen.classList.toggle('hidden', !show);
+            const message = document.getElementById('disable-message');
+            if (message) message.innerText = siteDisable.message || DEFAULT_DISABLE_MESSAGE;
+            const schedule = document.getElementById('disable-schedule');
+            if (schedule) schedule.innerText = formatDisableSchedule();
+        }
+        function renderDisableCard() {
+            const locked = document.getElementById('disable-card-locked'), open = document.getElementById('disable-card-open');
+            if (!locked || !open) return;
+            const unlocked = devUnlocked();
+            locked.classList.toggle('hidden', unlocked);
+            open.classList.toggle('hidden', !unlocked);
+            const status = document.getElementById('disable-status');
+            if (status) status.innerText = siteDisable.enabled
+                ? (disableActive() ? 'Downtime is ON and active now. Visitors see the unavailable screen.' : 'Downtime is ON. Visitors will see the screen during the saved window.')
+                : 'Downtime is OFF. The site stays open outside other modes.';
+            const btn = document.getElementById('disable-toggle-btn');
+            if (btn) {
+                btn.innerText = siteDisable.enabled ? 'Disable scheduled downtime' : 'Enable scheduled downtime';
+                btn.className = 'w-full text-white font-bold py-3 rounded-lg transition shadow ' + (siteDisable.enabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700');
+            }
+            const daysWrap = document.getElementById('disable-days-wrap');
+            if (daysWrap) daysWrap.classList.toggle('hidden', siteDisable.repeat !== 'weekly');
+            const repeat = document.getElementById('disable-repeat');
+            if (repeat && document.activeElement !== repeat) repeat.value = siteDisable.repeat;
+            const message = document.getElementById('disable-message-input');
+            if (message && document.activeElement !== message) message.value = siteDisable.message;
+            const start = document.getElementById('disable-start');
+            if (start && document.activeElement !== start) start.value = toLocalInput(siteDisable.start);
+            const end = document.getElementById('disable-end');
+            if (end && document.activeElement !== end) end.value = toLocalInput(siteDisable.end);
+            document.querySelectorAll('input[name="disable-day"]').forEach(input => { input.checked = siteDisable.days.includes(Number(input.value)); });
+        }
+        async function saveDisableSchedule() {
+            if (!db || !userId) return showToast('Cannot update the downtime schedule offline.', 'error');
+            if (!devUnlocked()) return showToast('Unlock Dev Mode before changing this schedule.', 'error');
+            const repeat = document.getElementById('disable-repeat')?.value || 'once';
+            const start = document.getElementById('disable-start')?.value || '';
+            const end = document.getElementById('disable-end')?.value || '';
+            const days = [...document.querySelectorAll('input[name="disable-day"]:checked')].map(input => Number(input.value)).sort((a, b) => a - b);
+            if (!start || !end || Number.isNaN(new Date(start).getTime()) || Number.isNaN(new Date(end).getTime())) {
+                return showToast('Choose a valid start and end time.', 'error');
+            }
+            const next = {
+                ...siteDisable,
+                message: (document.getElementById('disable-message-input')?.value || '').trim().slice(0, 280),
+                start: new Date(start).toISOString(),
+                end: new Date(end).toISOString(),
+                repeat,
+                days
+            };
+            if (!disableScheduleValid(next)) return showToast('Choose a valid window and at least one weekday for weekly downtime.', 'error');
+            try {
+                await siteModeRef().set({ disable: next }, { merge: true });
+                showToast('Downtime schedule saved.', 'success');
+            } catch (err) {
+                console.error('Downtime schedule save failed:', err);
+                showToast(`Could not save schedule (${err.code || 'error'}).`, 'error');
+            }
+        }
+        async function toggleSiteDisable() {
+            if (!db || !userId) return showToast('Cannot change mode offline.', 'error');
+            if (!devUnlocked()) return showToast('Unlock Dev Mode before changing this mode.', 'error');
+            const next = !siteDisable.enabled;
+            if (next && !disableScheduleValid(siteDisable)) return showToast('Save a valid downtime schedule before turning it on.', 'error');
+            if (!(await customConfirm(next
+                ? { title: 'Turn on scheduled downtime?', message: 'Visitors will see the unavailable screen during the saved window.', confirmText: 'Enable downtime', danger: true }
+                : { title: 'Turn off scheduled downtime?', message: 'The unavailable screen will stop appearing on its schedule.', confirmText: 'Disable downtime' }))) return;
+            siteModeRef().set({ disable: { ...siteDisable, enabled: next } }, { merge: true })
+                .then(() => showToast(next ? 'Scheduled downtime enabled.' : 'Scheduled downtime disabled.', 'success'))
+                .catch(err => { console.error(err); showToast(`Failed to update (${err.code || 'error'}).`, 'error'); });
+        }
 
         async function saveDevMessage() {
             if (!db || !userId) return showToast('Cannot update the construction message offline.', 'error');
@@ -570,6 +708,7 @@ async function resetVisitCounter() {
         // Auth settles before the cover is removed; the timeout below handles a stalled Firebase connection.
         if (devUnlocked()) hideCover();
         setTimeout(() => hideCover(true), 11000);
+        setInterval(() => applyDisableScreen(), 60000);
 
         // ================= REDEPLOY =================
         let deployBusy = false, deployCooldownTimer = null;

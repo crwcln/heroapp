@@ -13,7 +13,7 @@
   <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
   <script src="js/02-firebase-config.js?v=bbbd2562149e86ed"></script>
-  <script src="js/00-site-config.js?v=7468f22cf61a4b1f"></script>
+  <script src="js/00-site-config.js?v=7b0bac7b9ddec66b"></script>
   <script>
     try {
       if (localStorage.getItem('theme') !== 'light') {
@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="css/styles.css?v=b3d02209b543645c">
   <link rel="stylesheet" href="css/premium.css?v=cb07fb1ff0c14a81">
   <link rel="stylesheet" href="css/night.css?v=e6d729e1b85be824">
-  <link rel="stylesheet" href="css/tailwind.css?v=e2dae8bd73388a54">
+  <link rel="stylesheet" href="css/tailwind.css?v=1312f0f254e402d3">
   <link rel="stylesheet" href="css/design-system.css?v=f9fab07034d6c0d8">
   <style>
     :root { color-scheme: light; }
@@ -67,9 +67,6 @@
     .fb-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-12); padding: var(--spacing-8) var(--spacing-16); color: var(--ink-500); font-size: 12px; font-weight: var(--font-weight-regular); }
     .fb-footer a { color: var(--brand-600); text-underline-offset: 3px; }
     html.dark .fb-footer a { color: var(--sec); }
-    .marker { width: 14px; height: 14px; border: 2px solid var(--field); border-radius: 50%; background: var(--wrong, var(--brand-600)); box-shadow: 0 1px 6px rgba(0,0,0,.5); transition: transform var(--duration-default) var(--ease-default), background var(--duration-default) var(--ease-default), border-color var(--duration-default) var(--ease-default); }
-    .leaflet-marker-icon:hover .marker { transform: scale(1.2); border-color: var(--sec); background: var(--sec); }
-    .marker.solved { border-color: var(--correct, var(--sec)); background: var(--correct, var(--sec)); box-shadow: 0 0 0 4px rgba(var(--correct-rgb, var(--sec-rgb)), .24), 0 1px 6px rgba(0,0,0,.5); }
     .leaflet-container { font-family: 'DM Sans', var(--font-body); }
     .leaflet-control-attribution { font-size: 9px !important; }
     .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: inherit; background: var(--field); }
@@ -100,6 +97,7 @@
     <div class="flex items-center gap-2 sm:gap-4">
       <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">Map practice</span>
       <a href="/" class="cm-btn ghost no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50">Back to Hero</a>
+      <button type="button" onclick="toggleFallbackMapStyle()" title="Switch map style" aria-label="Switch map style" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50"><i data-lucide="layers" class="w-5 h-5"></i></button>
       <button id="fallback-theme-btn" type="button" onclick="toggleFallbackTheme()" aria-label="Switch to dark appearance" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50">
         <i data-lucide="moon" id="fallback-icon-moon" class="w-5 h-5 hidden"></i>
         <i data-lucide="sun" id="fallback-icon-sun" class="w-5 h-5 hidden"></i>
@@ -108,7 +106,7 @@
   </nav>
   <main class="app container mx-auto max-w-[var(--content-max)]">
     <section class="prompt glass-panel" aria-live="polite"><div class="prompt-copy"><p class="kicker" id="round-label">Map practice</p><h1 id="question">Loading locations…</h1><p id="status" class="status">Opening the atlas.</p></div><div class="stats"><div class="stat"><small>Found</small><b id="found">0 / 0</b></div><button id="next" type="button" class="cm-btn go focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50" hidden>Next place</button></div></section>
-    <section class="map-wrap glass-panel" aria-label="Interactive location map"><div id="map" class="map"></div><div class="map-help">Tap a dot to find the place · hover to preview its border</div></section>
+    <section class="map-wrap glass-panel" aria-label="Interactive location map"><div id="map" class="map"></div><div class="map-help">Tap a pin to find the place · hover to preview its border</div></section>
     <footer class="fb-footer glass-panel"><span id="source-note">Locations and borders from Hero.</span><a href="/" class="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] active:translate-y-px motion-reduce:transform-none disabled:opacity-50">Back to the main site</a></footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -132,6 +130,7 @@
       if (window.lucide) lucide.createIcons();
     })();
   </script>
-  <script src="js/hero-fallback.js?v=5de9336cfcdef8fb"></script>
+  <script src="js/map-shared.js?v=a95381e09b324772"></script>
+  <script src="js/hero-fallback.js?v=af301235ea1c7d91"></script>
 </body>
 </html>

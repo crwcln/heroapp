@@ -718,28 +718,21 @@
 
         function toggleMapStyle() {
             if(!map) return;
-            mapStyleIndex = (mapStyleIndex + 1) % 3;
-            const styles = [
-                { url: TILE_SATELLITE, attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community' },
-                { url: TILE_STANDARD, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' },
-                { url: TILE_HOT, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> | Tiles <a href="https://www.openstreetmap.fr/">OpenStreetMap France</a> / <a href="https://www.hotosm.org/">HOT</a>' }
-            ];
-            // Tile layers have no setAttribution() method. Recreate the layer so Leaflet's
-            // attribution control removes the old provider and registers the new one.
-            if (tileLayer) map.removeLayer(tileLayer);
-            tileLayer = L.tileLayer(styles[mapStyleIndex].url, { attribution: styles[mapStyleIndex].attribution }).addTo(map);
+            const next = HeroMap.cycleTileLayer(map, tileLayer, mapStyleIndex);
+            tileLayer = next.layer;
+            mapStyleIndex = next.index;
         }
 
         function initMap() {
             if (map) { map.remove(); map = null; }
-            map = L.map('map-container', { worldCopyJump: true, minZoom: 2, maxZoom: 14, zoomControl: false }).setView([25, 20], 2.5);
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            map = HeroMap.createMap('map-container');
 
             mapStyleIndex = 0;
-            tileLayer = L.tileLayer(TILE_SATELLITE, { attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community' }).addTo(map);
+            tileLayer = HeroMap.addTileLayer(map, 0);
 
-            const unsolvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin unsolved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
-            const solvedIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] });
+            const icons = HeroMap.markerIcons();
+            const unsolvedIcon = icons.unsolved;
+            const solvedIcon = icons.solved;
 
             activeQuizData.forEach(loc => {
                 const marker = L.marker([loc.lat, loc.lng], { icon: unsolvedIcon }).addTo(map);

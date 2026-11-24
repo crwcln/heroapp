@@ -1,7 +1,6 @@
-const TILE_STANDARD = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const TILE_HOT = 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
-// Esri World Imagery is satellite/aerial imagery; OSM remains available as a no-key street map layer.
-const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const TILE_STANDARD = HeroMap.TILES[1].url;
+const TILE_HOT = HeroMap.TILES[2].url;
+const TILE_SATELLITE = HeroMap.TILES[0].url;
 // ===== MAP HIGHLIGHT + PREMIUM EXTRAS =====
 // Curated Natural Earth and historical boundaries are bundled into one local GeoJSON file.
 // No map-boundary data is requested from a CDN while a player is using the site.
@@ -33,10 +32,7 @@ window.__heroHasBoundary = loc => {
     const entry = hlLocationEntry(loc);
     return !!entry?.featureIds?.some(id => !!hlFeatures[id]);
 };
-const hlKind = loc => {
-    const t = (loc.name + ' ' + (loc.category || '')).toLowerCase();
-    return loc.year != null && loc.year !== '' && Number.isInteger(Number(loc.year)) ? 'empire' : /empire|kingdom|dynasty|caliphate|sultanate|ancient|historic/.test(t) ? 'empire' : /route|road|trade|silk/.test(t) ? 'route' : /river|stream/.test(t) ? 'river' : /lake|reservoir/.test(t) ? 'lake' : /sea|ocean|gulf|bay|strait|canal|channel|current|marine/.test(t) ? 'water' : 'land';
-};
+const hlKind = loc => HeroMap.kind(loc);
 function hlHintRegion(loc) {
     const entry = hlLocationEntry(loc);
     if (entry?.hintRegion) return entry.hintRegion;
@@ -61,29 +57,11 @@ function hlShow(loc) {
         const features = (entry?.featureIds || []).map(id => hlFeatures[id]).filter(Boolean);
         if (features.length) {
             const kind = entry.kind === 'historic' ? 'empire' : entry.kind || hlKind(loc);
-            const collection = { type: 'FeatureCollection', features };
-            let pane = map.getPane('heroBoundaryHighlight');
-            if (!pane) {
-                pane = map.createPane('heroBoundaryHighlight');
-                pane.style.zIndex = '625';
-                pane.style.pointerEvents = 'none';
-            }
-            ['hl-halo', 'hl-glow', 'hl-outline', 'hl hl-' + kind].forEach(className => {
-                const layer = L.geoJSON(collection, { pane: 'heroBoundaryHighlight', style: () => ({ className }), interactive: false }).addTo(map);
-                hlLayers.push(layer);
-            });
+            HeroMap.boundaryPane(map, 'heroBoundaryHighlight', 625);
+            hlLayers.push(...HeroMap.boundaryLayers(map, features, 'heroBoundaryHighlight', kind));
             // A pair of gold rings expands from the location dot as its boundary appears.
             // Keep the effect in the same non-interactive pane as the outline.
-            if (Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng))) {
-                [0, 180].forEach(delay => {
-                    const ring = L.circleMarker([Number(loc.lat), Number(loc.lng)], {
-                        pane: 'heroBoundaryHighlight', radius: 9, className: 'hl-radiate',
-                        interactive: false, bubblingMouseEvents: false
-                    }).addTo(map);
-                    ring.getElement()?.style.setProperty('--hl-radiate-delay', `${delay}ms`);
-                    hlLayers.push(ring);
-                });
-            }
+            hlLayers.push(...HeroMap.ringLayers(map, loc, 'heroBoundaryHighlight'));
         } else {
             // A point halo is not a boundary. Do not show a misleading circle when the curated
             // outline is missing; the location catalog can be exported and rebuilt by a steward.
