@@ -8,7 +8,7 @@ const SITE = {
   tagline: 'STUDYING, REDEFINED.',
 
   // Public opening time: 7:00 PM EDT (UTC-4) on October 21, 2026.
-  launchAt: '2026-11-27T01:30:00Z',
+  launchAt: '2026-11-23T01:30:00Z',
 
   // Increase intro to replay the opening film for everyone. Optional: set a custom MP4 path.
   intro: 4, 
