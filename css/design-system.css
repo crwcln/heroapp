@@ -234,9 +234,10 @@ html.is-mobile #mobile-tabbar > button span {
   display:block!important; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap;
   text-overflow:clip; font-size:9px; line-height:1.1; letter-spacing:.01em;
 }
-html.is-mobile #mobile-tabbar > button.active { color:var(--sec); background:rgba(var(--sec-rgb),.12)!important; }
-#mobile-tab-indicator { border-color:rgba(var(--sec-rgb),.3); background:rgba(var(--sec-rgb),.09); }
-html.dark #mobile-tab-indicator { border-color:rgba(var(--sec-rgb),.35); background:rgba(var(--sec-rgb),.12); }
+html.is-mobile #mobile-tabbar > button.active { color:var(--sec); background:rgba(var(--sec-rgb),.10)!important; }
+html.dark.is-mobile #mobile-tabbar > button.active { background:rgba(var(--sec-rgb),.12)!important; }
+#mobile-tab-indicator { left:0; box-sizing:border-box; border-color:rgba(var(--sec-rgb),.34); background:rgba(var(--sec-rgb),.10); transition:transform 140ms cubic-bezier(.25,.46,.45,.94),width 140ms cubic-bezier(.25,.46,.45,.94),opacity 140ms cubic-bezier(.25,.46,.45,.94); }
+html.dark #mobile-tab-indicator { border-color:rgba(var(--sec-rgb),.34); background:rgba(var(--sec-rgb),.12); }
 
 #mobile-more-sheet {
   position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none;
@@ -351,7 +352,7 @@ html[data-theme] .leaflet-container { background: var(--map-water, var(--bg-base
 #admin-panel [class*="rounded-2xl"].bg-white::before { display: none; }
 .ann-shortcut { border-left-color: var(--line); }
 
-#mobile-tab-indicator { transition: width .14s cubic-bezier(.25,.46,.45,.94), transform .14s cubic-bezier(.25,.46,.45,.94); }
+#mobile-tab-indicator { transition: width 140ms cubic-bezier(.25,.46,.45,.94), transform 140ms cubic-bezier(.25,.46,.45,.94), opacity 140ms cubic-bezier(.25,.46,.45,.94); }
 #admin-tabs button { flex: 0 0 auto; }
 @media(max-width:640px) {
   #admin-tabs button { gap: 6px; padding: 9px 12px; font-size: 12px; }
@@ -377,3 +378,22 @@ html.dark .fam-reason { color: var(--sec); }
 .fam-track i { display: block; height: 100%; border-radius: inherit; background: var(--sec); transition: width .14s cubic-bezier(.25,.46,.45,.94); }
 @media(max-width:640px) { .fam-card { padding: 16px; } .fam-actions { flex-direction: column; } .fam-actions button { width: 100%; } }
 @media(prefers-reduced-motion:reduce) { .fam-card.replay { animation: none; border-color: var(--sec); } }
+
+html.is-mobile, html.is-mobile body { max-width:100vw; overflow-x:hidden; }
+html.is-mobile .view-section { min-width:0; max-width:100vw; overflow-x:hidden; }
+html.is-mobile .view-section > .glass-panel { min-width:0; max-width:100%; }
+html.is-mobile .fam-card, html.is-mobile .fam-name, html.is-mobile .fam-tip, html.is-mobile .fam-reason, html.is-mobile .fam-meta { overflow-wrap:anywhere; }
+html.is-mobile .mobile-more-card { overflow-x:hidden; }
+html.is-mobile .mobile-more-list button { white-space:normal; overflow-wrap:anywhere; }
+
+.fam-modes { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.fam-modes button { min-height:40px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; color:var(--ink-500); background:var(--field); font-size:12px; font-weight:700; }
+.fam-modes button.on { border-color:var(--sec); color:var(--sec); background:rgba(var(--sec-rgb),.12); }
+.fam-modes button:focus-visible { outline:2px solid var(--sec); outline-offset:2px; }
+
+#fam-drill-banner { position:absolute; z-index:1001; top:76px; left:50%; box-sizing:border-box; display:flex; max-width:calc(100vw - 24px); align-items:center; gap:8px; overflow:hidden; padding:8px 12px; border:1px solid var(--line); border-radius:999px; color:var(--ink-800); background:var(--field); box-shadow:var(--hero-shadow-popover); transform:translateX(-50%); white-space:nowrap; text-overflow:ellipsis; }
+#fam-drill-banner small { color:var(--ink-500); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+#fam-drill-banner strong { overflow:hidden; font-size:13px; font-weight:700; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+.marker-pin.fam-hit { animation:fam-hit 140ms cubic-bezier(.25,.46,.45,.94); }
+@keyframes fam-hit { 50% { transform:scale(1.18); } }
+@media(prefers-reduced-motion:reduce) { .marker-pin.fam-hit { animation:none; } }

@@ -852,7 +852,7 @@ async function resetVisitCounter() {
             if (!tab) { indicator.classList.remove('ready'); return; }
             const br = bar.getBoundingClientRect(), tr = tab.getBoundingClientRect();
             indicator.style.width = `${tr.width}px`;
-            indicator.style.transform = `translate3d(${tr.left - br.left + bar.scrollLeft}px,0,0)`;
+            indicator.style.transform = `translate3d(${tr.left - br.left - bar.clientLeft}px,0,0)`;
             indicator.classList.add('ready');
         }
         window.openMobileMore = function () {

@@ -4,7 +4,7 @@
 const SITE = {
   id: 'hero-2026',
   name: 'Hero',
-  version: '1.4.9.7',
+  version: '1.4.9.8',
   tagline: 'STUDYING, REDEFINED.',
 
   // Public opening time: 7:00 PM EDT (UTC-4) on October 21, 2026.
