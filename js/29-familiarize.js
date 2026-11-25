@@ -110,7 +110,8 @@
             if (!banner) return;
             banner.innerHTML = '<small></small><strong></strong>';
             banner.firstChild.textContent = `${FAM_MODES[famDrill.mode]?.label || 'Familiarize'} drill`;
-            banner.lastChild.textContent = `Find ${famName(famDrill.target)} · ${famDrill.done}/${famDrill.reps}`;
+            const shown = famDrill.done === 0 ? ' · shown once' : '';
+            banner.lastChild.textContent = `Find ${famName(famDrill.target)} · ${famDrill.done}/${famDrill.reps}${shown}`;
             famRemoveBaseFindBanner();
             const solved = document.getElementById('q-solved'), total = document.getElementById('q-total');
             if (solved) solved.textContent = String(famDrill.done);
@@ -118,6 +119,21 @@
         }
         function famRemoveBaseFindBanner() {
             document.getElementById('find-banner')?.remove();
+        }
+        function famTargetMarker() {
+            const target = famDrill.target;
+            if (!target || typeof map === 'undefined' || !map || typeof map.eachLayer !== 'function') return null;
+            let found = null;
+            map.eachLayer(layer => { if (!found && layer && layer._loc && layer._loc.id === target.id) found = layer; });
+            return found;
+        }
+        function famShowTargetOnce(show) {
+            const marker = famTargetMarker();
+            const pin = marker && typeof marker.getElement === 'function' ? marker.getElement() : null;
+            if (show && marker && typeof marker.off === 'function') marker.off('mouseover');
+            if (pin) pin.classList.toggle('fam-reveal', !!show);
+            if (show && typeof hlShow === 'function') hlShow(famDrill.target);
+            if (!show && typeof hlClear === 'function') hlClear();
         }
         function famFinishDrill(marker) {
             const target = famDrill.target;
@@ -147,6 +163,7 @@
                 if (typeof recordMiss === 'function') recordMiss(famName(target));
                 if (typeof badInput === 'function') badInput(document.getElementById('fam-drill-banner'));
                 showToast('Not that one. Try again!', 'error');
+                famShowTargetOnce(famDrill.done === 0);
                 return;
             }
             famDrill.done += 1;
@@ -154,6 +171,7 @@
             const stat = quizStats[target.id];
             if (stat) stat.solved = true;
             if (typeof updateScoreDisplay === 'function') updateScoreDisplay();
+            famShowTargetOnce(false);
             const pin = marker.getElement && marker.getElement();
             if (pin) {
                 pin.classList.remove('fam-hit');
@@ -184,6 +202,7 @@
                 findQueue = [];
                 famDrill.active = true;
                 famDrillBanner();
+                famShowTargetOnce(true);
                 return result;
             };
         }
@@ -201,6 +220,7 @@
                     famDrill.active = false;
                     famDrill.pending = false;
                     famRemoveBanner();
+                    famShowTargetOnce(false);
                     if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
                 }
                 return famBaseSwitchView(id);

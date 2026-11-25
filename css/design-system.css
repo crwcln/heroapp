@@ -396,4 +396,7 @@ html.is-mobile .mobile-more-list button { white-space:normal; overflow-wrap:anyw
 #fam-drill-banner strong { overflow:hidden; font-size:13px; font-weight:700; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
 .marker-pin.fam-hit { animation:fam-hit 140ms cubic-bezier(.25,.46,.45,.94); }
 @keyframes fam-hit { 50% { transform:scale(1.18); } }
-@media(prefers-reduced-motion:reduce) { .marker-pin.fam-hit { animation:none; } }
+.marker-pin.fam-reveal { position:relative; z-index:1000; transform:scale(1.3); }
+.marker-pin.fam-reveal::before { content:''; position:absolute; inset:-8px; border:2px solid var(--sec); border-radius:50%; box-shadow:0 0 0 4px rgba(var(--sec-rgb),.16); animation:fam-reveal 1.2s cubic-bezier(.25,.46,.45,.94) infinite; }
+@keyframes fam-reveal { 0%,100% { opacity:.45; transform:scale(.9); } 50% { opacity:1; transform:scale(1.08); } }
+@media(prefers-reduced-motion:reduce) { .marker-pin.fam-hit { animation:none; } .marker-pin.fam-reveal::before { animation:none; transform:none; } }
