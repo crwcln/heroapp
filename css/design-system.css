@@ -156,9 +156,12 @@ input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { 
 .fb-drop:hover, .fb-drop.drag { border-color:var(--sec); background:rgba(var(--sec-rgb),.07); }
 .qtip-b { border:1px solid rgba(var(--sec-rgb),.24); border-radius:14px; background:var(--brand-700); box-shadow:var(--hero-shadow-popover); }
 
-/* A nearly imperceptible drift gives the atlas a little life without competing with content. */
-#fx-a { animation:heroAtlasDrift 80s ease-in-out infinite alternate; }
-@keyframes heroAtlasDrift { to { translate:0 -10px; } }
+/* Ambient motion stays on transform while pointer parallax owns translate, so neither overwrites the other. */
+#fx-a { translate:var(--fx-a-x,0px) var(--fx-a-y,0px); animation:heroAtlasDrift 34s cubic-bezier(.45,0,.55,1) infinite alternate; will-change:transform,translate; }
+#fx-b { translate:var(--fx-b-x,0px) var(--fx-b-y,0px); animation:heroAtlasGlow 46s cubic-bezier(.45,0,.55,1) infinite alternate; will-change:transform,translate; }
+@keyframes heroAtlasDrift { from { transform:translate3d(0,0,0) scale(1); } to { transform:translate3d(18px,-14px,0) scale(1.05); } }
+@keyframes heroAtlasGlow { from { transform:translate3d(0,0,0) scale(1); } to { transform:translate3d(-24px,18px,0) scale(1.1); } }
+html[data-motion=off] #fx-a, html[data-motion=off] #fx-b { animation:none!important; translate:0 0!important; }
 
 @supports (corner-shape:squircle) {
   :where(.glass-panel,.daily-challenge-card,.beta-callout,.hc-card,.ann-card,.rv-row,.st-card,.st-chip,
@@ -177,7 +180,7 @@ input:not([type="checkbox"]):not([type="radio"]), textarea, select, .fb-input { 
 }
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto!important; }
-  #fx-a { animation:none!important; }
+  #fx-a, #fx-b { animation:none!important; translate:0 0!important; }
   #home-view .grid > button:hover, #leaderboard-list > div:hover, #daily-leaderboard-list > div:hover { transform:none; }
 }
 
@@ -400,3 +403,14 @@ html.is-mobile .mobile-more-list button { white-space:normal; overflow-wrap:anyw
 .marker-pin.fam-reveal::before { content:''; position:absolute; inset:-8px; border:2px solid var(--sec); border-radius:50%; box-shadow:0 0 0 4px rgba(var(--sec-rgb),.16); animation:fam-reveal 1.2s cubic-bezier(.25,.46,.45,.94) infinite; }
 @keyframes fam-reveal { 0%,100% { opacity:.45; transform:scale(.9); } 50% { opacity:1; transform:scale(1.08); } }
 @media(prefers-reduced-motion:reduce) { .marker-pin.fam-hit { animation:none; } .marker-pin.fam-reveal::before { animation:none; transform:none; } }
+
+#home-view > .glass-panel { border-top-width:1px; border-top-color:var(--line); }
+.daily-challenge-card, html.dark .daily-challenge-card { border-left-width:1px; border-left-color:var(--line); }
+#home-custom-cards > *, #home-custom-cards > *:hover { border-left-width:1px; border-left-color:var(--line); }
+#home-view .grid > button { border-color:rgba(var(--sec-rgb),.42); }
+#home-view .grid > button:hover, #home-view .grid > button:focus-visible { border-color:rgba(var(--sec-rgb),.72); box-shadow:inset 0 0 0 1px rgba(var(--sec-rgb),.18),var(--hero-shadow-popover); }
+#home-view .grid > button > .absolute.inset-0 { background:radial-gradient(circle at 50% 0,rgba(var(--sec-rgb),.12),transparent 68%); opacity:1; }
+#home-view .grid > button > svg { color:var(--sec); }
+.hc-card, .hc-card[data-tone] { --hc-accent:var(--sec); --hc-wash:rgba(var(--sec-rgb),.10); border-color:rgba(var(--sec-rgb),.38); }
+.fam-card { border-color:rgba(var(--sec-rgb),.34); background:radial-gradient(circle at 100% 0,rgba(var(--sec-rgb),.10),transparent 52%),var(--field); }
+.fam-card:focus-within { border-color:rgba(var(--sec-rgb),.58); }

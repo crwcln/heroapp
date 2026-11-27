@@ -315,12 +315,13 @@
         (function () {
             let tx = 0, ty = 0, cx = 0, cy = 0, run = false; const root = document.documentElement;
             const fxMove = (x, y) => {
-                const fxA = document.getElementById('fx-a'), fxB = document.getElementById('fx-b');
-                if (fxA) fxA.style.translate = `${-x * 22}px ${-y * 22}px`;
-                if (fxB) fxB.style.translate = `${x * 60}px ${y * 60}px`;
+                root.style.setProperty('--fx-a-x', `${(-x * 18).toFixed(2)}px`);
+                root.style.setProperty('--fx-a-y', `${(-y * 18).toFixed(2)}px`);
+                root.style.setProperty('--fx-b-x', `${(x * 42).toFixed(2)}px`);
+                root.style.setProperty('--fx-b-y', `${(y * 42).toFixed(2)}px`);
             };
             const step = () => {
-                cx += (tx - cx) * .05; cy += (ty - cy) * .05;
+                cx += (tx - cx) * .08; cy += (ty - cy) * .08;
                 fxMove(cx, cy);
                 if (Math.abs(tx - cx) > .002 || Math.abs(ty - cy) > .002) requestAnimationFrame(step); else run = false;
             };

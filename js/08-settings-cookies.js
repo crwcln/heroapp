@@ -2,7 +2,7 @@
         const getCookie = n => (document.cookie.split('; ').find(c => c.startsWith(n + '=')) || '').split('=').slice(1).join('=');
         const setCookie = (n, v, days = 365) => { document.cookie = `${n}=${encodeURIComponent(v)}; max-age=${days * 86400}; path=/; Secure; SameSite=Lax`; };
         let consent = getCookie('cairn_consent');
-        let prefs = { theme: 'cairn', bg: 'mesh', font: 'modern', motion: 'on', cloak: '' };
+        let prefs = { theme: 'cairn', bg: 'mesh', font: 'editorial', motion: 'on', cloak: '' };
         if (consent === 'all') { try { Object.assign(prefs, JSON.parse(decodeURIComponent(getCookie('cairn_prefs')))); } catch (e) { /* none saved */ } }
         const THEME_APPEARANCE = { ledger: true, folio: false };
         function applyPrefs() {
