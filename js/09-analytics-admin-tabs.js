@@ -42,7 +42,7 @@
         endQuizEarly = function () { const full = activeQuizData && solvedCount === activeQuizData.length; _eq(); track([full ? 'completed' : 'quit']); };
 
         // ================= ADMIN TABS =================
-        const ATABS = [['quiz', 'Quiz', 'map-pin'], ['fallback', 'Fallback', 'map'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['global', 'Global', 'megaphone'], ['site', 'Site', 'sliders-horizontal'], ['status', 'System', 'shield-check']];
+        const ATABS = [['quiz', 'Quiz', 'map-pin'], ['fallback', 'Fallback', 'map'], ['changelog', 'Changelog', 'scroll-text'], ['feedback', 'Feedback', 'inbox'], ['bugs', 'Bugs', 'bug'], ['analytics', 'Analytics', 'bar-chart-3'], ['global', 'Global', 'megaphone'], ['site', 'Site', 'sliders-horizontal']];
         function initAdminTabs() {
             const panel = document.getElementById('admin-panel');
             if (!panel || !panel.querySelector('#save-global-btn')) return;
@@ -80,7 +80,6 @@
             if (t === 'analytics') anRender();
             if (t === 'global' && window.startAnnouncements) startAnnouncements();
             if (t === 'bugs' && window.renderRuntimeBugs) window.renderRuntimeBugs();
-            if (t === 'status' && window.refreshSystemStatus) refreshSystemStatus();
         }
 
         // ================= ADMIN ANALYTICS (live) =================
