@@ -128,7 +128,7 @@ function hlAimResolve() {
     pin.classList.add('aim-target');
     if (hlAimOverlay) {
         hlAimOverlay.dataset.locked = '1';
-        if (hlAimLabel) hlAimLabel.textContent = loc.name || 'Location';
+        if (hlAimLabel) hlAimLabel.textContent = 'Pin centered';
     }
     hlAimActive = true;
     hlShow(loc);
