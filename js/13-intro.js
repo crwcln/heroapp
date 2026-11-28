@@ -16,8 +16,21 @@ const INTRO_SCENES = [
 ];
 let introTimer = null;
 let introSecretKeyHandler = null;
+let introHoldRaf = null;
+const INTRO_HOLD_MS = 1200;
+function introHoldStop(skip) {
+    if (introHoldRaf) cancelAnimationFrame(introHoldRaf);
+    introHoldRaf = null;
+    if (!skip) return;
+    skip.dataset.holding = '0';
+    skip.style.setProperty('--hold', '0');
+    const label = skip.querySelector('span');
+    if (label) label.textContent = 'Hold to skip';
+}
 function introEnd(showWelcome = false) {
     clearTimeout(introTimer);
+    if (introHoldRaf) cancelAnimationFrame(introHoldRaf);
+    introHoldRaf = null;
     if (introSecretKeyHandler) document.removeEventListener('keydown', introSecretKeyHandler, true);
     introSecretKeyHandler = null;
     document.documentElement.classList.remove('intro-first'); const el = document.getElementById('intro'); if (!el || el.dataset.ending) return;
@@ -72,7 +85,33 @@ function introPlay(options = {}) {
     window.dispatchEvent(new CustomEvent('hero-intro-state', { detail: { playing: true } }));
     const el = document.createElement('div'); el.id = 'intro';
     el.innerHTML = '<div class="in-stage"></div><div class="in-cap"></div><div class="in-white"></div>';
+    const skip = document.createElement('button'); skip.type = 'button'; skip.className = 'in-skip'; skip.setAttribute('aria-label', 'Hold to skip intro'); skip.innerHTML = '<span>Hold to skip</span>'; skip.style.setProperty('--hold', '0');
     document.body.appendChild(el);
+    el.appendChild(skip);
+    const holdStart = () => {
+        if (el.dataset.ending || skip.dataset.holding === '1') return;
+        skip.dataset.holding = '1';
+        const label = skip.querySelector('span');
+        if (label) label.textContent = 'Keep holding…';
+        const start = performance.now();
+        const tick = (now) => {
+            const progress = Math.min(1, (now - start) / INTRO_HOLD_MS);
+            skip.style.setProperty('--hold', String(progress));
+            if (progress >= 1) { introHoldStop(skip); introEnd(welcomeAfter); return; }
+            introHoldRaf = requestAnimationFrame(tick);
+        };
+        introHoldRaf = requestAnimationFrame(tick);
+    };
+    const holdStop = () => introHoldStop(skip);
+    skip.addEventListener('pointerdown', (event) => { if (event.button !== 0) return; try { skip.setPointerCapture(event.pointerId); } catch {} holdStart(); });
+    skip.addEventListener('pointerup', holdStop);
+    skip.addEventListener('pointercancel', holdStop);
+    skip.addEventListener('pointerleave', holdStop);
+    skip.addEventListener('lostpointercapture', holdStop);
+    skip.addEventListener('contextmenu', (event) => event.preventDefault());
+    skip.addEventListener('keydown', (event) => { if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) { event.preventDefault(); event.stopPropagation(); holdStart(); } });
+    skip.addEventListener('keyup', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); holdStop(); } });
+    skip.addEventListener('blur', holdStop);
     let typed = '';
     introSecretKeyHandler = event => {
         if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
