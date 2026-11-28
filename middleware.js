@@ -146,6 +146,14 @@ function gateHtml(fullHtml, launchAt, launchLabel) {
 
 export async function middleware(context) {
   const { request, next } = context;
+  if (new URL(request.url).pathname === '/system.html') {
+    const upstream = await next();
+    const html = await upstream.text();
+    const headers = new Headers(upstream.headers);
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) headers.set(key, value);
+    headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    return new Response(html, { status: upstream.status, statusText: upstream.statusText, headers });
+  }
   const session = await getSession(request);
   const launch = await getLaunchConfig(request);
   const upstream = await next();
@@ -168,4 +176,4 @@ export async function middleware(context) {
   return new Response(html, { status: upstream.status, statusText: upstream.statusText, headers });
 }
 
-export const config = { matcher: ['/', '/index.html'] };
+export const config = { matcher: ['/', '/index.html', '/system.html'] };

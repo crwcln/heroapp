@@ -4,6 +4,7 @@ import {readFile, writeFile} from 'node:fs/promises';
 const htmlPaths = [
   new URL('../index.html', import.meta.url),
   new URL('../fallback.html', import.meta.url),
+  new URL('../system.html', import.meta.url),
 ];
 const assetPattern = /((?:src|href)=["'])(\/?(?:js|css)\/[^"'?#]+)(?:\?[^"']*)?(["'])/g;
 const hashedAssets = new Map();

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <meta name="referrer" content="no-referrer">
+    <title>Hero · System Console</title>
+    <link rel="stylesheet" href="css/tokens.css?v=78a480d715d5456b">
+    <link rel="stylesheet" href="css/system-console.css?v=e92f40e9ad4349de">
+    <style>
+        .sc-shell { max-width: var(--unslop-content-max); margin-inline: auto; padding-inline: var(--unslop-content-inset); }
+        .sc-button:focus-visible, input:focus-visible { outline: 2px solid var(--unslop-color-focus); outline-offset: 2px; }
+        .sc-button:hover:not(:disabled) { border-color: var(--unslop-color-accent); background: var(--unslop-color-interactive); }
+        .sc-button:active:not(:disabled) { background: var(--unslop-color-accent); }
+        .sc-button:disabled { opacity: .56; cursor: wait; }
+        input:hover:not(:disabled) { border-color: var(--unslop-color-text-muted); }
+        input:active:not(:disabled) { border-color: var(--unslop-color-focus); }
+        input:disabled { opacity: .56; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <main class="sc-shell" style="max-width: var(--unslop-content-max); margin-inline: auto; padding-inline: var(--unslop-content-inset)">
+        <header class="sc-topbar">
+            <div class="sc-brand">
+                <span class="sc-mark" aria-hidden="true"><i></i></span>
+                <div>
+                    <span class="sc-kicker">Hero operations</span>
+                    <h1>System Console</h1>
+                </div>
+            </div>
+            <button id="sc-lock" class="sc-button sc-button-quiet" type="button" hidden>Lock</button>
+        </header>
+        <section id="sc-gate" class="sc-card sc-gate" aria-labelledby="sc-gate-title">
+            <span class="sc-kicker">Restricted</span>
+            <h2 id="sc-gate-title">System access</h2>
+            <p>Use the separate system passphrase. Steward and developer passwords do not unlock this console.</p>
+            <form id="sc-form" autocomplete="off">
+                <label for="sc-password">System passphrase</label>
+                <div class="sc-input-row">
+                    <input id="sc-password" name="password" type="password" autocomplete="current-password" required minlength="1">
+                    <button id="sc-unlock" class="sc-button" type="submit">Unlock</button>
+                </div>
+            </form>
+            <p id="sc-auth-error" class="sc-message" role="alert" hidden></p>
+        </section>
+        <section id="sc-console" class="sc-console" aria-labelledby="sc-console-title" hidden>
+            <div class="sc-summary-row">
+                <div>
+                    <span class="sc-kicker">Configuration health</span>
+                    <h2 id="sc-console-title">Services</h2>
+                </div>
+                <button id="sc-refresh" class="sc-button" type="button">Refresh</button>
+            </div>
+            <div id="sc-summary" class="sc-summary" role="status" aria-live="polite">Checking…</div>
+            <div id="sc-groups" class="sc-grid"></div>
+            <p id="sc-status" class="sc-note" role="status" aria-live="polite"></p>
+        </section>
+    </main>
+    <script src="js/system-console.js?v=65e4bf8f8818d0f7"></script>
+</body>
+</html>
