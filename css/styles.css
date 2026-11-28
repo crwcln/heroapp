@@ -118,6 +118,18 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-c
         .is-mobile .quiz-toolbar button { min-width: 36px; min-height: 36px; display: flex; align-items: center; justify-content: center; }
         .is-mobile .marker-pin { width: 24px; height: 24px; position: relative; }
         .is-mobile .marker-pin::after { content: ''; position: absolute; inset: -12px; } /* bigger tap target */
+        .marker-pin.aim-target { border-color: var(--sec); outline: 2px solid color-mix(in srgb, var(--sec) 72%, transparent); outline-offset: 2px; transform: scale(1.12); z-index: 1001; }
+        #quiz-view { position: relative; }
+        #quiz-crosshair { display: none; position: absolute; inset: 0; z-index: 650; pointer-events: none; }
+        .qc-ring { position: absolute; top: 50%; left: 50%; width: 64px; height: 64px; border: 1px solid color-mix(in srgb, var(--sec) 44%, transparent); border-radius: 999px; opacity: .82; transform: translate(-50%, -50%); animation: qcBreathe 1.6s ease-in-out infinite alternate; transition: border-color 140ms cubic-bezier(.25,.46,.45,.94), opacity 140ms cubic-bezier(.25,.46,.45,.94), transform 140ms cubic-bezier(.25,.46,.45,.94); }
+        .qc-ring::before, .qc-ring::after { content: ''; position: absolute; top: 50%; left: 50%; background: var(--sec); transform: translate(-50%, -50%); }
+        .qc-ring::before { width: 1px; height: 18px; }
+        .qc-ring::after { width: 18px; height: 1px; }
+        .qc-label { position: absolute; top: calc(50% + 42px); left: 50%; max-width: min(72vw, 260px); overflow: hidden; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--field) 86%, transparent); color: var(--ink-500); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); }
+        html.is-mobile body.in-quiz #quiz-crosshair { display: block; }
+        html.is-mobile body.in-quiz #quiz-crosshair[data-locked="1"] .qc-ring { border-color: var(--sec); opacity: 1; transform: translate(-50%, -50%) scale(1.08); animation: none; }
+        @keyframes qcBreathe { to { opacity: .5; transform: translate(-50%, -50%) scale(1.06); } }
+        @media (prefers-reduced-motion: reduce) { .qc-ring { animation: none; transition: none; } }
         .is-mobile .leaflet-popup-content { width: min(290px, 80vw) !important; }
         .is-mobile .leaflet-popup-content .w-56 { width: 100% !important; }
         .is-mobile .combo-item { padding: 12px; font-size: 15px; }

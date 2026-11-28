@@ -8,16 +8,46 @@ const INTRO_SCENES = [
  { d: 5200, h: 'Hero', p: 'Where history happened.', b: () => `<div class="in-logo"><svg viewBox="0 0 64 64" fill="currentColor">${document.querySelector('#top-nav svg').innerHTML}</svg></div><div class="in-word">${[...'HERO'].map((c, i) => `<span style="animation-delay:${1.6 + i * .2}s">${c}</span>`).join('')}</div>` },
  { d: 5600, h: 'Name the place', p: 'Tap a marker. Countries, seas, rivers and empires light up as you explore.', b: () => `<svg class="in-map" viewBox="0 0 600 340">${LAND}<path class="reg" d="M385 90 450 65 520 95 510 150 430 165z"/><path class="riv" d="M120 95C160 150 200 120 240 175"/>${PIN(160, 120, .8)}${PIN(450, 120, 1.1)}${PIN(255, 280, 1.4)}</svg>` },
  { d: 5000, h: 'Find the land', p: 'Given a name, find its place on the map before the clock runs out.', b: () => `<div class="in-chip">Find: The Nile</div><svg class="in-map" viewBox="0 0 600 340">${LAND}${PIN(160, 120, .3)}${PIN(450, 120, .5, 'ok')}<circle class="ring" cx="450" cy="120" r="9"/>${PIN(255, 280, .7)}</svg><svg class="in-cur" viewBox="0 0 24 24" fill="currentColor" style="left:calc(50% + 40px);top:50%"><path d="M4 2l16 9-7 2-3 7z"/></svg>` },
- { d: 4800, h: 'Lands forgotten', p: 'Hero remembers what you miss, then drills it back.', b: () => `<div class="in-card">${[['Carthage', 92, '5\u00d7'], ['Hormuz', 70, '4\u00d7'], ['Anatolia', 50, '3\u00d7']].map(([n, w, c], i) => `<div class="in-row" style="animation-delay:${i * .25}s">${n}<span class="bar2"><i style="--w:${w}%;animation-delay:${.5 + i * .25}s"></i></span><b>${c}</b></div>`).join('')}</div>` },
- { d: 4800, h: 'Hall of heroes', p: 'Beat the clock. Carve your name.', b: () => `<div class="in-card">${[['I', 'Cleopatra', '12,480'], ['II', 'Hannibal', '11,905'], ['III', 'Ibn Battuta', '10,760']].map(([r, n, s], i) => `<div class="in-row" style="animation-delay:${i * .3}s"><span style="color:#ffb454;width:34px">${r}</span>${n}<b>${s}</b></div>`).join('')}</div>` },
+  { d: 4800, h: 'Lands forgotten', p: 'Hero remembers what you miss, then drills it back.', b: () => `<div class="in-card">${introMissRows()}</div>` },
+
+  { d: 4800, h: 'Hall of heroes', p: 'Beat the clock. Carve your name.', b: () => `<div class="in-card">${introHeroRows()}</div>` },
+
  { d: 5800, h: 'Meet Clio', p: 'Your muse of history. Ask anything, get a memory trick.', b: () => `<div class="in-card"><div class="in-bub me" style="animation-delay:.3s">Why does the Nile matter so much?</div><div class="in-bub ai" style="animation-delay:1.6s">Egypt is the gift of the Nile: its yearly flood fed a whole civilisation. Herodotus wrote that line 2,400 years ago.</div></div>` },
- { d: 4800, h: 'Make it yours', p: 'Six colorways, four fonts, ambient space music, and a Settings page for the rest.', b: () => `<div class="in-themes">${['#6b69e6', '#a8692a', '#7c3aed', '#ea580c', '#16a34a', '#e11d48'].map((c, i) => `<i style="background:${c};color:${c};animation-delay:${.2 + i * .15}s"></i>`).join('')}</div>` },
- { d: 4200, h: 'Set forth', p: 'Hall of Heroes \u00b7 Clio \u00b7 The Chronicle \u00b7 Your own charts', b: () => `<div class="in-go">Set Forth</div>` }
+  { d: 4800, h: 'Make it yours', p: () => `Your setup: ${introSetupText()}.`, b: () => `<div class="in-themes">${introThemeRows()}</div>` },
+  { d: 4200, h: 'Set forth', p: () => `Ready for ${introTour() === 'twoyear' ? 'the two-year tour' : 'the one-year tour'} · ${introMode() === 'find' ? 'find what you know' : 'name what you see'}`, b: () => `<div class="in-go">Set Forth</div>` }
+
 ];
 let introTimer = null;
 let introSecretKeyHandler = null;
 let introHoldRaf = null;
 const INTRO_HOLD_MS = 1200;
+const introLs = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
+const introOneOf = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
+const introEscape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+const introTour = () => introOneOf(introLs('mq_yearMode'), ['default', 'twoyear'], 'default');
+const introMode = () => introOneOf(introLs('hero_gm'), ['identify', 'find'], 'identify');
+const introTheme = () => introOneOf(document.documentElement.dataset.theme || '', ['cairn','dusk','ember','moss','coral','graphite','arctic','orchard','plum','copper','ledger','folio'], 'cairn');
+const introScore = () => Number((document.getElementById('sum-final-score')?.textContent || '').replace(/[^\d]/g, '')) || 0;
+const introMissRows = () => {
+    let misses = {};
+    try { misses = typeof readMiss === 'function' ? readMiss(introTour(), typeof missGuestUid !== 'undefined' ? missGuestUid : '') : {}; } catch {}
+    const rows = Object.entries(misses || {}).filter(([, stat]) => Number(stat?.n) > 0).sort((a, b) => Number(b[1].n) - Number(a[1].n)).slice(0, 3);
+    if (!rows.length) return [['Carthage', 92, '5×'], ['Hormuz', 70, '4×'], ['Anatolia', 50, '3×']].map(([name, width, count]) => `<div class="in-row">${introEscape(name)}<span class="bar2"><i style="--w:${width}%"></i></span><b>${count}</b></div>`).join('');
+    const top = Math.max(...rows.map(([, stat]) => Number(stat.n) || 1));
+    return rows.map(([name, stat], index) => `<div class="in-row" style="animation-delay:${index * .25}s">${introEscape(name)}<span class="bar2"><i style="--w:${Math.max(12, Math.round(Number(stat.n) / top * 100))}%;animation-delay:${.5 + index * .25}s"></i></span><b>${Number(stat.n)}×</b></div>`).join('');
+};
+const introHeroRows = () => {
+    const score = introScore();
+    const rows = score > 0 ? [['I', 'You', score.toLocaleString()], ['II', 'Cleopatra', '12,480'], ['III', 'Hannibal', '11,905']] : [['I', 'Cleopatra', '12,480'], ['II', 'Hannibal', '11,905'], ['III', 'Ibn Battuta', '10,760']];
+    return rows.map(([rank, name, points], index) => `<div class="in-row" style="animation-delay:${index * .3}s"><span class="in-rank">${rank}</span>${introEscape(name)}<b>${introEscape(points)}</b></div>`).join('');
+};
+const introThemeColors = [['cairn','#d4af37'],['dusk','#f0a6c9'],['ember','#f2b705'],['moss','#c9d16b'],['coral','#ffb088'],['graphite','#5fd8c9'],['arctic','#a5f3fc'],['orchard','#d9f99d'],['plum','#f5d0fe'],['copper','#fde68a'],['ledger','#9a4f1e'],['folio','#1f4e79']];
+const introThemeRows = () => {
+    const current = introTheme();
+    const ordered = [...introThemeColors].sort((a, b) => (a[0] === current ? -1 : 0) - (b[0] === current ? -1 : 0)).slice(0, 6);
+    return ordered.map(([name, color], index) => `<i class="${name === current ? 'on' : ''}" style="background:${color};color:${color};animation-delay:${.2 + index * .15}s" title="${name}"></i>`).join('');
+};
+const introSetupText = () => `${introTour() === 'twoyear' ? 'Two-year tour' : 'One-year tour'} · ${introMode() === 'find' ? 'Find mode' : 'Name mode'} · ${introTheme()}`;
 function introHoldStop(skip) {
     if (introHoldRaf) cancelAnimationFrame(introHoldRaf);
     introHoldRaf = null;
@@ -89,7 +119,7 @@ function introPlay(options = {}) {
     document.body.appendChild(el);
     el.appendChild(skip);
     const holdStart = () => {
-        if (el.dataset.ending || skip.dataset.holding === '1') return;
+        if (el.dataset.ending || skip.disabled || skip.dataset.holding === '1') return;
         skip.dataset.holding = '1';
         const label = skip.querySelector('span');
         if (label) label.textContent = 'Keep holding…';
@@ -97,7 +127,15 @@ function introPlay(options = {}) {
         const tick = (now) => {
             const progress = Math.min(1, (now - start) / INTRO_HOLD_MS);
             skip.style.setProperty('--hold', String(progress));
-            if (progress >= 1) { introHoldStop(skip); introEnd(welcomeAfter); return; }
+            if (progress >= 1) {
+                introHoldStop(skip);
+                skip.disabled = true;
+                skip.dataset.complete = '1';
+                if (label) label.textContent = 'Skipped';
+                const wait = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 140;
+                setTimeout(() => introEnd(welcomeAfter), wait);
+                return;
+            }
             introHoldRaf = requestAnimationFrame(tick);
         };
         introHoldRaf = requestAnimationFrame(tick);
@@ -109,6 +147,8 @@ function introPlay(options = {}) {
     skip.addEventListener('pointerleave', holdStop);
     skip.addEventListener('lostpointercapture', holdStop);
     skip.addEventListener('contextmenu', (event) => event.preventDefault());
+    skip.addEventListener('selectstart', (event) => event.preventDefault());
+    skip.addEventListener('touchmove', (event) => { if (skip.dataset.holding === '1') event.preventDefault(); }, { passive: false });
     skip.addEventListener('keydown', (event) => { if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) { event.preventDefault(); event.stopPropagation(); holdStart(); } });
     skip.addEventListener('keyup', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); holdStop(); } });
     skip.addEventListener('blur', holdStop);
@@ -131,7 +171,7 @@ function introPlay(options = {}) {
         if (i >= INTRO_SCENES.length) return introEnd(welcomeAfter);
         const s = INTRO_SCENES[i];
         el.querySelector('.in-stage').innerHTML = s.b();
-        el.querySelector('.in-cap').innerHTML = `<h2></h2><p></p>`; el.querySelector('.in-cap h2').textContent = s.h; el.querySelector('.in-cap p').textContent = s.p;
+        el.querySelector('.in-cap').innerHTML = `<h2></h2><p></p>`; el.querySelector('.in-cap h2').textContent = s.h; el.querySelector('.in-cap p').textContent = typeof s.p === 'function' ? s.p() : s.p;
         introTimer = setTimeout(() => show(i + 1), s.d);
     };
     setTimeout(() => {

@@ -77,6 +77,83 @@ function hlBind(marker, loc) {
     marker.on('mouseover click popupopen', () => hlShow(loc));
     marker.on('mouseout', () => { if (!marker.isPopupOpen()) hlClear(); });
     marker.on('popupclose', hlClear);
+    hlAimInit();
+}
+let hlAimOverlay = null, hlAimLabel = null, hlAimRaf = 0, hlAimPin = null, hlAimActive = false, hlAimBoundDoc = false;
+const hlAimMaps = new WeakSet();
+const hlAimEnabled = () => document.documentElement.classList.contains('is-mobile') && document.body.classList.contains('in-quiz') && typeof map !== 'undefined' && !!map;
+function hlAimEnsure() {
+    if (hlAimOverlay || !document.getElementById('quiz-view')) return;
+    hlAimOverlay = document.createElement('div');
+    hlAimOverlay.id = 'quiz-crosshair';
+    hlAimOverlay.setAttribute('aria-hidden', 'true');
+    hlAimOverlay.dataset.locked = '0';
+    const ring = document.createElement('span');
+    ring.className = 'qc-ring';
+    hlAimLabel = document.createElement('span');
+    hlAimLabel.className = 'qc-label';
+    hlAimLabel.textContent = 'Center a pin';
+    hlAimOverlay.append(ring, hlAimLabel);
+    document.getElementById('quiz-view').appendChild(hlAimOverlay);
+}
+function hlAimClear() {
+    if (hlAimRaf) cancelAnimationFrame(hlAimRaf);
+    hlAimRaf = 0;
+    if (hlAimPin) hlAimPin.classList.remove('aim-target');
+    hlAimPin = null;
+    if (hlAimOverlay) {
+        hlAimOverlay.dataset.locked = '0';
+        if (hlAimLabel) hlAimLabel.textContent = 'Center a pin';
+    }
+    if (hlAimActive) { hlAimActive = false; hlClear(); }
+}
+function hlAimResolve() {
+    if (!hlAimEnabled()) { hlAimClear(); return; }
+    const bounds = (hlAimOverlay || document.getElementById('quiz-view')).getBoundingClientRect();
+    const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
+    const stacked = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)].filter(Boolean);
+    let icon = null;
+    for (const element of stacked) {
+        const match = element.closest?.('.leaflet-marker-icon.custom-div-icon');
+        if (match) { icon = match; break; }
+    }
+    let layer = null;
+    if (icon && typeof map.eachLayer === 'function') map.eachLayer(candidate => { if (!layer && candidate.getElement?.() === icon) layer = candidate; });
+    const pin = icon?.querySelector('.marker-pin') || null;
+    const loc = layer?._loc || null;
+    if (!pin || !loc) { if (hlAimPin || hlAimActive) hlAimClear(); return; }
+    if (hlAimPin === pin) return;
+    if (hlAimPin) hlAimPin.classList.remove('aim-target');
+    hlAimPin = pin;
+    pin.classList.add('aim-target');
+    if (hlAimOverlay) {
+        hlAimOverlay.dataset.locked = '1';
+        if (hlAimLabel) hlAimLabel.textContent = loc.name || 'Location';
+    }
+    hlAimActive = true;
+    hlShow(loc);
+}
+function hlAimSchedule() {
+    if (!hlAimEnabled()) { hlAimClear(); return; }
+    if (hlAimRaf) return;
+    hlAimRaf = requestAnimationFrame(() => { hlAimRaf = 0; hlAimResolve(); });
+}
+function hlAimInit() {
+    if (!hlAimEnabled()) return;
+    hlAimEnsure();
+    if (!hlAimOverlay) return;
+    if (!hlAimMaps.has(map)) {
+        hlAimMaps.add(map);
+        map.on('move zoom moveend zoomend viewreset', hlAimSchedule);
+    }
+    if (!hlAimBoundDoc) {
+        hlAimBoundDoc = true;
+        document.addEventListener('touchend', hlAimSchedule, { passive: true });
+        document.addEventListener('touchcancel', hlAimSchedule, { passive: true });
+        document.addEventListener('click', hlAimSchedule, { passive: true });
+        new MutationObserver(hlAimSchedule).observe(document.body, { attributes: true, attributeFilter: ['class', 'data-view'] });
+    }
+    hlAimSchedule();
 }
 hlLoad();
 const rowOut = (sel, idx) => new Promise(res => { const r = document.querySelectorAll(sel + ' > div')[idx]; if (!r) return res(); r.classList.add('row-out'); setTimeout(res, 260); });
