@@ -463,15 +463,16 @@ html[data-theme=graphite] { --brand-300:#a6c4d5;--brand-500:#435c78;--brand-600:
 }
 @media (prefers-reduced-motion: reduce) { #profile-view > .glass-panel,#settings-view > .glass-panel,#hero-account-dialog > section,.member-stat,.member-badge,.st-sec,.member-score { animation:none !important; transition:none !important; } }
 
-/* Manoj's floating head cursor (uses the user-supplied transparent PNG). */
-#manoj-cursor { position:fixed; z-index:100001; top:0; left:0; width:60px; height:auto; opacity:0; visibility:hidden; pointer-events:none; transform-origin:14% 10%; filter:drop-shadow(0 5px 9px rgba(0,0,0,.28)); transition:opacity .18s,filter .18s; will-change:transform; }
-#manoj-cursor.visible { opacity:1; visibility:visible; }
-#manoj-cursor.pointing { filter:drop-shadow(0 8px 12px rgba(var(--brand-rgb),.5)); }
+#manoj-cursor { position:fixed; z-index:100000; top:0; left:0; width:52px; height:52px; object-fit:contain; opacity:0; visibility:hidden; pointer-events:none; transform-origin:center; transition:opacity var(--duration-default,140ms) var(--ease-default,cubic-bezier(.25,.46,.45,.94)); will-change:transform; }
+#manoj-cursor.visible { opacity:.96; visibility:visible; }
+#manoj-cursor-glass { position:fixed; z-index:100001; top:0; left:0; width:88px; height:88px; border-radius:var(--radius-full,9999px); background:transparent; opacity:0; visibility:hidden; pointer-events:none; transform-origin:center; transition:opacity var(--duration-default,140ms) var(--ease-default,cubic-bezier(.25,.46,.45,.94)); will-change:transform; }
+#manoj-cursor-glass.visible { opacity:1; visibility:visible; }
 @media (pointer:fine) { html.manoj-cursor-active,html.manoj-cursor-active * { cursor:none !important; } }
+@media (prefers-reduced-motion:reduce) { #manoj-cursor,#manoj-cursor-glass { transition:none; } }
 .manoj-cursor-admin-controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .manoj-cursor-admin-controls label { font-size:12px; font-weight:800; }
 .manoj-cursor-admin-controls input { min-height:40px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--field); color:inherit; }
-@media (max-width:650px) { #manoj-cursor { width:50px; } .manoj-cursor-admin-controls { align-items:stretch; } .manoj-cursor-admin-controls label { flex-basis:100%; } }
+@media (max-width:650px) { #manoj-cursor { width:44px; height:44px; } #manoj-cursor-glass { width:76px; height:76px; } .manoj-cursor-admin-controls { align-items:stretch; } .manoj-cursor-admin-controls label { flex-basis:100%; } }
 
 /* ===== custom checkboxes ===== */
 .cb-wrap { position: relative; }
